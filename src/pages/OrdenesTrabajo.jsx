@@ -127,7 +127,7 @@ export default function OrdenesTrabajo() {
         </h1>
       </div>
 
-      <div className="card glass-panel" style={{ padding: '1rem', marginBottom: '1.5rem', background: 'var(--surface-hover)', position: 'relative', zIndex: 10 }}>
+      <div className="card" style={{ padding: '1rem', marginBottom: '1.5rem', background: '#94a3b8', position: 'relative', zIndex: 10 }}>
           <div className="input-group" style={{ position: 'relative', marginBottom: '1rem' }}>
             <Search size={18} style={{ position: 'absolute', left: '1rem', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)' }} />
             <input 
@@ -150,7 +150,7 @@ export default function OrdenesTrabajo() {
             
             <div style={{ display: 'flex', gap: '0.5rem' }}>
               <div style={{ flex: 1 }}>
-                <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginBottom: '0.25rem', display: 'block' }}>Desde (Entrega)</span>
+                <span style={{ fontSize: '0.75rem', color: '#000', fontWeight: 'bold', marginBottom: '0.25rem', display: 'block' }}>Desde (Entrega)</span>
                 <DatePicker
                   selected={filterFechaInicio}
                   onChange={(date) => setFilterFechaInicio(date)}
@@ -164,7 +164,7 @@ export default function OrdenesTrabajo() {
                 />
               </div>
               <div style={{ flex: 1 }}>
-                <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginBottom: '0.25rem', display: 'block' }}>Hasta (Entrega)</span>
+                <span style={{ fontSize: '0.75rem', color: '#000', fontWeight: 'bold', marginBottom: '0.25rem', display: 'block' }}>Hasta (Entrega)</span>
                 <DatePicker
                   selected={filterFechaFin}
                   onChange={(date) => setFilterFechaFin(date)}
@@ -246,7 +246,7 @@ export default function OrdenesTrabajo() {
 
             <div style={{ display: 'flex', gap: '0.5rem', marginTop: '1.5rem' }}>
               <button className="btn btn-secondary" style={{ flex: 1, padding: '0.75rem' }} onClick={() => setSelectedOT(null)}>Cancelar</button>
-              <button className="btn" style={{ flex: 1, padding: '0.75rem' }} onClick={handleSaveEstado}>Guardar Cambios</button>
+              <button className="btn btn-solid" style={{ flex: 1, padding: '0.75rem' }} onClick={handleSaveEstado}>Guardar Cambios</button>
             </div>
           </div>
         </div>

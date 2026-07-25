@@ -1,9 +1,9 @@
 import { mockCotizaciones, mockOrdenesTrabajo } from '../data/mockData';
 import { useNavigate } from 'react-router-dom';
-import { FileText, Clock, Package, User, LayoutDashboard } from 'lucide-react';
+import { FileText, Clock, Package, User, LayoutDashboard, LogOut } from 'lucide-react';
 import { BarChart, Bar, Cell, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, LabelList } from 'recharts';
 
-export default function Dashboard({ user }) {
+export default function Dashboard({ user, onLogout }) {
   const navigate = useNavigate();
   const activeCotizaciones = mockCotizaciones.filter(c => !c.convertidaAOT);
   const cotizacionStatusCounts = {
@@ -60,28 +60,40 @@ export default function Dashboard({ user }) {
 
   return (
     <div className="page-content">
-      <div className="app-header" style={{ padding: '0 0 1.5rem 0', border: 'none' }}>
+      <div className="app-header" style={{ padding: '0 0 1.5rem 0', border: 'none', display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
         <div>
           <p style={{ margin: 0, fontSize: '0.875rem' }}>Bienvenido de nuevo</p>
           <h1 style={{ margin: 0, display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
             <LayoutDashboard size={28} color="var(--primary-color)" /> Panel de Control
           </h1>
         </div>
+        <div className="logo-container" onClick={() => window.location.reload()} title="Recargar Panel">
+          <img src="/logo.png" alt="Logo" />
+        </div>
       </div>
+
+      <p style={{ margin: '0 0 1.5rem 0', fontSize: '1.125rem', color: 'var(--text-main)', lineHeight: '1.5', fontWeight: 'bold', textAlign: 'center' }}>
+        Sistema Centralizado de Trazabilidad y Gestión de Pedidos
+      </p>
 
       <div className="card glass-panel" style={{ display: 'flex', alignItems: 'center', gap: '1rem', padding: '1rem', marginBottom: '1.5rem', background: 'var(--surface-hover)' }}>
         <div style={{ background: 'var(--primary-light)', color: 'var(--primary-color)', padding: '0.75rem', borderRadius: '50%' }}>
           <User size={24} />
         </div>
-        <div>
+        <div style={{ flex: 1 }}>
           <p style={{ margin: 0, fontWeight: 'bold', fontSize: '1.125rem', color: 'var(--text-main)' }}>{user?.name || 'Administrador'}</p>
           <p style={{ margin: 0, fontSize: '0.875rem', color: 'var(--text-muted)' }}>Usuario: @{user?.username || 'admin'}</p>
         </div>
+        {onLogout && (
+          <button className="btn-icon btn-icon-red" onClick={onLogout} title="Cerrar sesión" style={{ cursor: 'pointer', border: 'none' }}>
+            <LogOut size={20} />
+          </button>
+        )}
       </div>
 
       <h2 style={{ margin: '0 0 1rem 0', fontSize: '1.125rem' }}>Acciones Rápidas</h2>
       <div style={{ display: 'flex', gap: '1rem', marginBottom: '1.5rem' }}>
-        <button className="btn" onClick={() => navigate('/cotizaciones')}>Nueva Cotización</button>
+        <button className="btn btn-solid" onClick={() => navigate('/cotizaciones')}>Nueva Cotización</button>
         <button className="btn btn-secondary" onClick={() => navigate('/ordenes')}>Ver Órdenes</button>
       </div>
 

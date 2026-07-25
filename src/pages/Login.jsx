@@ -31,7 +31,7 @@ export default function Login({ onLogin }) {
         opacity: 0.4,
         zIndex: 0
       }} />
-      <div className="card glass-panel" style={{ width: '100%', position: 'relative', zIndex: 1, padding: '3rem 2rem', minHeight: '500px', display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
+      <div className="card glass-panel" style={{ width: '100%', position: 'relative', zIndex: 1, padding: '3rem 2rem', minHeight: '500px', display: 'flex', flexDirection: 'column', justifyContent: 'center', boxShadow: 'var(--shadow-lg)' }}>
         <div style={{ textAlign: 'center', marginBottom: '2rem' }}>
           <img src="/logo.png" alt="Comunicación 6" style={{ width: '100%', margin: '0 auto', display: 'block', marginBottom: '1.5rem' }} />
           <p style={{ fontWeight: 'bold', fontSize: '1.25rem', color: 'white', margin: 0 }}>Sistema de Trazabilidad y Gestión de Pedidos</p>
@@ -66,7 +66,7 @@ export default function Login({ onLogin }) {
               required
             />
           </div>
-          <button type="submit" className="btn" style={{ marginTop: '1rem' }}>
+          <button type="submit" className="btn btn-inverted" style={{ marginTop: '1rem' }}>
             Iniciar Sesión
           </button>
         </form>

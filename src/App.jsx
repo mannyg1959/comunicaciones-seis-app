@@ -71,7 +71,7 @@ function App() {
       <Routes>
         <Route path="/" element={!user ? <Login onLogin={setUser} /> : <Navigate to="/dashboard" replace />} />
         
-        <Route path="/dashboard" element={<AppLayout user={user}><Dashboard user={user} /></AppLayout>} />
+        <Route path="/dashboard" element={<AppLayout user={user}><Dashboard user={user} onLogout={handleLogout} /></AppLayout>} />
         <Route path="/cotizaciones" element={<AppLayout user={user}><Cotizaciones user={user} /></AppLayout>} />
         <Route path="/ordenes" element={<AppLayout user={user}><OrdenesTrabajo /></AppLayout>} />
         <Route path="/perfil" element={<AppLayout user={user}><Perfiles user={user} /></AppLayout>} />
