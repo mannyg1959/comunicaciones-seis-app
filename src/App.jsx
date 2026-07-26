@@ -1,12 +1,13 @@
 import { useState, useEffect } from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate, useLocation, Link } from 'react-router-dom';
-import { Home, FileText, Briefcase, User as UserIcon, Settings } from 'lucide-react';
+import { Home, FileText, Briefcase, User as UserIcon, Settings, Wrench } from 'lucide-react';
 import Login from './pages/Login';
 import Dashboard from './pages/Dashboard';
 import Cotizaciones from './pages/Cotizaciones';
 import OrdenesTrabajo from './pages/OrdenesTrabajo';
 import Perfiles from './pages/Perfiles';
 import Ajustes from './pages/Ajustes';
+import Herramientas from './pages/Herramientas';
 
 // Bottom Navigation Component
 function BottomNav() {
@@ -16,7 +17,7 @@ function BottomNav() {
     { path: '/dashboard', icon: <Home size={24} />, label: 'Inicio' },
     { path: '/cotizaciones', icon: <FileText size={24} />, label: 'Cotizaciones' },
     { path: '/ordenes', icon: <Briefcase size={24} />, label: 'Órdenes' },
-    { path: '/perfil', icon: <UserIcon size={24} />, label: 'Perfil' },
+    { path: '/herramientas', icon: <Wrench size={24} />, label: 'Herramientas' },
     { path: '/ajustes', icon: <Settings size={24} />, label: 'Ajustes' },
   ];
 
@@ -75,6 +76,7 @@ function App() {
         <Route path="/cotizaciones" element={<AppLayout user={user}><Cotizaciones user={user} /></AppLayout>} />
         <Route path="/ordenes" element={<AppLayout user={user}><OrdenesTrabajo /></AppLayout>} />
         <Route path="/perfil" element={<AppLayout user={user}><Perfiles user={user} /></AppLayout>} />
+        <Route path="/herramientas" element={<AppLayout user={user}><Herramientas /></AppLayout>} />
         <Route path="/ajustes" element={<AppLayout user={user}><Ajustes onLogout={handleLogout} /></AppLayout>} />
         
         <Route path="*" element={<Navigate to="/" replace />} />

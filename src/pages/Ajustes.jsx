@@ -1,4 +1,4 @@
-import { LogOut, Bell, Shield, Moon, Sun, ChevronRight, Settings } from 'lucide-react';
+import { LogOut, Bell, Shield, Moon, Sun, ChevronRight, Settings, User } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { useState, useEffect } from 'react';
 
@@ -22,6 +22,7 @@ export default function Ajustes({ onLogout }) {
   };
 
   const settingsItems = [
+    { icon: <User size={20} />, label: 'Mi Perfil', onClick: () => navigate('/perfil') },
     { icon: <Bell size={20} />, label: 'Notificaciones' },
     { icon: <Shield size={20} />, label: 'Privacidad y Seguridad' },
     { icon: isLightMode ? <Sun size={20} /> : <Moon size={20} />, label: isLightMode ? 'Modo Claro' : 'Modo Oscuro', onClick: toggleTheme },
@@ -52,18 +53,7 @@ export default function Ajustes({ onLogout }) {
         ))}
       </div>
 
-      <button 
-        className="btn" 
-        onClick={handleLogout}
-        style={{ 
-          background: 'rgba(239, 68, 68, 0.1)', 
-          color: 'var(--error-color)',
-          border: '1px solid rgba(239, 68, 68, 0.2)'
-        }}
-      >
-        <LogOut size={20} />
-        Cerrar Sesión
-      </button>
+
     </div>
   );
 }
