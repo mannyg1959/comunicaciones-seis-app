@@ -36,8 +36,8 @@ export default function Login({ onLogin }) {
       </div>
 
       <form onSubmit={handleLogin} autoComplete="off" style={{ width: '100%', maxWidth: '400px', position: 'relative', zIndex: 1 }}>
-        <div className="card glass-panel" style={{ width: '100%', padding: '2.5rem 2rem', display: 'flex', flexDirection: 'column', justifyContent: 'center', boxShadow: 'var(--shadow-lg)', marginBottom: '1.5rem' }}>
-        <div style={{ textAlign: 'center', marginBottom: '2rem' }}>
+        <div className="card glass-panel" style={{ width: '100%', padding: '1.5rem 2rem', display: 'flex', flexDirection: 'column', justifyContent: 'center', boxShadow: 'var(--shadow-lg)', marginBottom: '1.5rem' }}>
+        <div style={{ textAlign: 'center', marginBottom: '1.5rem' }}>
           <p style={{ fontWeight: 'bold', fontSize: '1.5rem', lineHeight: '1.3', color: 'white', margin: 0 }}>Sistema de Trazabilidad y Gestión de Pedidos</p>
         </div>
         
