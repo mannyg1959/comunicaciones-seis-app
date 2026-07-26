@@ -16,7 +16,7 @@ export default function CotizacionForm({ initialData, onCancel, onSave, onDelete
     impuestos: 0,
     total: 0,
     condicionesPago: '50% anticipo / 50% contra entrega',
-    tiempoEntrega: '5 días hábiles'
+    fechaEntrega: new Date(Date.now() + 5 * 24 * 60 * 60 * 1000).toISOString().split('T')[0]
   });
 
   const [activeTab, setActiveTab] = useState('cabecera');
@@ -251,7 +251,12 @@ export default function CotizacionForm({ initialData, onCancel, onSave, onDelete
           </button>
           <h1 style={{ margin: 0, wordBreak: 'break-word', lineHeight: '1.2', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
             {initialData ? <FileEdit size={24} color="var(--primary-color)" /> : <FilePlus size={24} color="var(--primary-color)" />}
-            {initialData ? `Editar ${initialData.id}` : 'Nueva Cotización'}
+            <span>
+              {initialData ? `${initialData.id}` : 'Nueva Cotización'}
+              {formData.cliente && (
+                <> - <strong>{formData.cliente}</strong></>
+              )}
+            </span>
           </h1>
         </div>
         <div style={{ display: 'flex', gap: '0.5rem' }}>
@@ -335,6 +340,15 @@ export default function CotizacionForm({ initialData, onCancel, onSave, onDelete
               <label>Validez (Días)</label>
               <input type="number" className="input-control" value={formData.fechaValidez} onChange={e => setFormData({...formData, fechaValidez: e.target.value})} />
             </div>
+          </div>
+          <div className="input-group">
+            <label>Fecha Estimada de Entrega</label>
+            <input 
+              type="date" 
+              className="input-control" 
+              value={formData.fechaEntrega || ''} 
+              disabled
+            />
           </div>
           <div className="input-group">
             <label>Cliente / Empresa</label>
@@ -444,6 +458,17 @@ export default function CotizacionForm({ initialData, onCancel, onSave, onDelete
             <span style={{ fontSize: '1.25rem', fontWeight: '500' }}>Total a Pagar</span>
             <strong style={{ fontSize: '1.5rem', color: 'var(--primary-color)' }}>${formData.total.toFixed(2)}</strong>
           </div>
+          
+          <div className="input-group">
+            <label>Fecha Estimada de Entrega</label>
+            <input 
+              type="date" 
+              className="input-control" 
+              value={formData.fechaEntrega || ''} 
+              onChange={e => setFormData({...formData, fechaEntrega: e.target.value})} 
+              min={new Date().toISOString().split('T')[0]}
+            />
+          </div>
 
           <div className="input-group">
             <label>Condiciones de Pago</label>
@@ -454,10 +479,7 @@ export default function CotizacionForm({ initialData, onCancel, onSave, onDelete
               <option value="Crédito 30 días">Crédito 30 días</option>
             </select>
           </div>
-          <div className="input-group">
-            <label>Tiempo de Entrega Estimado</label>
-            <input type="text" className="input-control" value={formData.tiempoEntrega} onChange={e => setFormData({...formData, tiempoEntrega: e.target.value})} placeholder="Ej. 5 días hábiles" />
-          </div>
+
         </div>
       )}
 

@@ -15,6 +15,22 @@ export default function OrdenesTrabajo() {
   const [selectedOT, setSelectedOT] = useState(null);
   const [tempEstado, setTempEstado] = useState('');
 
+  const calculateGap = (fechaEntrega) => {
+    if (!fechaEntrega) return { text: 'Sin fecha', color: 'var(--text-muted)' };
+    const today = new Date();
+    today.setHours(0,0,0,0);
+    const [year, month, day] = fechaEntrega.split('-');
+    const deliveryDate = new Date(year, month - 1, day);
+    
+    const diffTime = deliveryDate.getTime() - today.getTime();
+    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+    
+    if (diffDays < 0) return { text: `Vencido (${Math.abs(diffDays)}d)`, color: 'var(--error-color)' };
+    if (diffDays === 0) return { text: '¡Hoy!', color: 'var(--error-color)' };
+    if (diffDays <= 2) return { text: `${diffDays} días`, color: 'var(--warning-color)' };
+    return { text: `${diffDays} días`, color: 'var(--success-color)' };
+  };
+
   const getStatusColor = (estado) => {
     switch(estado) {
       case 'Pendiente': return 'var(--status-pendiente)';
@@ -194,13 +210,37 @@ export default function OrdenesTrabajo() {
       <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
         {filtered.map(ot => (
           <div key={ot.id} className="card hoverable" style={{ margin: 0, cursor: 'pointer' }} onClick={() => handleOpenOT(ot)}>
-            <div className="flex-row-between" style={{ marginBottom: '0.5rem' }}>
-              <strong>{ot.id}</strong>
-              <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>Ref: {ot.cotizacionId}</span>
+            <div className="flex-row-between" style={{ marginBottom: '0.5rem', alignItems: 'center' }}>
+              <div>
+                <strong>{ot.id}</strong>
+                <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginLeft: '0.5rem' }}>Ref: {ot.cotizacionId}</span>
+              </div>
+              <span style={{ 
+                background: `color-mix(in srgb, ${getStatusColor(ot.estado)} 15%, transparent)`, 
+                color: getStatusColor(ot.estado),
+                padding: '0.2rem 0.6rem',
+                borderRadius: 'var(--radius-full)',
+                fontWeight: 'bold',
+                fontSize: '0.75rem'
+              }}>
+                {ot.estado}
+              </span>
             </div>
             
             <p style={{ margin: 0, fontWeight: '500', color: 'var(--text-main)' }}>{ot.cliente} - {ot.tipo}</p>
-            <p style={{ fontSize: '0.875rem', marginBottom: '1rem' }}>Entrega: {ot.fechaEntrega}</p>
+            <div className="flex-row-between" style={{ fontSize: '0.875rem', marginBottom: '1rem', alignItems: 'center' }}>
+              <span>Entrega: {ot.fechaEntrega}</span>
+              <span style={{ 
+                background: `color-mix(in srgb, ${calculateGap(ot.fechaEntrega).color} 15%, transparent)`, 
+                color: calculateGap(ot.fechaEntrega).color,
+                padding: '0.1rem 0.4rem',
+                borderRadius: 'var(--radius-sm)',
+                fontWeight: 'bold',
+                fontSize: '0.75rem'
+              }}>
+                GAP: {calculateGap(ot.fechaEntrega).text}
+              </span>
+            </div>
             
             <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
               <div style={{ flex: 1, height: '8px', background: 'var(--border-color)', borderRadius: '4px', overflow: 'hidden' }}>
@@ -214,7 +254,6 @@ export default function OrdenesTrabajo() {
               </div>
               <span style={{ fontSize: '0.75rem', fontWeight: '600' }}>{ot.progreso}%</span>
             </div>
-            <p style={{ fontSize: '0.75rem', marginTop: '0.5rem', textAlign: 'right', color: getStatusColor(ot.estado) }}>{ot.estado}</p>
           </div>
         ))}
       </div>

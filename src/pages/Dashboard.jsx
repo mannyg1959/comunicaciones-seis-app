@@ -1,7 +1,17 @@
-import { mockCotizaciones, mockOrdenesTrabajo } from '../data/mockData';
+import { 
+  mockCotizaciones, 
+  mockOrdenesTrabajo,
+  mockConversionData,
+  mockTimeToCloseData,
+  mockRejectionReasonData,
+  mockTopClientsData
+} from '../data/mockData';
 import { useNavigate } from 'react-router-dom';
-import { FileText, Clock, Package, User, LayoutDashboard, LogOut } from 'lucide-react';
-import { BarChart, Bar, Cell, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, LabelList } from 'recharts';
+import { FileText, Clock, Package, User, LayoutDashboard, LogOut, TrendingUp, PieChart as PieChartIcon, BarChart2, Users } from 'lucide-react';
+import { 
+  BarChart, Bar, Cell, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, LabelList,
+  PieChart, Pie, LineChart, Line, Legend
+} from 'recharts';
 
 export default function Dashboard({ user, onLogout }) {
   const navigate = useNavigate();
@@ -135,43 +145,152 @@ export default function Dashboard({ user, onLogout }) {
         </div>
       </div>
 
-      {/* CHART SECTION */}
-      <div className="card glass-panel" style={{ padding: '1rem', height: '300px', display: 'flex', flexDirection: 'column' }}>
-        <h2 style={{ fontSize: '1.125rem', marginBottom: '1rem' }}>Órdenes por Estatus</h2>
-        <div style={{ flex: 1, width: '100%', minHeight: 0 }}>
-          <ResponsiveContainer width="100%" height="100%">
-            <BarChart data={filteredOrderStatusData} margin={{ top: 10, right: 0, left: -20, bottom: 0 }}>
-              <XAxis dataKey="name" stroke="var(--text-muted)" fontSize={11} tickLine={false} axisLine={false} />
-              <YAxis stroke="var(--text-muted)" fontSize={11} tickLine={false} axisLine={false} />
-              <CartesianGrid strokeDasharray="3 3" stroke="var(--border-color)" vertical={false} />
-              <Tooltip 
-                contentStyle={{ backgroundColor: 'var(--surface-color)', borderColor: 'var(--border-color)', borderRadius: 'var(--radius-md)' }}
-                itemStyle={{ color: 'var(--text-main)' }}
-                cursor={{ fill: 'var(--surface-hover)' }}
-              />
-              <Bar dataKey="cantidad" fill="var(--primary-color)" radius={[6, 6, 0, 0]}>
-                <LabelList 
-                  dataKey="cantidad" 
-                  position="top" 
-                  formatter={(value) => `${Math.round((value / totalOrders) * 100)}%`}
-                  style={{ fill: 'var(--text-main)', fontSize: '0.75rem', fontWeight: '500' }}
-                />
-                {
-                  filteredOrderStatusData.map((entry, index) => {
-                    let fillColor = 'var(--primary-color)';
-                    switch(entry.name) {
-                      case 'Pendiente': fillColor = 'var(--status-pendiente)'; break;
-                      case 'Producción': fillColor = 'var(--status-produccion)'; break;
-                      case 'Revisión': fillColor = 'var(--status-revision)'; break;
-                      case 'Finalizado': fillColor = 'var(--status-finalizado)'; break;
-                      case 'Entregado': fillColor = 'var(--status-entregado)'; break;
-                    }
-                    return <Cell key={`cell-${index}`} fill={fillColor} />;
-                  })
-                }
-              </Bar>
-            </BarChart>
-          </ResponsiveContainer>
+      {/* KPI CHARTS SECTION */}
+      <h2 style={{ margin: '2rem 0 1rem 0', fontSize: '1.25rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+        <TrendingUp size={24} color="var(--primary-color)" /> Indicadores Clave (KPIs)
+      </h2>
+      
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 320px), 1fr))', gap: '1.5rem', marginBottom: '2rem' }}>
+        
+        {/* KPI 1: Tasa de Conversión */}
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+          <div className="card glass-panel" style={{ padding: '1.5rem', height: '320px', display: 'flex', flexDirection: 'column', margin: 0 }}>
+            <h3 style={{ fontSize: '1rem', marginBottom: '1rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+              <PieChartIcon size={18} color="var(--success-color)" /> Tasa de Conversión de Cotizaciones
+            </h3>
+            <div style={{ flex: 1, width: '100%', minHeight: 0, position: 'relative' }}>
+              <ResponsiveContainer width="100%" height="100%">
+                <PieChart>
+                  <Pie
+                    data={mockConversionData}
+                    cx="50%"
+                    cy="50%"
+                    innerRadius={70}
+                    outerRadius={100}
+                    paddingAngle={5}
+                    dataKey="value"
+                  >
+                    {mockConversionData.map((entry, index) => (
+                      <Cell key={`cell-${index}`} fill={entry.color} />
+                    ))}
+                  </Pie>
+                  <Tooltip 
+                    contentStyle={{ backgroundColor: 'var(--surface-color)', borderColor: 'var(--border-color)', borderRadius: 'var(--radius-md)' }}
+                    itemStyle={{ color: 'var(--text-main)' }}
+                  />
+                  <Legend verticalAlign="bottom" height={36} />
+                </PieChart>
+              </ResponsiveContainer>
+              <div style={{ position: 'absolute', top: '42%', left: '0', right: '0', textAlign: 'center', pointerEvents: 'none' }}>
+                <span style={{ fontSize: '1.75rem', fontWeight: 'bold', color: 'var(--text-main)' }}>65%</span>
+              </div>
+            </div>
+          </div>
+          <div className="card glass-panel" style={{ padding: '0.75rem 1rem', margin: 0, backgroundColor: 'var(--surface-hover)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+            <p style={{ margin: 0, fontSize: '0.8rem', color: 'var(--text-muted)', textAlign: 'center', lineHeight: '1.4' }}>
+              Mide la efectividad de las propuestas comerciales, calculando el porcentaje de cotizaciones que se convierten en proyectos aprobados.
+            </p>
+          </div>
+        </div>
+
+        {/* KPI 2: Tiempo Medio de Cierre */}
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+          <div className="card glass-panel" style={{ padding: '1.5rem', height: '320px', display: 'flex', flexDirection: 'column', margin: 0 }}>
+            <h3 style={{ fontSize: '1rem', marginBottom: '1rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+              <Clock size={18} color="var(--primary-color)" /> Tiempo Medio de Cierre
+            </h3>
+            <div style={{ flex: 1, width: '100%', minHeight: 0 }}>
+              <ResponsiveContainer width="100%" height="100%">
+                <LineChart data={mockTimeToCloseData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="var(--border-color)" vertical={false} />
+                  <XAxis dataKey="name" stroke="var(--text-muted)" fontSize={11} tickLine={false} axisLine={false} />
+                  <YAxis stroke="var(--text-muted)" fontSize={11} tickLine={false} axisLine={false} unit="d" />
+                  <Tooltip 
+                    contentStyle={{ backgroundColor: 'var(--surface-color)', borderColor: 'var(--border-color)', borderRadius: 'var(--radius-md)' }}
+                    itemStyle={{ color: 'var(--text-main)' }}
+                    cursor={{ stroke: 'var(--border-color)', strokeWidth: 1, strokeDasharray: '3 3' }}
+                  />
+                  <Line type="monotone" dataKey="dias" name="Días" stroke="var(--primary-color)" strokeWidth={3} dot={{ r: 4, fill: 'var(--primary-color)' }} activeDot={{ r: 6 }} />
+                </LineChart>
+              </ResponsiveContainer>
+            </div>
+          </div>
+          <div className="card glass-panel" style={{ padding: '0.75rem 1rem', margin: 0, backgroundColor: 'var(--surface-hover)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+            <p style={{ margin: 0, fontSize: '0.8rem', color: 'var(--text-muted)', textAlign: 'center', lineHeight: '1.4' }}>
+              Mide el promedio de días que transcurren desde que se emite una cotización hasta que el cliente la acepta o rechaza.
+            </p>
+          </div>
+        </div>
+
+        {/* KPI 3: Tasa de Cotizaciones Rechazadas por Motivo */}
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+          <div className="card glass-panel" style={{ padding: '1.5rem', height: '320px', display: 'flex', flexDirection: 'column', margin: 0 }}>
+            <h3 style={{ fontSize: '1rem', marginBottom: '1rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+              <BarChart2 size={18} color="var(--error-color)" /> Rechazos por Motivo
+            </h3>
+            <div style={{ flex: 1, width: '100%', minHeight: 0 }}>
+              <ResponsiveContainer width="100%" height="100%">
+                <BarChart data={mockRejectionReasonData} layout="vertical" margin={{ top: 10, right: 30, left: 30, bottom: 0 }}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="var(--border-color)" horizontal={false} />
+                  <XAxis type="number" stroke="var(--text-muted)" fontSize={11} tickLine={false} axisLine={false} unit="%" />
+                  <YAxis dataKey="name" type="category" stroke="var(--text-main)" fontSize={11} tickLine={false} axisLine={false} width={120} />
+                  <Tooltip 
+                    contentStyle={{ backgroundColor: 'var(--surface-color)', borderColor: 'var(--border-color)', borderRadius: 'var(--radius-md)' }}
+                    itemStyle={{ color: 'var(--text-main)' }}
+                    cursor={{ fill: 'var(--surface-hover)' }}
+                  />
+                  <Bar dataKey="value" name="Porcentaje" radius={[0, 4, 4, 0]}>
+                    {mockRejectionReasonData.map((entry, index) => (
+                      <Cell key={`cell-${index}`} fill={entry.color} />
+                    ))}
+                    <LabelList dataKey="value" position="right" formatter={(val) => `${val}%`} style={{ fill: 'var(--text-muted)', fontSize: '0.75rem' }} />
+                  </Bar>
+                </BarChart>
+              </ResponsiveContainer>
+            </div>
+          </div>
+          <div className="card glass-panel" style={{ padding: '0.75rem 1rem', margin: 0, backgroundColor: 'var(--surface-hover)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+            <p style={{ margin: 0, fontSize: '0.8rem', color: 'var(--text-muted)', textAlign: 'center', lineHeight: '1.4' }}>
+              Analiza las razones principales por las cuales los clientes no aprueban las cotizaciones, ayudando a identificar áreas de mejora.
+            </p>
+          </div>
+        </div>
+
+        {/* KPI 4: Top Clientes por Volumen */}
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+          <div className="card glass-panel" style={{ padding: '1.5rem', height: '320px', display: 'flex', flexDirection: 'column', margin: 0 }}>
+            <h3 style={{ fontSize: '1rem', marginBottom: '1rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+              <Users size={18} color="var(--secondary-color)" /> Top Clientes (Volumen $)
+            </h3>
+            <div style={{ flex: 1, width: '100%', minHeight: 0 }}>
+              <ResponsiveContainer width="100%" height="100%">
+                <BarChart data={mockTopClientsData} margin={{ top: 10, right: 10, left: -10, bottom: 0 }}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="var(--border-color)" vertical={false} />
+                  <XAxis dataKey="name" stroke="var(--text-muted)" fontSize={11} tickLine={false} axisLine={false} />
+                  <YAxis stroke="var(--text-muted)" fontSize={11} tickLine={false} axisLine={false} tickFormatter={(value) => `$${value/1000}k`} />
+                  <Tooltip 
+                    contentStyle={{ backgroundColor: 'var(--surface-color)', borderColor: 'var(--border-color)', borderRadius: 'var(--radius-md)' }}
+                    itemStyle={{ color: 'var(--text-main)' }}
+                    cursor={{ fill: 'var(--surface-hover)' }}
+                    formatter={(value) => [`$${value.toLocaleString()}`, 'Volumen']}
+                  />
+                  <Bar dataKey="volumen" fill="var(--secondary-color)" radius={[4, 4, 0, 0]}>
+                    <LabelList 
+                      dataKey="volumen" 
+                      position="top" 
+                      formatter={(val) => `$${(val/1000).toFixed(1)}k`}
+                      style={{ fill: 'var(--text-main)', fontSize: '0.75rem', fontWeight: '500' }}
+                    />
+                  </Bar>
+                </BarChart>
+              </ResponsiveContainer>
+            </div>
+          </div>
+          <div className="card glass-panel" style={{ padding: '0.75rem 1rem', margin: 0, backgroundColor: 'var(--surface-hover)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+            <p style={{ margin: 0, fontSize: '0.8rem', color: 'var(--text-muted)', textAlign: 'center', lineHeight: '1.4' }}>
+              Muestra los clientes que generan el mayor volumen de ingresos proyectados a partir de las cotizaciones aprobadas.
+            </p>
+          </div>
         </div>
       </div>
 

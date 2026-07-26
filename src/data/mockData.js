@@ -11,7 +11,8 @@ export const mockCotizaciones = [
     tipo: 'Litografía/Digital',
     monto: 1500.00,
     estado: 'Pendiente',
-    fecha: '2026-07-25'
+    fecha: '2026-07-25',
+    fechaEntrega: '2026-07-28'
   },
   {
     id: 'C-1002',
@@ -19,7 +20,8 @@ export const mockCotizaciones = [
     tipo: 'Lona/Vinil',
     monto: 3200.50,
     estado: 'Aprobada',
-    fecha: '2026-07-24'
+    fecha: '2026-07-24',
+    fechaEntrega: '2026-07-30'
   },
   {
     id: 'C-1003',
@@ -27,7 +29,8 @@ export const mockCotizaciones = [
     tipo: 'Publicidad Estructural',
     monto: 12500.00,
     estado: 'Pendiente',
-    fecha: '2026-07-23'
+    fecha: '2026-07-23',
+    fechaEntrega: '2026-07-20'
   }
 ];
 
@@ -101,4 +104,33 @@ export const mockOrderStatusData = [
   { name: 'Revisión', cantidad: 4 },
   { name: 'Finalizado', cantidad: 15 },
   { name: 'Entregado', cantidad: 20 },
+];
+
+export const mockConversionData = [
+  { name: 'Aprobadas', value: 65, color: 'var(--success-color)' },
+  { name: 'Rechazadas', value: 20, color: 'var(--error-color)' },
+  { name: 'Pendientes', value: 15, color: 'var(--warning-color)' }
+];
+
+export const mockTimeToCloseData = [
+  { name: 'Sem 1', dias: 4.5 },
+  { name: 'Sem 2', dias: 3.8 },
+  { name: 'Sem 3', dias: 5.2 },
+  { name: 'Sem 4', dias: 2.9 },
+  { name: 'Sem 5', dias: 4.0 },
+];
+
+export const mockRejectionReasonData = [
+  { name: 'Precio Alto', value: 45, color: '#ff4d4f' },
+  { name: 'Competencia', value: 25, color: '#faad14' },
+  { name: 'Presupuesto Cancelado', value: 20, color: '#722ed1' },
+  { name: 'Tiempos de Entrega', value: 10, color: '#595959' }
+];
+
+export const mockTopClientsData = [
+  { name: 'Coca Cola', volumen: 45000 },
+  { name: 'Pepsi', volumen: 32000 },
+  { name: 'Bimbo', volumen: 28500 },
+  { name: 'Nescafé', volumen: 19000 },
+  { name: 'HUBB', volumen: 12500 }
 ];

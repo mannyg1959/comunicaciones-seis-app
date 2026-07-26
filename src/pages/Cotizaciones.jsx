@@ -18,6 +18,22 @@ export default function Cotizaciones({ user }) {
   const [editingCotizacion, setEditingCotizacion] = useState(null);
   const [cotizaciones, setCotizaciones] = useState(mockCotizaciones);
 
+  const calculateGap = (fechaEntrega) => {
+    if (!fechaEntrega) return { text: 'Sin fecha', color: 'var(--text-muted)' };
+    const today = new Date();
+    today.setHours(0,0,0,0);
+    const [year, month, day] = fechaEntrega.split('-');
+    const deliveryDate = new Date(year, month - 1, day);
+    
+    const diffTime = deliveryDate.getTime() - today.getTime();
+    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+    
+    if (diffDays < 0) return { text: `Vencido (${Math.abs(diffDays)}d)`, color: 'var(--error-color)' };
+    if (diffDays === 0) return { text: '¡Hoy!', color: 'var(--error-color)' };
+    if (diffDays <= 2) return { text: `${diffDays} días`, color: 'var(--warning-color)' };
+    return { text: `${diffDays} días`, color: 'var(--success-color)' };
+  };
+
   const getBadgeClass = (estado) => {
     switch(estado) {
       case 'Aprobada': return 'badge badge-success';
@@ -69,7 +85,7 @@ export default function Cotizaciones({ user }) {
       impuestos: 0,
       total: cotizacion.monto,
       condicionesPago: '50% anticipo / 50% contra entrega',
-      tiempoEntrega: '5 días hábiles'
+      fechaEntrega: cotizacion.fechaEntrega || new Date(Date.now() + 5 * 24 * 60 * 60 * 1000).toISOString().split('T')[0]
     });
   };
 
@@ -81,6 +97,7 @@ export default function Cotizaciones({ user }) {
       monto: nuevaCotizacion.total,
       estado: nuevaCotizacion.estado,
       fecha: nuevaCotizacion.fechaEmision,
+      fechaEntrega: nuevaCotizacion.fechaEntrega,
       convertidaAOT: nuevaCotizacion.convertidaAOT || false
     };
     
@@ -200,11 +217,26 @@ export default function Cotizaciones({ user }) {
               <strong>{cotizacion.id}</strong>
               <span className={getBadgeClass(cotizacion.estado)}>{cotizacion.estado}</span>
             </div>
-            <p style={{ margin: 0, fontWeight: '500', color: 'var(--text-main)', lineHeight: '1.2' }}>{cotizacion.cliente}</p>
+            <p style={{ margin: 0, fontWeight: 'bold', fontSize: '1.05rem', color: 'var(--text-main)', lineHeight: '1.2' }}>{cotizacion.cliente}</p>
             <p style={{ margin: '0 0 0.5rem 0', fontSize: '0.8rem', color: 'var(--text-muted)', lineHeight: '1.2' }}>{cotizacion.tipo}</p>
-            <div className="flex-row-between" style={{ fontSize: '0.875rem' }}>
-              <span style={{ color: 'var(--text-muted)' }}>{cotizacion.fecha}</span>
+            <div className="flex-row-between" style={{ fontSize: '0.875rem', marginBottom: '0.25rem' }}>
+              <span style={{ color: 'var(--text-muted)' }}>Emisión: {cotizacion.fecha}</span>
               <strong style={{ color: 'var(--primary-color)' }}>${cotizacion.monto.toFixed(2)}</strong>
+            </div>
+            <div className="flex-row-between" style={{ fontSize: '0.8rem', alignItems: 'center' }}>
+              <span style={{ color: 'var(--secondary-color)' }}>
+                Entrega est.: {cotizacion.fechaEntrega || 'N/A'}
+              </span>
+              <span style={{ 
+                background: `color-mix(in srgb, ${calculateGap(cotizacion.fechaEntrega).color} 15%, transparent)`, 
+                color: calculateGap(cotizacion.fechaEntrega).color,
+                padding: '0.1rem 0.4rem',
+                borderRadius: 'var(--radius-sm)',
+                fontWeight: 'bold',
+                fontSize: '0.75rem'
+              }}>
+                GAP: {calculateGap(cotizacion.fechaEntrega).text}
+              </span>
             </div>
           </div>
         ))}
