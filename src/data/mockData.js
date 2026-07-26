@@ -134,3 +134,22 @@ export const mockTopClientsData = [
   { name: 'Nescafé', volumen: 19000 },
   { name: 'HUBB', volumen: 12500 }
 ];
+
+export const mockOnTimeDeliveryData = [
+  { name: 'A Tiempo', value: 88, color: 'var(--success-color)' },
+  { name: 'Con Retraso', value: 12, color: 'var(--error-color)' }
+];
+
+export const mockProductionCycleTimeData = [
+  { name: 'Sem 1', dias: 3.2 },
+  { name: 'Sem 2', dias: 3.8 },
+  { name: 'Sem 3', dias: 4.5 },
+  { name: 'Sem 4', dias: 3.1 },
+  { name: 'Sem 5', dias: 2.8 },
+];
+
+export const mockWorkloadByTypeData = [
+  { name: 'Litografía', value: 45, color: 'var(--primary-color)' },
+  { name: 'Lona/Vinil', value: 35, color: 'var(--secondary-color)' },
+  { name: 'Estructural', value: 20, color: 'var(--warning-color)' }
+];
