@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate, useLocation, Link } from 'react-router-dom';
 import { Home, FileText, Briefcase, User as UserIcon, Settings, Wrench } from 'lucide-react';
+import { Analytics } from '@vercel/analytics/react';
 import Login from './pages/Login';
 import Dashboard from './pages/Dashboard';
 import Cotizaciones from './pages/Cotizaciones';
@@ -81,6 +82,7 @@ function App() {
         
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
+      <Analytics />
     </Router>
   );
 }
