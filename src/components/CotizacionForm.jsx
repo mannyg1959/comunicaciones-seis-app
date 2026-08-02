@@ -1,6 +1,20 @@
 import { useState, useEffect } from 'react';
-import { ArrowLeft, Save, Plus, Trash2, FileEdit, FilePlus, User, Package } from 'lucide-react';
+import { ArrowLeft, Save, Plus, Trash2, FileEdit, FilePlus, User, Package, FileDown } from 'lucide-react';
 import { mockCotizaciones, mockOrdenesTrabajo, mockOrderStatusData } from '../data/mockData';
+
+const loadHtml2Pdf = () => {
+  return new Promise((resolve, reject) => {
+    if (window.html2pdf) {
+      resolve(window.html2pdf);
+      return;
+    }
+    const script = document.createElement('script');
+    script.src = 'https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js';
+    script.onload = () => resolve(window.html2pdf);
+    script.onerror = reject;
+    document.body.appendChild(script);
+  });
+};
 
 const WhatsAppIcon = ({ size = 20 }) => (
   <svg 
@@ -93,6 +107,159 @@ export default function CotizacionForm({ initialData, onCancel, onSave, onDelete
     const mensajeCodificado = encodeURIComponent(mensaje);
     const url = `https://wa.me/?text=${mensajeCodificado}`;
     window.open(url, '_blank');
+  };
+
+  const handleGeneratePDF = async () => {
+    try {
+      const response = await fetch('/PlantillaCotizacion.html');
+      if (!response.ok) {
+        throw new Error('No se pudo cargar la plantilla de cotización.');
+      }
+      let htmlText = await response.text();
+
+      const senderAddresses = [
+        "Av. Francisco de Miranda, Edif. Centro Seguros Sudamérica, El Rosal, Caracas",
+        "Av. Intercomunal Jorge Rodríguez, Sector Las Garzas, Barcelona, Anzoátegui",
+        "Av. Francisco de Miranda, Multicentro Empresarial del Este, Chacao, Caracas"
+      ];
+
+      const clientAddresses = [
+        "Av. Bolívar, Centro Comercial Las Industrias, Valencia, Carabobo",
+        "Av. Bella Vista, Edif. Don Matías, Maracaibo, Zulia",
+        "Calle 15 entre Carreras 19 y 20, Barquisimeto, Lara",
+        "Av. Las Américas, Sector Albarregas, Mérida",
+        "Av. Principal de Las Mercedes, Edif. Centro Profesional, Caracas"
+      ];
+
+      const getAddress = (list, seed) => {
+        let index = 0;
+        if (seed) {
+          let sum = 0;
+          for (let i = 0; i < seed.length; i++) {
+            sum += seed.charCodeAt(i);
+          }
+          index = sum % list.length;
+        } else {
+          index = Math.floor(Math.random() * list.length);
+        }
+        return list[index] + ", Venezuela";
+      };
+
+      const senderAddr = getAddress(senderAddresses, "Comunicaciones 6");
+      const clientAddr = getAddress(clientAddresses, formData.cliente || "Cliente");
+
+      htmlText = htmlText.replace(/\[campo1\]/gi, formData.id || 'N/A');
+      htmlText = htmlText.replace(/\[campo2\]/gi, formData.fechaEmision || 'N/A');
+      htmlText = htmlText.replace(/\[campo3\]/gi, 'Comunicaciones 6');
+      htmlText = htmlText.replace(/\[campo4\]/gi, senderAddr);
+      htmlText = htmlText.replace(/\[campo5\]/gi, formData.cliente || 'Sin Cliente');
+      htmlText = htmlText.replace(/\[campo6\]/gi, clientAddr);
+      htmlText = htmlText.replace(/src="\/logo\.png"/gi, `src="${window.location.origin}/logo.png"`);
+
+      const parser = new DOMParser();
+      const doc = parser.parseFromString(htmlText, 'text/html');
+      const table = doc.getElementById('items-table');
+
+      if (table) {
+        let tableHTML = `
+          <thead>
+            <tr class="c8">
+              <td class="c0" colspan="1" rowspan="1" style="border: 1px solid #cccccc;"><p class="c14" style="margin: 0; text-align: center;"><span class="c25" style="font-weight: bold; color: white;">REF.</span></p></td>
+              <td class="c43" colspan="1" rowspan="1" style="border: 1px solid #cccccc;"><p class="c7" style="margin: 0;"><span class="c25" style="font-weight: bold; color: white;">DESCRIPCI&Oacute;N</span></p></td>
+              <td class="c48" colspan="1" rowspan="1" style="border: 1px solid #cccccc;"><p class="c14" style="margin: 0; text-align: center;"><span class="c25" style="font-weight: bold; color: white;">UNIDADES</span></p></td>
+              <td class="c40" colspan="1" rowspan="1" style="border: 1px solid #cccccc;"><p class="c15" style="margin: 0; text-align: right;"><span class="c25" style="font-weight: bold; color: white;">PRECIO</span></p></td>
+            </tr>
+          </thead>
+          <tbody>
+        `;
+
+        formData.items.forEach((item, index) => {
+          let details = item.descripcion || '';
+          const specs = [];
+          if (item.lineaNegocio === 'Litografía/Digital') {
+            if (item.formato) specs.push(`Formato: ${item.formato}`);
+            if (item.sustrato) specs.push(`Sustrato: ${item.sustrato}`);
+            if (item.tintas) specs.push(`Tintas: ${item.tintas}`);
+            if (item.acabados) specs.push(`Acabados: ${item.acabados}`);
+          } else if (item.lineaNegocio === 'Lona/Vinil') {
+            if (item.dimensiones) specs.push(`Dimensiones: ${item.dimensiones}`);
+            if (item.tipoMaterial) specs.push(`Material: ${item.tipoMaterial}`);
+            if (item.resolucion) specs.push(`Resolución: ${item.resolucion}`);
+            if (item.terminaciones) specs.push(`Terminaciones: ${item.terminaciones}`);
+          } else if (item.lineaNegocio === 'Publicidad Estructural') {
+            if (item.dimensiones3D) specs.push(`Dim 3D: ${item.dimensiones3D}`);
+            if (item.materialesEstructurales) specs.push(`Estructura: ${item.materialesEstructurales}`);
+            if (item.iluminacion) specs.push(`Iluminación: ${item.iluminacion}`);
+          } else if (item.lineaNegocio === 'Corte y Troquelado') {
+            if (item.materialCorte) specs.push(`Material: ${item.materialCorte}`);
+            if (item.grosor) specs.push(`Grosor: ${item.grosor}mm`);
+            if (item.tipoCorte) specs.push(`Corte: ${item.tipoCorte}`);
+            if (item.metraje) specs.push(`Metraje: ${item.metraje}`);
+          }
+
+          if (specs.length > 0) {
+            details += ` (${specs.join(', ')})`;
+          }
+
+          const price = (parseFloat(item.costoUnitario) || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+
+          tableHTML += `
+            <tr class="c8">
+              <td class="c1" colspan="1" rowspan="1" style="border: 1px solid #cccccc;"><p class="c14" style="margin: 0; text-align: center;"><span class="c20">${index + 1}</span></p></td>
+              <td class="c3" colspan="1" rowspan="1" style="border: 1px solid #cccccc;"><p class="c7" style="margin: 0;"><span class="c12">${details}</span></p></td>
+              <td class="c2" colspan="1" rowspan="1" style="border: 1px solid #cccccc;"><p class="c14" style="margin: 0; text-align: center;"><span class="c12">${item.cantidad}</span></p></td>
+              <td class="c36" colspan="1" rowspan="1" style="border: 1px solid #cccccc;"><p class="c15" style="margin: 0; text-align: right;"><span class="c12">$${price}</span></p></td>
+            </tr>
+          `;
+        });
+
+        const subtotalFormatted = formData.subtotal.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+        const taxesFormatted = formData.impuestos.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+        const totalFormatted = formData.total.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+
+        tableHTML += `
+            <tr class="c8">
+              <td class="c4" colspan="1" rowspan="1" style="border: 1px solid #cccccc;"><p class="c10" style="margin: 0;"></p></td>
+              <td class="c37" colspan="1" rowspan="1" style="border: 1px solid #cccccc;"><p class="c7" style="margin: 0;"><span class="c12">Subtotal</span></p></td>
+              <td class="c31" colspan="1" rowspan="1" style="border: 1px solid #cccccc;"><p class="c10" style="margin: 0;"></p></td>
+              <td class="c9" colspan="1" rowspan="1" style="border: 1px solid #cccccc;"><p class="c15" style="margin: 0; text-align: right;"><span class="c12">$${subtotalFormatted}</span></p></td>
+            </tr>
+            <tr class="c8">
+              <td class="c4" colspan="1" rowspan="1" style="border: 1px solid #cccccc;"><p class="c10" style="margin: 0;"></p></td>
+              <td class="c37" colspan="1" rowspan="1" style="border: 1px solid #cccccc;"><p class="c7" style="margin: 0;"><span class="c12">IVA (16%)</span></p></td>
+              <td class="c31" colspan="1" rowspan="1" style="border: 1px solid #cccccc;"><p class="c10" style="margin: 0;"></p></td>
+              <td class="c9" colspan="1" rowspan="1" style="border: 1px solid #cccccc;"><p class="c15" style="margin: 0; text-align: right;"><span class="c12">$${taxesFormatted}</span></p></td>
+            </tr>
+            <tr class="c8">
+              <td class="c17" colspan="3" rowspan="1" style="border: 1px solid #cccccc;"><p class="c28" style="margin: 0; text-align: right;"><span class="c21 c32">TOTAL DE PRESUPUESTO:</span></p></td>
+              <td class="c44" colspan="1" rowspan="1" style="border: 1px solid #cccccc;"><p class="c28" style="margin: 0; text-align: right;"><span class="c21 c32">$${totalFormatted}</span></p></td>
+            </tr>
+          </tbody>
+        `;
+
+        table.innerHTML = tableHTML;
+      }
+
+      const finalHtml = doc.documentElement.outerHTML;
+      const html2pdfLib = await loadHtml2Pdf();
+      
+      const element = document.createElement('div');
+      element.innerHTML = finalHtml;
+      
+      const opt = {
+        margin:       [10, 10, 10, 10],
+        filename:     `cotizacion_${formData.id}.pdf`,
+        image:        { type: 'jpeg', quality: 0.98 },
+        html2canvas:  { scale: 2, useCORS: true, letterRendering: true },
+        jsPDF:        { unit: 'mm', format: 'letter', orientation: 'portrait' }
+      };
+
+      await html2pdfLib().set(opt).from(element).save();
+
+    } catch (error) {
+      console.error(error);
+      alert('Error al generar el PDF: ' + error.message);
+    }
   };
 
   const addItem = () => {
@@ -292,7 +459,7 @@ export default function CotizacionForm({ initialData, onCancel, onSave, onDelete
             </span>
           </h1>
         </div>
-        <div style={{ display: 'flex', gap: '0.5rem' }}>
+        <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
           {initialData && (
             <button 
               type="button" 
@@ -301,20 +468,20 @@ export default function CotizacionForm({ initialData, onCancel, onSave, onDelete
                 border: '1px solid var(--error-color)', 
                 background: 'transparent', 
                 color: 'var(--error-color)', 
-                height: '56px', 
+                height: '48px', 
                 flex: 1, 
                 display: 'flex', 
                 alignItems: 'center',
-                justifyContent: 'flex-start',
+                justifyContent: 'center',
                 gap: '0.5rem',
-                padding: '0.5rem 0.85rem',
-                fontSize: '0.95rem',
+                padding: '0.5rem',
+                fontSize: '0.9rem',
                 fontWeight: '700',
-                whiteSpace: 'nowrap'
+                minWidth: '100px'
               }} 
               onClick={onDelete}
             >
-              <Trash2 size={20} />
+              <Trash2 size={18} />
               <span>Eliminar</span>
             </button>
           )}
@@ -325,20 +492,20 @@ export default function CotizacionForm({ initialData, onCancel, onSave, onDelete
               border: '1px solid var(--border-color)', 
               background: 'transparent', 
               color: '#ffffff', 
-              height: '56px', 
+              height: '48px', 
               flex: 1.2, 
               display: 'flex', 
               alignItems: 'center',
-              justifyContent: 'flex-start',
+              justifyContent: 'center',
               gap: '0.5rem',
-              padding: '0.5rem 0.85rem',
-              fontSize: '0.95rem',
+              padding: '0.5rem',
+              fontSize: '0.9rem',
               fontWeight: '700',
-              whiteSpace: 'nowrap'
+              minWidth: '130px'
             }} 
             onClick={handleConvertirOTClick}
           >
-            <Package size={20} />
+            <Package size={18} />
             <span>Convertir a OT</span>
           </button>
           <button 
@@ -347,20 +514,20 @@ export default function CotizacionForm({ initialData, onCancel, onSave, onDelete
             style={{ 
               background: 'var(--primary-color)', 
               color: '#ffffff', 
-              height: '56px', 
+              height: '48px', 
               flex: 1.2, 
               display: 'flex', 
               alignItems: 'center',
-              justifyContent: 'flex-start',
+              justifyContent: 'center',
               gap: '0.5rem',
-              padding: '0.5rem 0.85rem',
-              fontSize: '0.95rem',
+              padding: '0.5rem',
+              fontSize: '0.9rem',
               fontWeight: '700',
-              whiteSpace: 'nowrap'
+              minWidth: '110px'
             }} 
             onClick={() => onSave(formData)}
           >
-            <Save size={20} />
+            <Save size={18} />
             <span>Guardar</span>
           </button>
         </div>
@@ -600,28 +767,52 @@ export default function CotizacionForm({ initialData, onCancel, onSave, onDelete
             </select>
           </div>
 
-          <button 
-            type="button" 
-            className="btn" 
-            style={{ 
-              background: '#25D366', 
-              color: '#ffffff', 
-              marginTop: '1.5rem',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              gap: '0.5rem',
-              padding: '0.75rem',
-              fontWeight: '700',
-              border: 'none',
-              borderRadius: 'var(--radius-md)',
-              width: '100%'
-            }}
-            onClick={handleWhatsAppSend}
-          >
-            <WhatsAppIcon size={20} />
-            Compartir por WhatsApp
-          </button>
+          <div style={{ display: 'flex', gap: '0.5rem', marginTop: '1.5rem', flexWrap: 'wrap' }}>
+            <button 
+              type="button" 
+              className="btn" 
+              style={{ 
+                background: '#e02424', 
+                color: '#ffffff', 
+                flex: 1,
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                gap: '0.5rem',
+                padding: '0.75rem',
+                fontWeight: '700',
+                border: 'none',
+                borderRadius: 'var(--radius-md)',
+                minWidth: '150px'
+              }}
+              onClick={handleGeneratePDF}
+            >
+              <FileDown size={20} />
+              Generar PDF
+            </button>
+            <button 
+              type="button" 
+              className="btn" 
+              style={{ 
+                background: '#25D366', 
+                color: '#ffffff', 
+                flex: 1,
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                gap: '0.5rem',
+                padding: '0.75rem',
+                fontWeight: '700',
+                border: 'none',
+                borderRadius: 'var(--radius-md)',
+                minWidth: '180px'
+              }}
+              onClick={handleWhatsAppSend}
+            >
+              <WhatsAppIcon size={20} />
+              Compartir por WhatsApp
+            </button>
+          </div>
 
         </div>
       )}
