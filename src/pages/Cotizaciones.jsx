@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { mockCotizaciones } from '../data/mockData';
-import { Plus, Search, FileText } from 'lucide-react';
+import { Plus, Search, FileText, SlidersHorizontal, X } from 'lucide-react';
 import CotizacionForm from '../components/CotizacionForm';
 import DatePicker from 'react-datepicker';
 import 'react-datepicker/dist/react-datepicker.css';
@@ -17,6 +17,7 @@ export default function Cotizaciones({ user }) {
   const [filterEstadoSelect, setFilterEstadoSelect] = useState(filterEstadoUrl || '');
   const [editingCotizacion, setEditingCotizacion] = useState(null);
   const [cotizaciones, setCotizaciones] = useState(mockCotizaciones);
+  const [isFilterDrawerOpen, setIsFilterDrawerOpen] = useState(false);
 
   const calculateGap = (fechaEntrega) => {
     if (!fechaEntrega) return { text: 'Sin fecha', color: 'var(--text-muted)' };
@@ -38,6 +39,7 @@ export default function Cotizaciones({ user }) {
     switch(estado) {
       case 'Aprobada': return 'badge badge-success';
       case 'Pendiente': return 'badge badge-pending';
+      case 'Rechazada': return 'badge badge-danger';
       default: return 'badge badge-primary';
     }
   };
@@ -48,7 +50,6 @@ export default function Cotizaciones({ user }) {
     const matchesSearch = c.cliente.toLowerCase().includes(searchTerm.toLowerCase()) || c.id.toLowerCase().includes(searchTerm.toLowerCase());
     const matchesCliente = filterCliente ? c.cliente === filterCliente : true;
     
-    // c.fecha comes as "YYYY-MM-DD", converting it for comparison
     const itemDate = new Date(c.fecha);
     itemDate.setHours(0,0,0,0);
     const filterStart = filterFechaInicio ? new Date(filterFechaInicio).setHours(0,0,0,0) : null;
@@ -129,19 +130,31 @@ export default function Cotizaciones({ user }) {
     />;
   }
 
+  const isAnyFilterActive = filterCliente || filterFechaInicio || filterFechaFin || filterEstadoSelect;
+
   return (
-    <div className="page-content">
+    <div className="page-content" style={{ paddingBottom: '90px' }}>
       <div className="flex-row-between" style={{ marginBottom: '1.5rem' }}>
         <h1 style={{ margin: 0, display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
           <FileText size={28} color="var(--primary-color)" /> Cotizaciones
         </h1>
-        <button className="btn" style={{ padding: '0.5rem', width: 'auto', borderRadius: 'var(--radius-full)' }} onClick={() => setEditingCotizacion({id: 'NEW'})}>
-          <Plus size={20} />
-        </button>
+        <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
+          <button 
+            className={`btn ${isAnyFilterActive ? 'btn-primary' : 'btn-secondary'}`} 
+            style={{ padding: '0.5rem 0.75rem', width: 'auto', display: 'flex', alignItems: 'center', gap: '0.35rem', fontSize: '0.85rem' }} 
+            onClick={() => setIsFilterDrawerOpen(true)}
+          >
+            <SlidersHorizontal size={16} />
+            Filtros {isAnyFilterActive ? '(Activo)' : ''}
+          </button>
+          <button className="btn" style={{ padding: '0.5rem', width: 'auto', borderRadius: 'var(--radius-full)' }} onClick={() => setEditingCotizacion({id: 'NEW'})}>
+            <Plus size={20} />
+          </button>
+        </div>
       </div>
 
-      <div className="card" style={{ padding: '1rem', marginBottom: '1.5rem', background: '#94a3b8', position: 'relative', zIndex: 10 }}>
-        <div className="input-group" style={{ position: 'relative', marginBottom: '1rem' }}>
+      <div style={{ marginBottom: '1.5rem', position: 'relative' }}>
+        <div className="input-group" style={{ position: 'relative', margin: 0 }}>
           <Search size={18} style={{ position: 'absolute', left: '1rem', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)' }} />
           <input 
             type="text" 
@@ -151,57 +164,6 @@ export default function Cotizaciones({ user }) {
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
           />
-        </div>
-
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
-          <select className="input-control" value={filterCliente} onChange={e => setFilterCliente(e.target.value)}>
-            <option value="">Todos los Clientes</option>
-            {[...new Set(cotizaciones.map(c => c.cliente))].map(cliente => (
-              <option key={cliente} value={cliente}>{cliente}</option>
-            ))}
-          </select>
-          
-          <div style={{ display: 'flex', gap: '0.5rem' }}>
-            <div style={{ flex: 1 }}>
-              <span style={{ fontSize: '0.75rem', color: '#000', fontWeight: 'bold', marginBottom: '0.25rem', display: 'block' }}>Desde</span>
-              <DatePicker
-                selected={filterFechaInicio}
-                onChange={(date) => setFilterFechaInicio(date)}
-                selectsStart
-                startDate={filterFechaInicio}
-                endDate={filterFechaFin}
-                className="input-control"
-                placeholderText="dd/mm/aaaa"
-                dateFormat="dd/MM/yyyy"
-                isClearable
-                withPortal
-              />
-            </div>
-            <div style={{ flex: 1 }}>
-              <span style={{ fontSize: '0.75rem', color: '#000', fontWeight: 'bold', marginBottom: '0.25rem', display: 'block' }}>Hasta</span>
-              <DatePicker
-                selected={filterFechaFin}
-                onChange={(date) => setFilterFechaFin(date)}
-                selectsEnd
-                startDate={filterFechaInicio}
-                endDate={filterFechaFin}
-                minDate={filterFechaInicio}
-                className="input-control"
-                placeholderText="dd/mm/aaaa"
-                dateFormat="dd/MM/yyyy"
-                isClearable
-                withPortal
-              />
-            </div>
-          </div>
-          
-          <select className="input-control" value={filterEstadoSelect} onChange={e => setFilterEstadoSelect(e.target.value)}>
-            <option value="">Cualquier Estatus</option>
-            <option value="Borrador">Borrador</option>
-            <option value="Pendiente">Pendiente</option>
-            <option value="Enviada">Enviada</option>
-            <option value="Aprobada">Aprobada</option>
-          </select>
         </div>
       </div>
 
@@ -241,6 +203,101 @@ export default function Cotizaciones({ user }) {
           </div>
         ))}
       </div>
+
+      {/* Modal de Filtros flotante y centrado */}
+      {isFilterDrawerOpen && (
+        <>
+          <div className="modal-overlay" onClick={() => setIsFilterDrawerOpen(false)}>
+            <div className="modal-container" onClick={e => e.stopPropagation()}>
+              <div className="modal-header">
+                <h3 style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', margin: 0 }}>
+                  <SlidersHorizontal size={20} color="var(--primary-color)" />
+                  <span>Filtros de Cotizaciones</span>
+                </h3>
+                <button className="modal-close-btn" onClick={() => setIsFilterDrawerOpen(false)}>
+                  <X size={20} />
+                </button>
+              </div>
+              <div className="modal-body">
+                <div className="input-group">
+                  <label>Cliente</label>
+                  <select className="input-control" value={filterCliente} onChange={e => setFilterCliente(e.target.value)}>
+                    <option value="">Todos los Clientes</option>
+                    {[...new Set(cotizaciones.map(c => c.cliente))].map(cliente => (
+                      <option key={cliente} value={cliente}>{cliente}</option>
+                    ))}
+                  </select>
+                </div>
+                
+                <div className="input-group">
+                  <label>Rango de Fechas</label>
+                  <div style={{ display: 'flex', gap: '0.5rem' }}>
+                    <div style={{ flex: 1 }}>
+                      <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginBottom: '0.25rem', display: 'block' }}>Desde</span>
+                      <DatePicker
+                        selected={filterFechaInicio}
+                        onChange={(date) => setFilterFechaInicio(date)}
+                        selectsStart
+                        startDate={filterFechaInicio}
+                        endDate={filterFechaFin}
+                        className="input-control"
+                        placeholderText="dd/mm/aaaa"
+                        dateFormat="dd/MM/yyyy"
+                        isClearable
+                        withPortal
+                      />
+                    </div>
+                    <div style={{ flex: 1 }}>
+                      <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginBottom: '0.25rem', display: 'block' }}>Hasta</span>
+                      <DatePicker
+                        selected={filterFechaFin}
+                        onChange={(date) => setFilterFechaFin(date)}
+                        selectsEnd
+                        startDate={filterFechaInicio}
+                        endDate={filterFechaFin}
+                        minDate={filterFechaInicio}
+                        className="input-control"
+                        placeholderText="dd/mm/aaaa"
+                        dateFormat="dd/MM/yyyy"
+                        isClearable
+                        withPortal
+                      />
+                    </div>
+                  </div>
+                </div>
+                
+                <div className="input-group">
+                  <label>Estatus</label>
+                  <select className="input-control" value={filterEstadoSelect} onChange={e => setFilterEstadoSelect(e.target.value)}>
+                    <option value="">Cualquier Estatus</option>
+                    <option value="Borrador">Borrador</option>
+                    <option value="Pendiente">Pendiente</option>
+                    <option value="Enviada">Enviada</option>
+                    <option value="Aprobada">Aprobada</option>
+                    <option value="Rechazada">Rechazada</option>
+                  </select>
+                </div>
+              </div>
+              <div className="modal-footer">
+                <button 
+                  className="btn btn-secondary" 
+                  onClick={() => {
+                    setFilterCliente('');
+                    setFilterFechaInicio(null);
+                    setFilterFechaFin(null);
+                    setFilterEstadoSelect('');
+                  }}
+                >
+                  Limpiar
+                </button>
+                <button className="btn btn-primary" onClick={() => setIsFilterDrawerOpen(false)}>
+                  Aplicar
+                </button>
+              </div>
+            </div>
+          </div>
+        </>
+      )}
     </div>
   );
 }

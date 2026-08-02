@@ -25,7 +25,8 @@ export default function Dashboard({ user, onLogout }) {
     'Borrador': 0,
     'Pendiente': 0,
     'Enviada': 0,
-    'Aprobada': 0
+    'Aprobada': 0,
+    'Rechazada': 0
   };
   activeCotizaciones.forEach(c => {
     if (cotizacionStatusCounts[c.estado] !== undefined) {
@@ -36,8 +37,9 @@ export default function Dashboard({ user, onLogout }) {
   const cotizacionesList = [
     { name: 'Borrador', count: cotizacionStatusCounts['Borrador'], color: 'var(--text-muted)' },
     { name: 'Pendiente', count: cotizacionStatusCounts['Pendiente'], color: 'var(--warning-color)' },
-    { name: 'Enviada', count: cotizacionStatusCounts['Enviada'], color: 'var(--secondary-color)' },
-    { name: 'Aprobada', count: cotizacionStatusCounts['Aprobada'], color: 'var(--success-color)' }
+    { name: 'Enviada', count: cotizacionStatusCounts['Enviada'], color: 'var(--secondary-color)' }, // safeguard
+    { name: 'Aprobada', count: cotizacionStatusCounts['Aprobada'], color: 'var(--success-color)' },
+    { name: 'Rechazada', count: cotizacionStatusCounts['Rechazada'], color: 'var(--error-color)' }
   ];
 
   const orderStatusCounts = {

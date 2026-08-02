@@ -2,6 +2,18 @@ import { useState, useEffect } from 'react';
 import { ArrowLeft, Save, Plus, Trash2, FileEdit, FilePlus, User, Package } from 'lucide-react';
 import { mockCotizaciones, mockOrdenesTrabajo, mockOrderStatusData } from '../data/mockData';
 
+const WhatsAppIcon = ({ size = 20 }) => (
+  <svg 
+    width={size} 
+    height={size} 
+    viewBox="0 0 24 24" 
+    fill="currentColor"
+    style={{ display: 'inline-block', verticalAlign: 'middle' }}
+  >
+    <path d="M12.004 2.002c-5.522 0-9.998 4.477-9.998 10 0 2.005.59 3.87 1.6 5.432L2.03 22.008l4.707-1.547a9.92 9.92 0 005.267 1.54c5.52 0 9.998-4.476 9.998-10s-4.478-10-9.998-10zm0 1.777c4.54 0 8.22 3.682 8.22 8.223 0 4.542-3.68 8.223-8.22 8.223a8.16 8.16 0 01-4.323-1.233l-.31-.186-2.87.943.96-2.793-.205-.326a8.17 8.17 0 01-1.252-4.628c0-4.541 3.68-8.223 8.22-8.223zm-3.633 4.29a.9.9 0 00-.655.3c-.225.244-.576.6-.576 1.341 0 .741.538 1.455.613 1.555.075.1.135.18.255.33.376.467.822.868 1.285 1.22.463.353.948.577 1.455.772.433.167.827.158 1.135.112.338-.05.882-.361 1.008-.711.125-.35.125-.65.088-.712-.038-.063-.138-.1-.288-.175-.15-.075-.882-.436-1.02-.486-.135-.05-.237-.075-.337.075-.1.15-.388.487-.476.587-.087.1-.175.113-.325.038a4.11 4.11 0 01-1.21-.747c-.36-.312-.602-.7-.674-.825-.072-.125-.008-.193.067-.268.067-.068.15-.175.225-.262.075-.088.1-.15.15-.25.05-.1.025-.187-.012-.262-.038-.075-.338-.813-.463-1.113-.122-.293-.244-.253-.338-.258-.087-.005-.187-.005-.287-.005z"/>
+  </svg>
+);
+
 export default function CotizacionForm({ initialData, onCancel, onSave, onDelete, user }) {
   const [formData, setFormData] = useState(initialData || {
     id: `COT-2026-${Math.floor(Math.random() * 1000).toString().padStart(3, '0')}`,
@@ -61,6 +73,26 @@ export default function CotizacionForm({ initialData, onCancel, onSave, onDelete
     } else {
       executeConvertirOT();
     }
+  };
+
+  const handleWhatsAppSend = () => {
+    const quoteIdStr = initialData ? `Cotización #${initialData.id}` : 'Nueva Cotización';
+    const itemsText = formData.items.map((item, idx) => {
+      return `- *Línea ${idx + 1}*: ${item.cantidad}x ${item.lineaNegocio.split('/')[0]} ($${(item.cantidad * item.costoUnitario).toFixed(2)})`;
+    }).join('\n');
+
+    const mensaje = `*${quoteIdStr} - Comunicaciones SEIS*\n\n` +
+                    `Hola, te comparto los detalles de la cotización:\n\n` +
+                    `*Cliente:* ${formData.cliente || 'Por definir'}\n` +
+                    `*Total:* $${formData.total.toFixed(2)}\n` +
+                    `*Condiciones:* ${formData.condicionesPago}\n` +
+                    `*Entrega estimada:* ${formData.fechaEntrega || 'Por definir'}\n\n` +
+                    `*Detalle de Líneas:*\n${itemsText || 'Sin ítems registrados'}\n\n` +
+                    `Quedamos a sus órdenes.`;
+                    
+    const mensajeCodificado = encodeURIComponent(mensaje);
+    const url = `https://wa.me/?text=${mensajeCodificado}`;
+    window.open(url, '_blank');
   };
 
   const addItem = () => {
@@ -238,6 +270,7 @@ export default function CotizacionForm({ initialData, onCancel, onSave, onDelete
       case 'Pendiente': return 'var(--warning-color)';
       case 'Enviada': return 'var(--secondary-color)';
       case 'Aprobada': return 'var(--success-color)';
+      case 'Rechazada': return 'var(--error-color)';
       default: return 'var(--border-color)';
     }
   };
@@ -261,75 +294,155 @@ export default function CotizacionForm({ initialData, onCancel, onSave, onDelete
         </div>
         <div style={{ display: 'flex', gap: '0.5rem' }}>
           {initialData && (
-            <button type="button" className="btn" style={{ background: 'var(--error-color)', padding: '0.75rem', flex: 1, display: 'flex', justifyContent: 'center' }} onClick={onDelete}>
-              <Trash2 size={18} style={{ marginRight: '0.5rem' }} /> Eliminar
+            <button 
+              type="button" 
+              className="btn" 
+              style={{ 
+                border: '1px solid var(--error-color)', 
+                background: 'transparent', 
+                color: 'var(--error-color)', 
+                height: '56px', 
+                flex: 1, 
+                display: 'flex', 
+                alignItems: 'center',
+                justifyContent: 'flex-start',
+                gap: '0.5rem',
+                padding: '0.5rem 0.85rem',
+                fontSize: '0.95rem',
+                fontWeight: '700',
+                whiteSpace: 'nowrap'
+              }} 
+              onClick={onDelete}
+            >
+              <Trash2 size={20} />
+              <span>Eliminar</span>
             </button>
           )}
-          <button type="button" className="btn" style={{ padding: '0.75rem', flex: 1, display: 'flex', justifyContent: 'center', background: 'var(--secondary-color)' }} onClick={handleConvertirOTClick}>
-            <Package size={18} style={{ marginRight: '0.5rem' }} /> Convertir a OT
+          <button 
+            type="button" 
+            className="btn" 
+            style={{ 
+              border: '1px solid var(--border-color)', 
+              background: 'transparent', 
+              color: '#ffffff', 
+              height: '56px', 
+              flex: 1.2, 
+              display: 'flex', 
+              alignItems: 'center',
+              justifyContent: 'flex-start',
+              gap: '0.5rem',
+              padding: '0.5rem 0.85rem',
+              fontSize: '0.95rem',
+              fontWeight: '700',
+              whiteSpace: 'nowrap'
+            }} 
+            onClick={handleConvertirOTClick}
+          >
+            <Package size={20} />
+            <span>Convertir a OT</span>
           </button>
-          <button type="button" className="btn" style={{ padding: '0.75rem', flex: 1, display: 'flex', justifyContent: 'center' }} onClick={() => onSave(formData)}>
-            <Save size={18} style={{ marginRight: '0.5rem' }} /> Guardar
+          <button 
+            type="button" 
+            className="btn" 
+            style={{ 
+              background: 'var(--primary-color)', 
+              color: '#ffffff', 
+              height: '56px', 
+              flex: 1.2, 
+              display: 'flex', 
+              alignItems: 'center',
+              justifyContent: 'flex-start',
+              gap: '0.5rem',
+              padding: '0.5rem 0.85rem',
+              fontSize: '0.95rem',
+              fontWeight: '700',
+              whiteSpace: 'nowrap'
+            }} 
+            onClick={() => onSave(formData)}
+          >
+            <Save size={20} />
+            <span>Guardar</span>
           </button>
         </div>
       </div>
 
 
 
-      <div style={{ display: 'flex', gap: '0.5rem', marginBottom: '1.5rem', overflowX: 'auto', paddingBottom: '0.5rem' }}>
-        {['Cabecera', 'Detalles', 'Totales'].map(tab => (
-          <button 
-            key={tab}
-            onClick={() => setActiveTab(tab.toLowerCase())}
-            style={{
-              padding: '0.5rem 1rem',
-              borderRadius: 'var(--radius-full)',
-              border: 'none',
-              background: activeTab === tab.toLowerCase() ? 'var(--primary-color)' : 'var(--surface-color)',
-              color: activeTab === tab.toLowerCase() ? 'white' : 'var(--text-main)',
-              cursor: 'pointer',
-              whiteSpace: 'nowrap',
-              flex: 1
-            }}
-          >
-            {tab}
-          </button>
-        ))}
+      <div style={{ 
+        display: 'flex', 
+        gap: '0.25rem',
+        backgroundColor: '#162238', // Dark grey background container
+        border: '1px solid var(--border-color)', // Grey border around tabs
+        borderBottom: 'none', // Merge with card border below
+        padding: '0.25rem',
+        borderTopLeftRadius: '16px',
+        borderTopRightRadius: '16px',
+        borderBottomLeftRadius: '0px',
+        borderBottomRightRadius: '0px',
+        marginBottom: '0px' 
+      }}>
+        {['Cabecera', 'Detalles', 'Totales'].map(tab => {
+          const isActive = activeTab === tab.toLowerCase();
+          return (
+            <button 
+              key={tab}
+              type="button"
+              onClick={() => setActiveTab(tab.toLowerCase())}
+              style={{
+                padding: '0.65rem 1rem',
+                border: 'none',
+                borderRadius: 'calc(var(--radius-md) - 2px)',
+                background: isActive ? 'var(--primary-color)' : 'transparent',
+                color: '#ffffff', // White letters for both active and inactive
+                fontWeight: isActive ? '700' : '500',
+                fontSize: '0.9rem',
+                cursor: 'pointer',
+                transition: 'all 0.2s',
+                flex: 1,
+                textAlign: 'center',
+                opacity: isActive ? 1 : 0.8
+              }}
+            >
+              {tab}
+            </button>
+          );
+        })}
       </div>
 
       {activeTab === 'cabecera' && (
-        <div className="card">
+        <div className="card" style={{ borderTopLeftRadius: '0px', borderTopRightRadius: '0px', marginTop: '0px' }}>
           <div className="input-group">
-            <label>ID Cotización</label>
-            <input type="text" className="input-control" value={formData.id} disabled />
-          </div>
-          <div className="input-group" style={{ 
-            background: `color-mix(in srgb, ${getCotizacionStatusColor(formData.estado)} 10%, transparent)`, 
-            padding: '1rem', 
-            borderRadius: 'var(--radius-md)', 
-            border: `2px solid ${getCotizacionStatusColor(formData.estado)}`,
-            boxShadow: 'var(--shadow-sm)'
-          }}>
-            <label style={{ color: getCotizacionStatusColor(formData.estado), fontSize: '1rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-              Estado de la Cotización
-            </label>
-            <select 
-              className="input-control" 
-              style={{ 
-                fontWeight: 'bold', 
-                color: getCotizacionStatusColor(formData.estado),
-                borderColor: getCotizacionStatusColor(formData.estado),
-                backgroundColor: 'var(--surface-color)',
-                fontSize: '1.125rem'
-              }}
-              value={formData.estado} 
-              onChange={e => setFormData({...formData, estado: e.target.value})}
-            >
-              <option value="Borrador" style={{ color: 'var(--text-main)' }}>Borrador</option>
-              <option value="Pendiente" style={{ color: 'var(--text-main)' }}>Pendiente</option>
-              <option value="Enviada" style={{ color: 'var(--text-main)' }}>Enviada</option>
-              <option value="Aprobada" style={{ color: 'var(--text-main)' }}>Aprobada</option>
-            </select>
+            <label htmlFor="estado-cotizacion">Estado de la Cotización</label>
+            <div style={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
+              <div style={{ 
+                position: 'absolute', 
+                left: '1rem', 
+                width: '10px', 
+                height: '10px', 
+                borderRadius: '50%', 
+                backgroundColor: getCotizacionStatusColor(formData.estado),
+                zIndex: 10
+              }}></div>
+              <select 
+                id="estado-cotizacion"
+                className="input-control" 
+                style={{ 
+                  fontWeight: '700', 
+                  paddingLeft: '2.25rem',
+                  color: 'var(--text-main)',
+                  backgroundColor: '#0a0f1d',
+                  borderColor: 'var(--border-color)'
+                }}
+                value={formData.estado} 
+                onChange={e => setFormData({...formData, estado: e.target.value})}
+              >
+                <option value="Borrador">Borrador</option>
+                <option value="Pendiente">Pendiente</option>
+                <option value="Enviada">Enviada</option>
+                <option value="Aprobada">Aprobada</option>
+                <option value="Rechazada">Rechazada</option>
+              </select>
+            </div>
           </div>
           <div className="flex-row-between" style={{ gap: '1rem' }}>
             <div className="input-group" style={{ flex: 1 }}>
@@ -341,15 +454,7 @@ export default function CotizacionForm({ initialData, onCancel, onSave, onDelete
               <input type="number" className="input-control" value={formData.fechaValidez} onChange={e => setFormData({...formData, fechaValidez: e.target.value})} />
             </div>
           </div>
-          <div className="input-group">
-            <label>Fecha Estimada de Entrega</label>
-            <input 
-              type="date" 
-              className="input-control" 
-              value={formData.fechaEntrega || ''} 
-              disabled
-            />
-          </div>
+
           <div className="input-group">
             <label>Cliente / Empresa</label>
             <div style={{ display: 'flex', gap: '0.5rem' }}>
@@ -387,17 +492,26 @@ export default function CotizacionForm({ initialData, onCancel, onSave, onDelete
       )}
 
       {activeTab === 'detalles' && (
-        <div>
+        <div style={{ marginTop: '0px' }}>
           {formData.items.map((item, index) => (
-            <div key={item.id} className="card" style={{ position: 'relative', borderLeft: '4px solid var(--primary-color)' }}>
+            <div 
+              key={item.id} 
+              className="card" 
+              style={{ 
+                position: 'relative', 
+                borderLeft: '4px solid var(--primary-color)',
+                ...(index === 0 ? { borderTopLeftRadius: '0px', borderTopRightRadius: '0px', marginTop: '0px' } : {})
+              }}
+            >
               <button 
                 onClick={() => removeItem(item.id)}
                 style={{ position: 'absolute', top: '1rem', right: '1rem', background: 'transparent', border: 'none', color: 'var(--error-color)', cursor: 'pointer' }}
               >
-                <Trash2 size={20} />
+                <Trash2 size={24} />
               </button>
               
-              <h3 style={{ marginBottom: '1rem', fontSize: '1.125rem' }}>Ítem {index + 1}</h3>
+              <h3 style={{ marginBottom: '1rem', fontSize: '1.125rem' }}>Línea {index + 1}</h3>
+              <hr style={{ border: 'none', borderTop: '1px solid #4b5563', marginBottom: '1.25rem' }} />
               
               <div className="input-group">
                 <label>Línea de Negocio</label>
@@ -438,14 +552,20 @@ export default function CotizacionForm({ initialData, onCancel, onSave, onDelete
             </div>
           ))}
 
-          <button className="btn btn-secondary" onClick={addItem} style={{ borderStyle: 'dashed', borderWidth: '2px', borderColor: 'var(--border-color)', background: 'transparent' }}>
+          {formData.items.length === 0 && (
+            <div className="card" style={{ borderTopLeftRadius: '0px', borderTopRightRadius: '0px', marginTop: '0px', textAlign: 'center', padding: '2rem', color: 'var(--text-muted)' }}>
+              No hay ítems agregados en esta cotización.
+            </div>
+          )}
+
+          <button className="btn btn-secondary" onClick={addItem} style={{ borderStyle: 'dashed', borderWidth: '2px', borderColor: 'var(--border-color)', background: 'transparent', marginTop: '0.5rem' }}>
             <Plus size={20} /> Añadir Ítem
           </button>
         </div>
       )}
 
       {activeTab === 'totales' && (
-        <div className="card">
+        <div className="card" style={{ borderTopLeftRadius: '0px', borderTopRightRadius: '0px', marginTop: '0px' }}>
           <div className="flex-row-between" style={{ marginBottom: '1rem', paddingBottom: '1rem', borderBottom: '1px solid var(--border-color)' }}>
             <span style={{ color: 'var(--text-muted)' }}>Subtotal</span>
             <strong style={{ fontSize: '1.125rem' }}>${formData.subtotal.toFixed(2)}</strong>
@@ -479,6 +599,29 @@ export default function CotizacionForm({ initialData, onCancel, onSave, onDelete
               <option value="Crédito 30 días">Crédito 30 días</option>
             </select>
           </div>
+
+          <button 
+            type="button" 
+            className="btn" 
+            style={{ 
+              background: '#25D366', 
+              color: '#ffffff', 
+              marginTop: '1.5rem',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              gap: '0.5rem',
+              padding: '0.75rem',
+              fontWeight: '700',
+              border: 'none',
+              borderRadius: 'var(--radius-md)',
+              width: '100%'
+            }}
+            onClick={handleWhatsAppSend}
+          >
+            <WhatsAppIcon size={20} />
+            Compartir por WhatsApp
+          </button>
 
         </div>
       )}
