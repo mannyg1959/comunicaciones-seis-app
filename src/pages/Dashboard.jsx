@@ -77,21 +77,15 @@ export default function Dashboard({ user, onLogout }) {
 
   return (
     <div className="page-content">
-      <div className="app-header" style={{ padding: '0 0 1.5rem 0', border: 'none', display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-        <div>
-          <p style={{ margin: 0, fontSize: '0.875rem' }}>Bienvenido de nuevo</p>
-          <h1 style={{ margin: 0, display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-            <LayoutDashboard size={28} color="var(--primary-color)" /> Panel de Control
-          </h1>
-        </div>
-        <div className="logo-container" onClick={() => window.location.reload()} title="Recargar Panel">
-          <img src="/logo.png" alt="Logo" />
+      <h1 style={{ margin: '0 0 0.25rem 0', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+        <LayoutDashboard size={28} color="var(--primary-color)" /> Panel de Control
+      </h1>
+
+      <div style={{ display: 'flex', justifyContent: 'flex-start', marginBottom: '1rem' }}>
+        <div className="logo-container" onClick={() => window.location.reload()} title="Recargar Panel" style={{ padding: 0 }}>
+          <img src="/logo-flowlog.png" alt="Logo" style={{ height: '58px', mixBlendMode: 'normal', display: 'block' }} />
         </div>
       </div>
-
-      <p style={{ margin: '0 0 1.5rem 0', fontSize: '1.125rem', color: 'var(--text-main)', lineHeight: '1.5', fontWeight: 'bold', textAlign: 'center' }}>
-        Sistema Centralizado de Trazabilidad y Gestión de Pedidos
-      </p>
 
       <div className="card glass-panel" style={{ display: 'flex', alignItems: 'center', gap: '1rem', padding: '1rem', marginBottom: '1.5rem', background: 'var(--surface-hover)' }}>
         <div style={{ background: 'var(--primary-light)', color: 'var(--primary-color)', padding: '0.75rem', borderRadius: '50%' }}>

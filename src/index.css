@@ -348,7 +348,7 @@ p { color: var(--text-muted); }
 }
 
 .logo-container img {
-  height: 64px;
+  height: 83px;
   width: auto;
   object-fit: contain;
   transition: transform var(--transition-fast);

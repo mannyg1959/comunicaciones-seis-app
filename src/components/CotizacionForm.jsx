@@ -772,7 +772,7 @@ export default function CotizacionForm({ initialData, onCancel, onSave, onDelete
               type="button" 
               className="btn" 
               style={{ 
-                background: '#e02424', 
+                background: 'var(--primary-color)', 
                 color: '#ffffff', 
                 flex: 1,
                 display: 'flex',
