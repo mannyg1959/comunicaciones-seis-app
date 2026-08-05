@@ -43,7 +43,7 @@ export default function Dashboard({ user, onLogout }) {
   ];
 
   const orderStatusCounts = {
-    'Pendiente': 0,
+    'Programación': 0,
     'Producción': 0,
     'Revisión': 0,
     'Finalizado': 0,
@@ -57,7 +57,7 @@ export default function Dashboard({ user, onLogout }) {
   });
 
   const ordenesList = [
-    { name: 'Pendiente', count: orderStatusCounts['Pendiente'], color: 'var(--status-pendiente)' },
+    { name: 'Programación', count: orderStatusCounts['Programación'], color: 'var(--status-pendiente)' },
     { name: 'Producción', count: orderStatusCounts['Producción'], color: 'var(--status-produccion)' },
     { name: 'Revisión', count: orderStatusCounts['Revisión'], color: 'var(--status-revision)' },
     { name: 'Finalizado', count: orderStatusCounts['Finalizado'], color: 'var(--status-finalizado)' },
@@ -65,7 +65,7 @@ export default function Dashboard({ user, onLogout }) {
   ];
 
   const dynamicOrderStatusData = [
-    { name: 'Pendiente', cantidad: orderStatusCounts['Pendiente'] },
+    { name: 'Programación', cantidad: orderStatusCounts['Programación'] },
     { name: 'Producción', cantidad: orderStatusCounts['Producción'] },
     { name: 'Revisión', cantidad: orderStatusCounts['Revisión'] },
     { name: 'Finalizado', cantidad: orderStatusCounts['Finalizado'] },

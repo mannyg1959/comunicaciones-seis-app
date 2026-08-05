@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { ArrowLeft, Save, Plus, Trash2, FileEdit, FilePlus, User, Package, FileDown } from 'lucide-react';
+import { ArrowLeft, Save, Plus, Trash2, FileEdit, FilePlus, User, Package, FileDown, Expand, X } from 'lucide-react';
 import { mockCotizaciones, mockOrdenesTrabajo, mockOrderStatusData } from '../data/mockData';
 
 const loadHtml2Pdf = () => {
@@ -45,10 +45,12 @@ export default function CotizacionForm({ initialData, onCancel, onSave, onDelete
     fechaEntrega: new Date(Date.now() + 5 * 24 * 60 * 60 * 1000).toISOString().split('T')[0]
   });
 
+  const [expandedItem, setExpandedItem] = useState(null);
   const [activeTab, setActiveTab] = useState('cabecera');
   const [customClients, setCustomClients] = useState([]);
   const [showNewClientModal, setShowNewClientModal] = useState(false);
   const [showConfirmModal, setShowConfirmModal] = useState(false);
+  const [validationModal, setValidationModal] = useState({ show: false, message: '' });
   const [showAlertModal, setShowAlertModal] = useState({ show: false, message: '' });
   const [newClientData, setNewClientData] = useState({
     empresa: '',
@@ -69,16 +71,24 @@ export default function CotizacionForm({ initialData, onCancel, onSave, onDelete
       cotizacionId: formData.id,
       cliente: formData.cliente || 'Sin Cliente',
       tipo: formData.items.length > 0 ? formData.items[0].lineaNegocio : 'Varios',
-      estado: 'Pendiente',
+      estado: 'Programación',
       progreso: 0,
       fechaEntrega: new Date(Date.now() + 5 * 24 * 60 * 60 * 1000).toISOString().split('T')[0]
     };
     mockOrdenesTrabajo.unshift(nuevaOT);
     
-    const pendingStatus = mockOrderStatusData.find(s => s.name === 'Pendiente');
+    const pendingStatus = mockOrderStatusData.find(s => s.name === 'Programación');
     if (pendingStatus) pendingStatus.cantidad += 1;
 
     setShowAlertModal({ show: true, message: `La cotización ha sido convertida exitosamente a la Orden de Trabajo ${newOtId}.` });
+  };
+
+  const handleSaveClick = () => {
+    if (formData.total === 0) {
+      setValidationModal({ show: true, message: "El total a pagar no puede ser 0 para guardar la cotización." });
+      return;
+    }
+    onSave(formData);
   };
 
   const handleConvertirOTClick = () => {
@@ -90,6 +100,10 @@ export default function CotizacionForm({ initialData, onCancel, onSave, onDelete
   };
 
   const handleWhatsAppSend = () => {
+    if (formData.total === 0) {
+      setValidationModal({ show: true, message: "El total a pagar no puede ser 0 para compartir por WhatsApp." });
+      return;
+    }
     const quoteIdStr = initialData ? `Cotización #${initialData.id}` : 'Nueva Cotización';
     const itemsText = formData.items.map((item, idx) => {
       return `- *Línea ${idx + 1}*: ${item.cantidad}x ${item.lineaNegocio.split('/')[0]} ($${(item.cantidad * item.costoUnitario).toFixed(2)})`;
@@ -110,6 +124,10 @@ export default function CotizacionForm({ initialData, onCancel, onSave, onDelete
   };
 
   const handleGeneratePDF = async () => {
+    if (formData.total === 0) {
+      setValidationModal({ show: true, message: "El total a pagar no puede ser 0 para generar el PDF." });
+      return;
+    }
     try {
       const response = await fetch('/PlantillaCotizacion.html');
       if (!response.ok) {
@@ -175,38 +193,13 @@ export default function CotizacionForm({ initialData, onCancel, onSave, onDelete
 
         formData.items.forEach((item, index) => {
           let details = item.descripcion || '';
-          const specs = [];
-          if (item.lineaNegocio === 'Litografía/Digital') {
-            if (item.formato) specs.push(`Formato: ${item.formato}`);
-            if (item.sustrato) specs.push(`Sustrato: ${item.sustrato}`);
-            if (item.tintas) specs.push(`Tintas: ${item.tintas}`);
-            if (item.acabados) specs.push(`Acabados: ${item.acabados}`);
-          } else if (item.lineaNegocio === 'Lona/Vinil') {
-            if (item.dimensiones) specs.push(`Dimensiones: ${item.dimensiones}`);
-            if (item.tipoMaterial) specs.push(`Material: ${item.tipoMaterial}`);
-            if (item.resolucion) specs.push(`Resolución: ${item.resolucion}`);
-            if (item.terminaciones) specs.push(`Terminaciones: ${item.terminaciones}`);
-          } else if (item.lineaNegocio === 'Publicidad Estructural') {
-            if (item.dimensiones3D) specs.push(`Dim 3D: ${item.dimensiones3D}`);
-            if (item.materialesEstructurales) specs.push(`Estructura: ${item.materialesEstructurales}`);
-            if (item.iluminacion) specs.push(`Iluminación: ${item.iluminacion}`);
-          } else if (item.lineaNegocio === 'Corte y Troquelado') {
-            if (item.materialCorte) specs.push(`Material: ${item.materialCorte}`);
-            if (item.grosor) specs.push(`Grosor: ${item.grosor}mm`);
-            if (item.tipoCorte) specs.push(`Corte: ${item.tipoCorte}`);
-            if (item.metraje) specs.push(`Metraje: ${item.metraje}`);
-          }
-
-          if (specs.length > 0) {
-            details += ` (${specs.join(', ')})`;
-          }
 
           const price = (parseFloat(item.costoUnitario) || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
           tableHTML += `
             <tr class="c8">
               <td class="c1" colspan="1" rowspan="1" style="border: 1px solid #cccccc;"><p class="c14" style="margin: 0; text-align: center;"><span class="c20">${index + 1}</span></p></td>
-              <td class="c3" colspan="1" rowspan="1" style="border: 1px solid #cccccc;"><p class="c7" style="margin: 0;"><span class="c12">${details}</span></p></td>
+              <td class="c3" colspan="1" rowspan="1" style="border: 1px solid #cccccc; white-space: pre-wrap;"><p class="c7" style="margin: 0; white-space: pre-wrap;"><span class="c12" style="white-space: pre-wrap;">${details}</span></p></td>
               <td class="c2" colspan="1" rowspan="1" style="border: 1px solid #cccccc;"><p class="c14" style="margin: 0; text-align: center;"><span class="c12">${item.cantidad}</span></p></td>
               <td class="c36" colspan="1" rowspan="1" style="border: 1px solid #cccccc;"><p class="c15" style="margin: 0; text-align: right;"><span class="c12">$${price}</span></p></td>
             </tr>
@@ -269,7 +262,7 @@ export default function CotizacionForm({ initialData, onCancel, onSave, onDelete
         ...formData.items, 
         { 
           id: Date.now(), 
-          lineaNegocio: 'Litografía/Digital', 
+          lineaNegocio: 'Impresión', 
           descripcion: '', 
           cantidad: 1, 
           costoUnitario: 0, 
@@ -278,7 +271,9 @@ export default function CotizacionForm({ initialData, onCancel, onSave, onDelete
           formato: '', sustrato: '', tintas: '', acabados: '',
           dimensiones: '', tipoMaterial: '', resolucion: '', terminaciones: '',
           dimensiones3D: '', materialesEstructurales: '', iluminacion: '', instalacion: 'No',
-          materialCorte: '', grosor: '', tipoCorte: '', metraje: ''
+          materialCorte: '', grosor: '', tipoCorte: '', metraje: '',
+          tipoDiseño: '', formatoEntrega: '', complejidad: '',
+          tipoInstalacion: '', ubicacion: '', requiereAndamios: 'No', tiempoMontaje: ''
         }
       ]
     });
@@ -301,117 +296,7 @@ export default function CotizacionForm({ initialData, onCancel, onSave, onDelete
     setFormData({ ...formData, items: newItems });
   };
 
-  const renderDynamicFields = (item) => {
-    switch(item.lineaNegocio) {
-      case 'Litografía/Digital':
-        return (
-          <>
-            <div className="input-group">
-              <label>Formato / Tamaño</label>
-              <input type="text" className="input-control" value={item.formato} onChange={e => updateItem(item.id, 'formato', e.target.value)} placeholder="Ej. Carta, Tabloide" />
-            </div>
-            <div className="input-group">
-              <label>Sustrato</label>
-              <input type="text" className="input-control" value={item.sustrato} onChange={e => updateItem(item.id, 'sustrato', e.target.value)} placeholder="Ej. Glasé 300g" />
-            </div>
-            <div className="input-group">
-              <label>Tintas (Tiro/Retiro)</label>
-              <input type="text" className="input-control" value={item.tintas} onChange={e => updateItem(item.id, 'tintas', e.target.value)} placeholder="Ej. 4x4, 4x0" />
-            </div>
-            <div className="input-group">
-              <label>Acabados Especiales</label>
-              <input type="text" className="input-control" value={item.acabados} onChange={e => updateItem(item.id, 'acabados', e.target.value)} placeholder="Ej. Plastificado mate" />
-            </div>
-          </>
-        );
-      case 'Lona/Vinil':
-        return (
-          <>
-            <div className="input-group">
-              <label>Dimensiones (Ancho x Alto)</label>
-              <input type="text" className="input-control" value={item.dimensiones} onChange={e => updateItem(item.id, 'dimensiones', e.target.value)} placeholder="Ej. 200x150 cm" />
-            </div>
-            <div className="input-group">
-              <label>Tipo de Material</label>
-              <select className="input-control" value={item.tipoMaterial} onChange={e => updateItem(item.id, 'tipoMaterial', e.target.value)}>
-                <option value="">Seleccione...</option>
-                <option value="Banner 13oz">Banner 13oz</option>
-                <option value="Vinil Adhesivo">Vinil Adhesivo</option>
-                <option value="Microperforado">Microperforado</option>
-                <option value="Clear">Clear</option>
-              </select>
-            </div>
-            <div className="input-group">
-              <label>Resolución de Impresión</label>
-              <select className="input-control" value={item.resolucion} onChange={e => updateItem(item.id, 'resolucion', e.target.value)}>
-                <option value="Estándar">Estándar</option>
-                <option value="Alta resolución">Alta resolución (fotográfica)</option>
-              </select>
-            </div>
-            <div className="input-group">
-              <label>Terminaciones</label>
-              <input type="text" className="input-control" value={item.terminaciones} onChange={e => updateItem(item.id, 'terminaciones', e.target.value)} placeholder="Ej. Ojetes, Bolsillos" />
-            </div>
-          </>
-        );
-      case 'Publicidad Estructural':
-        return (
-          <>
-            <div className="input-group">
-              <label>Dimensiones 3D (AlxAnxProf)</label>
-              <input type="text" className="input-control" value={item.dimensiones3D} onChange={e => updateItem(item.id, 'dimensiones3D', e.target.value)} placeholder="Ej. 100x200x20 cm" />
-            </div>
-            <div className="input-group">
-              <label>Materiales Estructurales</label>
-              <input type="text" className="input-control" value={item.materialesEstructurales} onChange={e => updateItem(item.id, 'materialesEstructurales', e.target.value)} placeholder="Ej. Hierro, Acrílico" />
-            </div>
-            <div className="input-group">
-              <label>Tipo de Iluminación</label>
-              <select className="input-control" value={item.iluminacion} onChange={e => updateItem(item.id, 'iluminacion', e.target.value)}>
-                <option value="Ninguna">Ninguna</option>
-                <option value="Módulos LED">Módulos LED</option>
-                <option value="Tubos">Tubos</option>
-                <option value="Retroiluminado">Retroiluminado</option>
-              </select>
-            </div>
-            <div className="input-group">
-              <label>Servicio de Instalación</label>
-              <select className="input-control" value={item.instalacion} onChange={e => updateItem(item.id, 'instalacion', e.target.value)}>
-                <option value="No">No</option>
-                <option value="Sí">Sí</option>
-              </select>
-            </div>
-          </>
-        );
-      case 'Corte y Troquelado':
-        return (
-          <>
-            <div className="input-group">
-              <label>Material a Procesar</label>
-              <input type="text" className="input-control" value={item.materialCorte} onChange={e => updateItem(item.id, 'materialCorte', e.target.value)} placeholder="Ej. Acrílico, Cartón" />
-            </div>
-            <div className="input-group">
-              <label>Grosor del Material (mm)</label>
-              <input type="number" className="input-control" value={item.grosor} onChange={e => updateItem(item.id, 'grosor', e.target.value)} placeholder="Ej. 3" />
-            </div>
-            <div className="input-group">
-              <label>Tipo de Corte</label>
-              <select className="input-control" value={item.tipoCorte} onChange={e => updateItem(item.id, 'tipoCorte', e.target.value)}>
-                <option value="">Seleccione...</option>
-                <option value="Láser">Láser</option>
-                <option value="Router CNC">Router CNC</option>
-                <option value="Troquel tradicional">Troquel tradicional</option>
-              </select>
-            </div>
-            <div className="input-group">
-              <label>Metraje Lineal / Tiempo Estimado</label>
-              <input type="text" className="input-control" value={item.metraje} onChange={e => updateItem(item.id, 'metraje', e.target.value)} placeholder="Ej. 50 metros" />
-            </div>
-          </>
-        );
-      default: return null;
-    }
-  };
+
 
   useEffect(() => {
     const subtotal = formData.items.reduce((acc, item) => {
@@ -525,7 +410,7 @@ export default function CotizacionForm({ initialData, onCancel, onSave, onDelete
               fontWeight: '700',
               minWidth: '110px'
             }} 
-            onClick={() => onSave(formData)}
+            onClick={handleSaveClick}
           >
             <Save size={18} />
             <span>Guardar</span>
@@ -534,6 +419,115 @@ export default function CotizacionForm({ initialData, onCancel, onSave, onDelete
       </div>
 
 
+
+      {/* Timeline Stepper */}
+      <div style={{
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        padding: '1.25rem 1.5rem',
+        backgroundColor: 'var(--surface-color)',
+        borderRadius: 'var(--radius-lg)',
+        border: '1px solid var(--border-color)',
+        marginBottom: '1.5rem',
+        position: 'relative',
+        boxShadow: 'var(--shadow-sm)'
+      }}>
+        {/* Background Connector Line */}
+        <div style={{
+          position: 'absolute',
+          top: '38px',
+          left: '12%',
+          right: '12%',
+          height: '2px',
+          backgroundColor: '#334155',
+          zIndex: 1
+        }} />
+        
+        {/* Active Connector Line Progress */}
+        <div style={{
+          position: 'absolute',
+          top: '38px',
+          left: '12%',
+          width: `${(activeTab === 'cabecera' ? 0 : activeTab === 'detalles' ? 0.5 : 1) * 76}%`,
+          height: '2px',
+          backgroundColor: 'var(--primary-color)',
+          transition: 'width 0.3s ease',
+          zIndex: 2
+        }} />
+
+        {[
+          { key: 'cabecera', label: 'Cabecera', desc: 'Datos Generales' },
+          { key: 'detalles', label: 'Detalles', desc: 'Especificaciones' },
+          { key: 'totales', label: 'Totales', desc: 'Resumen y Envío' }
+        ].map((step, idx, arr) => {
+          const currentIdx = activeTab === 'cabecera' ? 0 : activeTab === 'detalles' ? 1 : 2;
+          const isCompleted = idx < currentIdx;
+          const isActive = idx === currentIdx;
+          
+          return (
+            <button
+              key={step.key}
+              type="button"
+              onClick={() => setActiveTab(step.key)}
+              style={{
+                background: 'transparent',
+                border: 'none',
+                cursor: 'pointer',
+                display: 'flex',
+                flexDirection: 'column',
+                alignItems: 'center',
+                width: '30%',
+                zIndex: 3,
+                outline: 'none'
+              }}
+            >
+              {/* Step Node */}
+              <div style={{
+                width: '32px',
+                height: '32px',
+                borderRadius: 'var(--radius-full)',
+                backgroundColor: isCompleted 
+                  ? 'var(--success-color)' 
+                  : (isActive ? 'var(--primary-color)' : 'var(--bg-color)'),
+                border: `2px solid ${isActive ? '#ffffff' : (isCompleted ? 'var(--success-color)' : 'var(--border-color)')}`,
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                color: '#ffffff',
+                fontWeight: 'bold',
+                fontSize: '0.85rem',
+                transition: 'all 0.3s ease',
+                boxShadow: isActive ? '0 0 12px var(--primary-color)' : 'none'
+              }}>
+                {isCompleted ? '✓' : idx + 1}
+              </div>
+              
+              {/* Step Labels */}
+              <div style={{ marginTop: '0.5rem', textAlign: 'center' }}>
+                <span style={{
+                  display: 'block',
+                  fontSize: '0.8rem',
+                  fontWeight: isActive ? '700' : '500',
+                  color: isActive ? 'var(--text-main)' : 'var(--text-muted)',
+                  transition: 'color 0.3s ease'
+                }}>
+                  {step.label}
+                </span>
+                <span style={{
+                  display: 'block',
+                  fontSize: '0.68rem',
+                  color: isActive ? 'var(--primary-color)' : 'var(--text-muted)',
+                  opacity: 0.8,
+                  marginTop: '0.05rem'
+                }}>
+                  {step.desc}
+                </span>
+              </div>
+            </button>
+          );
+        })}
+      </div>
 
       <div style={{ 
         display: 'flex', 
@@ -595,9 +589,10 @@ export default function CotizacionForm({ initialData, onCancel, onSave, onDelete
                 className="input-control" 
                 style={{ 
                   fontWeight: '700', 
+                  fontSize: '1.05rem',
                   paddingLeft: '2.25rem',
                   color: 'var(--text-main)',
-                  backgroundColor: '#0a0f1d',
+                  backgroundColor: 'var(--surface-hover)',
                   borderColor: 'var(--border-color)'
                 }}
                 value={formData.estado} 
@@ -683,15 +678,39 @@ export default function CotizacionForm({ initialData, onCancel, onSave, onDelete
               <div className="input-group">
                 <label>Línea de Negocio</label>
                 <select className="input-control" value={item.lineaNegocio} onChange={e => updateItem(item.id, 'lineaNegocio', e.target.value)}>
-                  <option value="Litografía/Digital">Litografía / Impresión Digital</option>
-                  <option value="Lona/Vinil">Lona / Vinil (Gran Formato)</option>
-                  <option value="Publicidad Estructural">Publicidad Estructural</option>
-                  <option value="Corte y Troquelado">Corte y Troquelado</option>
+                  <option value="Corte">Corte</option>
+                  <option value="Impresión">Impresión</option>
+                  <option value="Diseño">Diseño</option>
+                  <option value="Instalación">Instalación</option>
                 </select>
               </div>
 
-              <div className="input-group">
-                <label>Descripción del Trabajo</label>
+               <div className="input-group">
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.5rem' }}>
+                  <label style={{ margin: 0 }}>Descripción del Trabajo</label>
+                  <button 
+                    type="button" 
+                    onClick={() => setExpandedItem({ id: item.id, index })}
+                    style={{ 
+                      background: 'var(--primary-color)', 
+                      border: 'none', 
+                      color: '#ffffff', 
+                      borderRadius: 'var(--radius-md)',
+                      cursor: 'pointer', 
+                      padding: '0.35rem 0.75rem', 
+                      display: 'flex', 
+                      alignItems: 'center',
+                      gap: '0.4rem',
+                      fontSize: '0.825rem',
+                      fontWeight: '600',
+                      transition: 'background 0.2s, transform 0.1s',
+                      boxShadow: 'var(--shadow-sm)'
+                    }}
+                    title="Ampliar descripción"
+                  >
+                    <Expand size={14} /> Ampliar
+                  </button>
+                </div>
                 <textarea className="input-control" rows="3" value={item.descripcion} onChange={e => updateItem(item.id, 'descripcion', e.target.value)} placeholder="Ej. Aviso luminoso para fachada..." />
               </div>
 
@@ -711,10 +730,7 @@ export default function CotizacionForm({ initialData, onCancel, onSave, onDelete
                 <input type="text" className="input-control" value={item.adjuntos} onChange={e => updateItem(item.id, 'adjuntos', e.target.value)} placeholder="Enlaces a Drive, Dropbox..." />
               </div>
 
-              <hr style={{ border: 'none', borderTop: '1px solid var(--border-color)', margin: '1.5rem 0' }} />
-              <h4 style={{ marginBottom: '1rem', color: 'var(--primary-color)' }}>Especificaciones de {item.lineaNegocio.split('/')[0]}</h4>
-              
-              {renderDynamicFields(item)}
+
               
             </div>
           ))}
@@ -764,6 +780,7 @@ export default function CotizacionForm({ initialData, onCancel, onSave, onDelete
               <option value="100% anticipo">100% anticipo</option>
               <option value="Crédito 15 días">Crédito 15 días</option>
               <option value="Crédito 30 días">Crédito 30 días</option>
+              <option value="A convenir con el Cliente">A convenir con el Cliente</option>
             </select>
           </div>
 
@@ -881,6 +898,93 @@ export default function CotizacionForm({ initialData, onCancel, onSave, onDelete
               setShowAlertModal({ show: false, message: '' });
               onSave({...formData, estado: 'Aprobada', convertidaAOT: true});
             }}>Entendido</button>
+          </div>
+        </div>
+      )}
+
+      {expandedItem !== null && (
+        <div style={{
+          position: 'fixed',
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          backgroundColor: 'rgba(0, 0, 0, 0.75)',
+          backdropFilter: 'blur(4px)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          zIndex: 9999,
+          padding: '1.5rem'
+        }}>
+          <div className="card glass-panel" style={{
+            width: '100%',
+            maxWidth: '700px',
+            margin: 0,
+            padding: '1.5rem',
+            display: 'flex',
+            flexDirection: 'column',
+            gap: '1rem',
+            boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.3), 0 10px 10px -5px rgba(0, 0, 0, 0.3)'
+          }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <h3 style={{ margin: 0, fontSize: '1.25rem', color: 'var(--primary-color)' }}>
+                Descripción del Trabajo (Línea {expandedItem.index + 1})
+              </h3>
+              <button 
+                type="button" 
+                onClick={() => setExpandedItem(null)}
+                style={{
+                  background: 'transparent',
+                  border: 'none',
+                  color: 'var(--text-muted)',
+                  cursor: 'pointer',
+                  padding: '0.25rem',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center'
+                }}
+              >
+                <X size={20} />
+              </button>
+            </div>
+            <textarea
+              className="input-control"
+              style={{
+                width: '100%',
+                height: '350px',
+                resize: 'vertical',
+                fontSize: '1rem',
+                lineHeight: '1.5',
+                padding: '1rem'
+              }}
+              value={formData.items.find(i => i.id === expandedItem.id)?.descripcion || ''}
+              onChange={e => updateItem(expandedItem.id, 'descripcion', e.target.value)}
+              placeholder="Escribe la descripción detallada aquí..."
+              autoFocus
+            />
+            <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
+              <button 
+                type="button" 
+                className="btn btn-primary" 
+                onClick={() => setExpandedItem(null)}
+                style={{ width: 'auto', padding: '0.5rem 2rem' }}
+              >
+                Cerrar
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {validationModal.show && (
+        <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(3px)', display: 'flex', justifyContent: 'center', alignItems: 'center', zIndex: 11000, padding: '1rem' }}>
+          <div className="card glass-panel" style={{ width: '100%', maxWidth: '400px', margin: 0, textAlign: 'center', border: '1px solid var(--border-color)' }}>
+            <h2 style={{ marginBottom: '1.25rem', color: 'var(--warning-color)', fontSize: '1.5rem', fontWeight: '700' }}>Atención</h2>
+            <p style={{ marginBottom: '1.75rem', color: 'var(--text-main)', fontSize: '0.95rem', lineHeight: '1.5' }}>{validationModal.message}</p>
+            <button className="btn btn-primary" style={{ width: '100%', padding: '0.75rem', fontWeight: '600' }} onClick={() => setValidationModal({ show: false, message: '' })}>
+              Entendido
+            </button>
           </div>
         </div>
       )}

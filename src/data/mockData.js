@@ -8,7 +8,7 @@ export const mockCotizaciones = [
   {
     id: 'C-1001',
     cliente: 'Coca Cola',
-    tipo: 'Litografía/Digital',
+    tipo: 'Impresión',
     monto: 1500.00,
     estado: 'Pendiente',
     fecha: '2026-07-25',
@@ -17,7 +17,7 @@ export const mockCotizaciones = [
   {
     id: 'C-1002',
     cliente: 'Pepsi',
-    tipo: 'Lona/Vinil',
+    tipo: 'Impresión',
     monto: 3200.50,
     estado: 'Aprobada',
     fecha: '2026-07-24',
@@ -26,7 +26,7 @@ export const mockCotizaciones = [
   {
     id: 'C-1003',
     cliente: 'Nescafé',
-    tipo: 'Publicidad Estructural',
+    tipo: 'Instalación',
     monto: 12500.00,
     estado: 'Pendiente',
     fecha: '2026-07-23',
@@ -39,7 +39,7 @@ export const mockOrdenesTrabajo = [
     id: 'OT-5001',
     cotizacionId: 'C-1002',
     cliente: 'Pepsi',
-    tipo: 'Lona/Vinil',
+    tipo: 'Impresión',
     estado: 'Producción',
     progreso: 45,
     fechaEntrega: '2026-08-01'
@@ -48,7 +48,7 @@ export const mockOrdenesTrabajo = [
     id: 'OT-5002',
     cotizacionId: 'C-0990',
     cliente: 'Bimbo',
-    tipo: 'Troquelado',
+    tipo: 'Corte',
     estado: 'Finalizado',
     progreso: 100,
     fechaEntrega: '2026-07-20'
@@ -57,8 +57,8 @@ export const mockOrdenesTrabajo = [
     id: 'OT-5003',
     cotizacionId: 'C-1005',
     cliente: 'Coca Cola',
-    tipo: 'Litografía/Digital',
-    estado: 'Pendiente',
+    tipo: 'Impresión',
+    estado: 'Programación',
     progreso: 0,
     fechaEntrega: '2026-08-10'
   },
@@ -66,7 +66,7 @@ export const mockOrdenesTrabajo = [
     id: 'OT-5004',
     cotizacionId: 'C-1001',
     cliente: 'Nescafé',
-    tipo: 'Publicidad Estructural',
+    tipo: 'Instalación',
     estado: 'Revisión',
     progreso: 90,
     fechaEntrega: '2026-07-28'
@@ -75,7 +75,7 @@ export const mockOrdenesTrabajo = [
     id: 'OT-5005',
     cotizacionId: 'C-0985',
     cliente: 'Bimbo',
-    tipo: 'Impresión Offset',
+    tipo: 'Impresión',
     estado: 'Entregado',
     progreso: 100,
     fechaEntrega: '2026-07-15'
@@ -99,7 +99,7 @@ export const mockChartData = [
 ];
 
 export const mockOrderStatusData = [
-  { name: 'Pendiente', cantidad: 12 },
+  { name: 'Programación', cantidad: 12 },
   { name: 'Producción', cantidad: 8 },
   { name: 'Revisión', cantidad: 4 },
   { name: 'Finalizado', cantidad: 15 },
@@ -149,7 +149,8 @@ export const mockProductionCycleTimeData = [
 ];
 
 export const mockWorkloadByTypeData = [
-  { name: 'Litografía', value: 45, color: 'var(--primary-color)' },
-  { name: 'Lona/Vinil', value: 35, color: 'var(--secondary-color)' },
-  { name: 'Estructural', value: 20, color: 'var(--warning-color)' }
+  { name: 'Corte', value: 20, color: 'var(--warning-color)' },
+  { name: 'Impresión', value: 45, color: 'var(--primary-color)' },
+  { name: 'Diseño', value: 15, color: 'var(--secondary-color)' },
+  { name: 'Instalación', value: 20, color: 'var(--success-color)' }
 ];

@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { mockOrdenesTrabajo } from '../data/mockData';
-import { Package, Search } from 'lucide-react';
+import { Package, Search, SlidersHorizontal, X } from 'lucide-react';
 import DatePicker from 'react-datepicker';
 import 'react-datepicker/dist/react-datepicker.css';
 
@@ -11,9 +11,12 @@ export default function OrdenesTrabajo() {
   const [filterFechaFin, setFilterFechaFin] = useState(null);
   const [filterEstadoSelect, setFilterEstadoSelect] = useState('');
 
-  const stages = ['Pendiente', 'Producción', 'Revisión', 'Finalizado', 'Entregado'];
+  const stages = ['Programación', 'Producción', 'Revisión', 'Finalizado', 'Entregado'];
   const [selectedOT, setSelectedOT] = useState(null);
   const [tempEstado, setTempEstado] = useState('');
+  const [isFilterDrawerOpen, setIsFilterDrawerOpen] = useState(false);
+
+  const isAnyFilterActive = filterCliente || filterFechaInicio || filterFechaFin || filterEstadoSelect;
 
   const calculateGap = (fechaEntrega) => {
     if (!fechaEntrega) return { text: 'Sin fecha', color: 'var(--text-muted)' };
@@ -33,7 +36,7 @@ export default function OrdenesTrabajo() {
 
   const getStatusColor = (estado) => {
     switch(estado) {
-      case 'Pendiente': return 'var(--status-pendiente)';
+      case 'Programación': return 'var(--status-pendiente)';
       case 'Producción': return 'var(--status-produccion)';
       case 'Revisión': return 'var(--status-revision)';
       case 'Finalizado': return 'var(--status-finalizado)';
@@ -69,7 +72,7 @@ export default function OrdenesTrabajo() {
     if (index !== -1) {
       let progreso = 0;
       switch(tempEstado) {
-        case 'Pendiente': progreso = 0; break;
+        case 'Programación': progreso = 0; break;
         case 'Producción': progreso = 30; break;
         case 'Revisión': progreso = 70; break;
         case 'Finalizado': progreso = 90; break;
@@ -136,76 +139,36 @@ export default function OrdenesTrabajo() {
   };
 
   return (
-    <div className="page-content">
+    <div className="page-content" style={{ paddingBottom: '90px' }}>
       <div className="flex-row-between" style={{ marginBottom: '1.5rem' }}>
         <h1 style={{ margin: 0, display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
           <Package size={28} color="var(--primary-color)" /> Órdenes de Trabajo
         </h1>
+        <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
+          <button 
+            className={`btn ${isAnyFilterActive ? 'btn-primary' : 'btn-secondary'}`} 
+            style={{ padding: '0.5rem 0.75rem', width: 'auto', display: 'flex', alignItems: 'center', gap: '0.35rem', fontSize: '0.85rem' }} 
+            onClick={() => setIsFilterDrawerOpen(true)}
+          >
+            <SlidersHorizontal size={16} />
+            Filtros {isAnyFilterActive ? '(Activo)' : ''}
+          </button>
+        </div>
       </div>
 
-      <div className="card" style={{ padding: '1rem', marginBottom: '1.5rem', background: '#94a3b8', position: 'relative', zIndex: 10 }}>
-          <div className="input-group" style={{ position: 'relative', marginBottom: '1rem' }}>
-            <Search size={18} style={{ position: 'absolute', left: '1rem', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)' }} />
-            <input 
-              type="text" 
-              className="input-control" 
-              placeholder="Buscar orden o cliente..." 
-              style={{ paddingLeft: '2.5rem' }}
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-            />
-          </div>
-
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
-            <select className="input-control" value={filterCliente} onChange={e => setFilterCliente(e.target.value)}>
-              <option value="">Todos los Clientes</option>
-              {[...new Set(mockOrdenesTrabajo.map(ot => ot.cliente))].map(cliente => (
-                <option key={cliente} value={cliente}>{cliente}</option>
-              ))}
-            </select>
-            
-            <div style={{ display: 'flex', gap: '0.5rem' }}>
-              <div style={{ flex: 1 }}>
-                <span style={{ fontSize: '0.75rem', color: '#000', fontWeight: 'bold', marginBottom: '0.25rem', display: 'block' }}>Desde (Entrega)</span>
-                <DatePicker
-                  selected={filterFechaInicio}
-                  onChange={(date) => setFilterFechaInicio(date)}
-                  selectsStart
-                  startDate={filterFechaInicio}
-                  endDate={filterFechaFin}
-                  className="input-control"
-                  placeholderText="dd/mm/aaaa"
-                  dateFormat="dd/MM/yyyy"
-                  isClearable
-                />
-              </div>
-              <div style={{ flex: 1 }}>
-                <span style={{ fontSize: '0.75rem', color: '#000', fontWeight: 'bold', marginBottom: '0.25rem', display: 'block' }}>Hasta (Entrega)</span>
-                <DatePicker
-                  selected={filterFechaFin}
-                  onChange={(date) => setFilterFechaFin(date)}
-                  selectsEnd
-                  startDate={filterFechaInicio}
-                  endDate={filterFechaFin}
-                  minDate={filterFechaInicio}
-                  className="input-control"
-                  placeholderText="dd/mm/aaaa"
-                  dateFormat="dd/MM/yyyy"
-                  isClearable
-                />
-              </div>
-            </div>
-            
-            <select className="input-control" value={filterEstadoSelect} onChange={e => setFilterEstadoSelect(e.target.value)}>
-              <option value="">Cualquier Estatus</option>
-              <option value="Pendiente">Pendiente</option>
-              <option value="Producción">Producción</option>
-              <option value="Revisión">Revisión</option>
-              <option value="Finalizado">Finalizado</option>
-              <option value="Entregado">Entregado</option>
-            </select>
-          </div>
+      <div style={{ marginBottom: '1.5rem', position: 'relative' }}>
+        <div className="input-group" style={{ position: 'relative', margin: 0 }}>
+          <Search size={18} style={{ position: 'absolute', left: '1rem', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)' }} />
+          <input 
+            type="text" 
+            className="input-control" 
+            placeholder="Buscar orden o cliente..." 
+            style={{ paddingLeft: '2.5rem' }}
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+          />
         </div>
+      </div>
 
       <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
         {filtered.map(ot => (
@@ -286,6 +249,99 @@ export default function OrdenesTrabajo() {
             <div style={{ display: 'flex', gap: '0.5rem', marginTop: '1.5rem' }}>
               <button className="btn btn-secondary" style={{ flex: 1, padding: '0.75rem' }} onClick={() => setSelectedOT(null)}>Cancelar</button>
               <button className="btn btn-solid" style={{ flex: 1, padding: '0.75rem' }} onClick={handleSaveEstado}>Guardar Cambios</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal de Filtros flotante y centrado */}
+      {isFilterDrawerOpen && (
+        <div className="modal-overlay" onClick={() => setIsFilterDrawerOpen(false)}>
+          <div className="modal-container" onClick={e => e.stopPropagation()}>
+            <div className="modal-header">
+              <h3 style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', margin: 0 }}>
+                <SlidersHorizontal size={20} color="var(--primary-color)" />
+                <span>Filtros de Órdenes de Trabajo</span>
+              </h3>
+              <button className="modal-close-btn" onClick={() => setIsFilterDrawerOpen(false)}>
+                <X size={20} />
+              </button>
+            </div>
+            <div className="modal-body">
+              <div className="input-group">
+                <label>Cliente</label>
+                <select className="input-control" value={filterCliente} onChange={e => setFilterCliente(e.target.value)}>
+                  <option value="">Todos los Clientes</option>
+                  {[...new Set(mockOrdenesTrabajo.map(ot => ot.cliente))].map(cliente => (
+                    <option key={cliente} value={cliente}>{cliente}</option>
+                  ))}
+                </select>
+              </div>
+              
+              <div className="input-group">
+                <label>Rango de Fechas (Entrega)</label>
+                <div style={{ display: 'flex', gap: '0.5rem' }}>
+                  <div style={{ flex: 1 }}>
+                    <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginBottom: '0.25rem', display: 'block' }}>Desde</span>
+                    <DatePicker
+                      selected={filterFechaInicio}
+                      onChange={(date) => setFilterFechaInicio(date)}
+                      selectsStart
+                      startDate={filterFechaInicio}
+                      endDate={filterFechaFin}
+                      className="input-control"
+                      placeholderText="dd/mm/aaaa"
+                      dateFormat="dd/MM/yyyy"
+                      isClearable
+                      withPortal
+                    />
+                  </div>
+                  <div style={{ flex: 1 }}>
+                    <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginBottom: '0.25rem', display: 'block' }}>Hasta</span>
+                    <DatePicker
+                      selected={filterFechaFin}
+                      onChange={(date) => setFilterFechaFin(date)}
+                      selectsEnd
+                      startDate={filterFechaInicio}
+                      endDate={filterFechaFin}
+                      minDate={filterFechaInicio}
+                      className="input-control"
+                      placeholderText="dd/mm/aaaa"
+                      dateFormat="dd/MM/yyyy"
+                      isClearable
+                      withPortal
+                    />
+                  </div>
+                </div>
+              </div>
+              
+              <div className="input-group">
+                <label>Estatus</label>
+                <select className="input-control" value={filterEstadoSelect} onChange={e => setFilterEstadoSelect(e.target.value)}>
+                  <option value="">Cualquier Estatus</option>
+                  <option value="Programación">Programación</option>
+                  <option value="Producción">Producción</option>
+                  <option value="Revisión">Revisión</option>
+                  <option value="Finalizado">Finalizado</option>
+                  <option value="Entregado">Entregado</option>
+                </select>
+              </div>
+            </div>
+            <div className="modal-footer">
+              <button 
+                className="btn btn-secondary" 
+                onClick={() => {
+                  setFilterCliente('');
+                  setFilterFechaInicio(null);
+                  setFilterFechaFin(null);
+                  setFilterEstadoSelect('');
+                }}
+              >
+                Limpiar
+              </button>
+              <button className="btn btn-primary" onClick={() => setIsFilterDrawerOpen(false)}>
+                Aplicar
+              </button>
             </div>
           </div>
         </div>

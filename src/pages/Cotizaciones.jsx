@@ -74,12 +74,13 @@ export default function Cotizaciones({ user }) {
       items: [
         {
           id: Date.now(),
-          lineaNegocio: cotizacion.tipo.split(' ')[0] || 'Litografía/Digital',
+          lineaNegocio: cotizacion.tipo.split(' ')[0] || 'Impresión',
           descripcion: 'Trabajo recuperado de resumen',
           cantidad: 1,
           costoUnitario: cotizacion.monto,
           adjuntos: '',
-          formato: '', sustrato: '', tintas: '', acabados: '', dimensiones: '', tipoMaterial: '', resolucion: '', terminaciones: '', dimensiones3D: '', materialesEstructurales: '', iluminacion: '', instalacion: 'No', materialCorte: '', grosor: '', tipoCorte: '', metraje: ''
+          formato: '', sustrato: '', tintas: '', acabados: '', dimensiones: '', tipoMaterial: '', resolucion: '', terminaciones: '', dimensiones3D: '', materialesEstructurales: '', iluminacion: '', instalacion: 'No', materialCorte: '', grosor: '', tipoCorte: '', metraje: '',
+          tipoDiseño: '', formatoEntrega: '', complejidad: '', tipoInstalacion: '', ubicacion: '', requiereAndamios: 'No', tiempoMontaje: ''
         }
       ],
       subtotal: cotizacion.monto,
