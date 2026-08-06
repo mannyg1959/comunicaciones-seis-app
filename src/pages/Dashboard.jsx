@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { 
   mockCotizaciones, 
   mockOrdenesTrabajo,
@@ -11,7 +11,7 @@ import {
   mockWorkloadByTypeData
 } from '../data/mockData';
 import { useNavigate } from 'react-router-dom';
-import { FileText, Clock, Package, User, LayoutDashboard, LogOut, TrendingUp, PieChart as PieChartIcon, BarChart2, Users, CheckCircle, Activity } from 'lucide-react';
+import { FileText, Clock, Package, User, LayoutDashboard, LogOut, TrendingUp, PieChart as PieChartIcon, BarChart2, Users, CheckCircle, Activity, Plus, ClipboardList, ArrowUp } from 'lucide-react';
 import { 
   BarChart, Bar, Cell, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, LabelList,
   PieChart, Pie, LineChart, Line, Legend
@@ -19,14 +19,45 @@ import {
 
 export default function Dashboard({ user, onLogout }) {
   const [activeKpiTab, setActiveKpiTab] = useState('cotizaciones');
+  const [showScrollTop, setShowScrollTop] = useState(false);
+  
   const navigate = useNavigate();
+  const containerRef = useRef(null);
+
+  useEffect(() => {
+    const container = containerRef.current;
+    if (!container) return;
+
+    const handleScroll = () => {
+      if (container.scrollTop > 300) {
+        setShowScrollTop(true);
+      } else {
+        setShowScrollTop(false);
+      }
+    };
+
+    container.addEventListener('scroll', handleScroll);
+    return () => {
+      container.removeEventListener('scroll', handleScroll);
+    };
+  }, []);
+
+  const scrollToTop = () => {
+    if (containerRef.current) {
+      containerRef.current.scrollTo({
+        top: 0,
+        behavior: 'smooth'
+      });
+    }
+  };
   const activeCotizaciones = mockCotizaciones.filter(c => !c.convertidaAOT);
   const cotizacionStatusCounts = {
     'Borrador': 0,
     'Pendiente': 0,
     'Enviada': 0,
     'Aprobada': 0,
-    'Rechazada': 0
+    'Rechazada': 0,
+    'Anulada': 0
   };
   activeCotizaciones.forEach(c => {
     if (cotizacionStatusCounts[c.estado] !== undefined) {
@@ -37,9 +68,10 @@ export default function Dashboard({ user, onLogout }) {
   const cotizacionesList = [
     { name: 'Borrador', count: cotizacionStatusCounts['Borrador'], color: 'var(--text-muted)' },
     { name: 'Pendiente', count: cotizacionStatusCounts['Pendiente'], color: 'var(--warning-color)' },
-    { name: 'Enviada', count: cotizacionStatusCounts['Enviada'], color: 'var(--secondary-color)' }, // safeguard
+    { name: 'Enviada', count: cotizacionStatusCounts['Enviada'], color: 'var(--secondary-color)' }, 
     { name: 'Aprobada', count: cotizacionStatusCounts['Aprobada'], color: 'var(--success-color)' },
-    { name: 'Rechazada', count: cotizacionStatusCounts['Rechazada'], color: 'var(--error-color)' }
+    { name: 'Rechazada', count: cotizacionStatusCounts['Rechazada'], color: 'var(--error-color)' },
+    { name: 'Anulada', count: cotizacionStatusCounts['Anulada'], color: 'var(--text-muted)' }
   ];
 
   const orderStatusCounts = {
@@ -76,14 +108,23 @@ export default function Dashboard({ user, onLogout }) {
   const totalOrders = filteredOrderStatusData.reduce((sum, item) => sum + item.cantidad, 0);
 
   return (
-    <div className="page-content">
-      <h1 style={{ margin: '0 0 0.25rem 0', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-        <LayoutDashboard size={28} color="var(--primary-color)" /> Panel de Control
-      </h1>
+    <div ref={containerRef} className="page-content">
+      <div style={{
+        position: 'sticky',
+        top: '-1.5rem',
+        zIndex: 100,
+        backgroundColor: 'var(--bg-color)',
+        margin: '-1.5rem -1.5rem 1rem -1.5rem',
+        padding: '1.5rem 1.5rem 0.25rem 1.5rem'
+      }}>
+        <h1 style={{ margin: '0 0 0.25rem 0', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+          <LayoutDashboard size={28} color="var(--primary-color)" /> Panel de Control
+        </h1>
 
-      <div style={{ display: 'flex', justifyContent: 'flex-start', marginBottom: '1rem' }}>
-        <div className="logo-container" onClick={() => window.location.reload()} title="Recargar Panel" style={{ padding: 0 }}>
-          <img src="/logo-flowlog.png" alt="Logo" style={{ height: '58px', mixBlendMode: 'normal', display: 'block' }} />
+        <div style={{ display: 'flex', justifyContent: 'flex-start', marginBottom: '0.5rem' }}>
+          <div className="logo-container" onClick={() => window.location.reload()} title="Recargar Panel" style={{ padding: 0 }}>
+            <img src="/logo-flowlog.png" alt="Logo" style={{ height: '58px', mixBlendMode: 'normal', display: 'block' }} />
+          </div>
         </div>
       </div>
 
@@ -104,8 +145,22 @@ export default function Dashboard({ user, onLogout }) {
 
       <h2 style={{ margin: '0 0 1rem 0', fontSize: '1.125rem' }}>Acciones Rápidas</h2>
       <div style={{ display: 'flex', gap: '1rem', marginBottom: '1.5rem' }}>
-        <button className="btn btn-solid" onClick={() => navigate('/cotizaciones')}>Nueva Cotización</button>
-        <button className="btn btn-secondary" onClick={() => navigate('/ordenes')}>Ver Órdenes</button>
+        <button 
+          className="btn btn-solid" 
+          onClick={() => navigate('/cotizaciones?new=true')}
+          style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem', flex: 1, padding: '0.75rem' }}
+        >
+          <Plus size={18} />
+          <span>Nueva Cotización</span>
+        </button>
+        <button 
+          className="btn btn-secondary" 
+          onClick={() => navigate('/ordenes')}
+          style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem', flex: 1, padding: '0.75rem' }}
+        >
+          <ClipboardList size={18} />
+          <span>Ver Órdenes</span>
+        </button>
       </div>
 
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem', marginBottom: '1.5rem' }}>
@@ -425,6 +480,34 @@ export default function Dashboard({ user, onLogout }) {
         </div>
       )}
 
+      {showScrollTop && (
+        <button 
+          type="button"
+          onClick={scrollToTop}
+          style={{
+            position: 'fixed',
+            bottom: '7.5rem',
+            right: '1.5rem',
+            backgroundColor: 'var(--primary-color)',
+            color: '#ffffff',
+            border: 'none',
+            borderRadius: '50%',
+            width: '46px',
+            height: '46px',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            boxShadow: 'var(--shadow-lg)',
+            cursor: 'pointer',
+            zIndex: 999,
+            transition: 'all 0.3s ease',
+            opacity: 0.9
+          }}
+          title="Regresar al inicio"
+        >
+          <ArrowUp size={20} />
+        </button>
+      )}
     </div>
   );
 }

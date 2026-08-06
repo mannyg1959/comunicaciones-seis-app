@@ -96,14 +96,14 @@ label, .badge, .nav-item {
 #root {
   display: flex;
   flex-direction: column;
-  min-height: 100vh;
+  height: 100vh;
   width: 100%;
   max-width: 600px;
   margin: 0 auto;
   position: relative;
   background-color: var(--bg-color);
   box-shadow: var(--shadow-lg);
-  overflow-x: hidden;
+  overflow: hidden;
 }
 
 /* Typography */
@@ -117,6 +117,7 @@ p { color: var(--text-muted); }
   display: flex;
   flex-direction: column;
   padding-bottom: 80px;
+  min-height: 0;
 }
 
 .page-content {
@@ -124,6 +125,7 @@ p { color: var(--text-muted); }
   padding: 1.5rem;
   overflow-y: auto;
   animation: fadeIn 0.4s ease-out;
+  min-height: 0;
 }
 
 /* Animations */
@@ -388,6 +390,11 @@ p { color: var(--text-muted); }
   color: #fff;
 }
 
+.badge-muted {
+  background-color: var(--text-muted);
+  color: #fff;
+}
+
 /* Flex Utilities */
 .flex-row-between {
   display: flex;
@@ -494,4 +501,46 @@ p { color: var(--text-muted); }
 @keyframes fadeIn {
   from { opacity: 0; }
   to { opacity: 1; }
+}
+
+/* Responsive Form Header and Actions */
+.form-header-actions {
+  display: flex;
+  gap: 0.5rem;
+  align-items: center;
+  margin-left: auto;
+  justify-content: flex-end;
+  flex-wrap: nowrap;
+}
+
+.form-header-btn {
+  height: 48px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  padding: 0.5rem 1.25rem;
+  font-size: 0.95rem;
+  font-weight: 600;
+  width: auto;
+  white-space: nowrap;
+}
+
+.form-header-btn-save {
+  padding: 0.5rem 1.5rem;
+}
+
+@media (max-width: 576px) {
+  .form-header-actions {
+    width: 100%;
+    margin-left: 0;
+    justify-content: flex-end;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+  }
+  
+  .form-header-btn {
+    flex: 1;
+    justify-content: center;
+  }
 }

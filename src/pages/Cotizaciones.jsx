@@ -15,7 +15,7 @@ export default function Cotizaciones({ user }) {
   const [filterFechaInicio, setFilterFechaInicio] = useState(null);
   const [filterFechaFin, setFilterFechaFin] = useState(null);
   const [filterEstadoSelect, setFilterEstadoSelect] = useState(filterEstadoUrl || '');
-  const [editingCotizacion, setEditingCotizacion] = useState(null);
+  const [editingCotizacion, setEditingCotizacion] = useState(searchParams.get('new') === 'true' ? { id: 'NEW' } : null);
   const [cotizaciones, setCotizaciones] = useState(mockCotizaciones);
   const [isFilterDrawerOpen, setIsFilterDrawerOpen] = useState(false);
 
@@ -40,6 +40,7 @@ export default function Cotizaciones({ user }) {
       case 'Aprobada': return 'badge badge-success';
       case 'Pendiente': return 'badge badge-pending';
       case 'Rechazada': return 'badge badge-danger';
+      case 'Anulada': return 'badge badge-muted';
       default: return 'badge badge-primary';
     }
   };
@@ -135,36 +136,51 @@ export default function Cotizaciones({ user }) {
 
   return (
     <div className="page-content" style={{ paddingBottom: '90px' }}>
-      <div className="flex-row-between" style={{ marginBottom: '1.5rem' }}>
-        <h1 style={{ margin: 0, display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-          <FileText size={28} color="var(--primary-color)" /> Cotizaciones
-        </h1>
-        <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
-          <button 
-            className={`btn ${isAnyFilterActive ? 'btn-primary' : 'btn-secondary'}`} 
-            style={{ padding: '0.5rem 0.75rem', width: 'auto', display: 'flex', alignItems: 'center', gap: '0.35rem', fontSize: '0.85rem' }} 
-            onClick={() => setIsFilterDrawerOpen(true)}
-          >
-            <SlidersHorizontal size={16} />
-            Filtros {isAnyFilterActive ? '(Activo)' : ''}
-          </button>
-          <button className="btn" style={{ padding: '0.5rem', width: 'auto', borderRadius: 'var(--radius-full)' }} onClick={() => setEditingCotizacion({id: 'NEW'})}>
-            <Plus size={20} />
-          </button>
+      <div style={{
+        position: 'sticky',
+        top: '-1.5rem',
+        zIndex: 100,
+        backgroundColor: 'var(--bg-color)',
+        margin: '-1.5rem -1.5rem 1.5rem -1.5rem',
+        padding: '1.5rem 1.5rem 0.5rem 1.5rem',
+        borderBottom: '1px solid var(--border-color)'
+      }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '1rem', flexWrap: 'wrap', marginBottom: '1rem' }}>
+          <h1 style={{ margin: 0, display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+            <FileText size={28} color="var(--primary-color)" /> Cotizaciones
+          </h1>
+          <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'center' }}>
+            <button 
+              className="btn btn-primary" 
+              style={{ padding: '0.65rem 1.25rem', width: 'auto', display: 'flex', alignItems: 'center', gap: '0.5rem', fontSize: '0.95rem' }} 
+              onClick={() => setEditingCotizacion({id: 'NEW'})}
+            >
+              <Plus size={18} />
+              <span>Nueva</span>
+            </button>
+            <button 
+              className={`btn ${isAnyFilterActive ? 'btn-primary' : 'btn-secondary'}`} 
+              style={{ padding: '0.65rem 1.25rem', width: 'auto', display: 'flex', alignItems: 'center', gap: '0.5rem', fontSize: '0.95rem' }} 
+              onClick={() => setIsFilterDrawerOpen(true)}
+            >
+              <SlidersHorizontal size={18} />
+              Filtros {isAnyFilterActive ? '(Activo)' : ''}
+            </button>
+          </div>
         </div>
-      </div>
 
-      <div style={{ marginBottom: '1.5rem', position: 'relative' }}>
-        <div className="input-group" style={{ position: 'relative', margin: 0 }}>
-          <Search size={18} style={{ position: 'absolute', left: '1rem', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)' }} />
-          <input 
-            type="text" 
-            className="input-control" 
-            placeholder="Buscar cotización..." 
-            style={{ paddingLeft: '2.5rem' }}
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-          />
+        <div style={{ position: 'relative' }}>
+          <div className="input-group" style={{ position: 'relative', margin: 0 }}>
+            <Search size={18} style={{ position: 'absolute', left: '1rem', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)' }} />
+            <input 
+              type="text" 
+              className="input-control" 
+              placeholder="Buscar cotización..." 
+              style={{ paddingLeft: '2.5rem' }}
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+            />
+          </div>
         </div>
       </div>
 
@@ -276,6 +292,7 @@ export default function Cotizaciones({ user }) {
                     <option value="Enviada">Enviada</option>
                     <option value="Aprobada">Aprobada</option>
                     <option value="Rechazada">Rechazada</option>
+                    <option value="Anulada">Anulada</option>
                   </select>
                 </div>
               </div>

@@ -1,5 +1,48 @@
-import { useState, useEffect } from 'react';
-import { ArrowLeft, Save, Plus, Trash2, FileEdit, FilePlus, User, Package, FileDown, Expand, X } from 'lucide-react';
+import { useState, useEffect, useRef } from 'react';
+import { ArrowLeft, Save, Plus, Trash2, FileEdit, FilePlus, User, Package, FileDown, Expand, X, AlertTriangle, ArrowUp, Building2, CreditCard, Phone, Mail, UserPlus, MapPin, Map, MessageSquare, Users, Layers, Search } from 'lucide-react';
+
+const defaultClientsData = [
+  {
+    empresa: 'Bimbo de Venezuela',
+    contacto: 'Carlos Mendoza',
+    rif: 'J-00012345-6',
+    telefono: '+58 212-9912345',
+    correo: 'carlos.mendoza@bimbo.com',
+    ciudad: 'Caracas',
+    estado: 'Miranda',
+    observaciones: 'Cliente corporativo regular. Requiere facturación rápida.'
+  },
+  {
+    empresa: 'HUBB Comunicaciones',
+    contacto: 'Patricia Silva',
+    rif: 'J-31415926-5',
+    telefono: '+58 414-2345678',
+    correo: 'psilva@hubb.com',
+    ciudad: 'Barcelona',
+    estado: 'Anzoátegui',
+    observaciones: 'Socio comercial para proyectos de gran formato.'
+  },
+  {
+    empresa: 'Empresas Polar',
+    contacto: 'Alejandro Rodríguez',
+    rif: 'J-00004567-8',
+    telefono: '+58 212-2023456',
+    correo: 'a.rodriguez@polar.com',
+    ciudad: 'Valencia',
+    estado: 'Carabobo',
+    observaciones: 'Descuento especial de volumen del 10%.'
+  },
+  {
+    empresa: 'Farmatodo',
+    contacto: 'María Gabriela Gómez',
+    rif: 'J-00078901-2',
+    telefono: '+58 412-7894561',
+    correo: 'mgomez@farmatodo.com',
+    ciudad: 'Chacao',
+    estado: 'Caracas',
+    observaciones: 'Entregas nocturnas preferidas.'
+  }
+];
 import { mockCotizaciones, mockOrdenesTrabajo, mockOrderStatusData } from '../data/mockData';
 
 const loadHtml2Pdf = () => {
@@ -29,20 +72,31 @@ const WhatsAppIcon = ({ size = 20 }) => (
 );
 
 export default function CotizacionForm({ initialData, onCancel, onSave, onDelete, user }) {
-  const [formData, setFormData] = useState(initialData || {
-    id: `COT-2026-${Math.floor(Math.random() * 1000).toString().padStart(3, '0')}`,
-    fechaEmision: new Date().toISOString().split('T')[0],
-    fechaValidez: '15',
-    cliente: '',
-    contacto: '',
-    ejecutivo: user?.name || 'Admin',
-    estado: 'Borrador',
-    items: [],
-    subtotal: 0,
-    impuestos: 0,
-    total: 0,
-    condicionesPago: '50% anticipo / 50% contra entrega',
-    fechaEntrega: new Date(Date.now() + 5 * 24 * 60 * 60 * 1000).toISOString().split('T')[0]
+  const [formData, setFormData] = useState(() => {
+    if (initialData) {
+      return {
+        ...initialData,
+        motivoRechazo: initialData.motivoRechazo || '',
+        detalleRechazo: initialData.detalleRechazo || ''
+      };
+    }
+    return {
+      id: `COT-2026-${Math.floor(Math.random() * 1000).toString().padStart(3, '0')}`,
+      fechaEmision: new Date().toISOString().split('T')[0],
+      fechaValidez: '15',
+      cliente: '',
+      contacto: '',
+      ejecutivo: user?.name || 'Admin',
+      estado: 'Borrador',
+      items: [],
+      subtotal: 0,
+      impuestos: 0,
+      total: 0,
+      condicionesPago: '50% anticipo / 50% contra entrega',
+      fechaEntrega: new Date(Date.now() + 5 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
+      motivoRechazo: '',
+      detalleRechazo: ''
+    };
   });
 
   const [expandedItem, setExpandedItem] = useState(null);
@@ -50,14 +104,55 @@ export default function CotizacionForm({ initialData, onCancel, onSave, onDelete
   const [customClients, setCustomClients] = useState([]);
   const [showNewClientModal, setShowNewClientModal] = useState(false);
   const [showConfirmModal, setShowConfirmModal] = useState(false);
+  const [showDeleteConfirmModal, setShowDeleteConfirmModal] = useState(false);
+  const [showRechazoModal, setShowRechazoModal] = useState(false);
+  const [showCarouselModal, setShowCarouselModal] = useState(false);
+  const [carouselIndex, setCarouselIndex] = useState(0);
+  const [carouselSearch, setCarouselSearch] = useState('');
+  const [clientsList, setClientsList] = useState(defaultClientsData);
+  const [tempMotivoRechazo, setTempMotivoRechazo] = useState('');
+  const [tempDetalleRechazo, setTempDetalleRechazo] = useState('');
   const [validationModal, setValidationModal] = useState({ show: false, message: '' });
   const [showAlertModal, setShowAlertModal] = useState({ show: false, message: '' });
+  const [showScrollTop, setShowScrollTop] = useState(false);
+  
+  const containerRef = useRef(null);
+
+  useEffect(() => {
+    const container = containerRef.current;
+    if (!container) return;
+
+    const handleScroll = () => {
+      if (container.scrollTop > 200) {
+        setShowScrollTop(true);
+      } else {
+        setShowScrollTop(false);
+      }
+    };
+
+    container.addEventListener('scroll', handleScroll);
+    return () => {
+      container.removeEventListener('scroll', handleScroll);
+    };
+  }, [activeTab]);
+
+  const scrollToTop = () => {
+    if (containerRef.current) {
+      containerRef.current.scrollTo({
+        top: 0,
+        behavior: 'smooth'
+      });
+    }
+  };
   const [newClientData, setNewClientData] = useState({
     empresa: '',
     contacto: '',
     rif: '',
     telefono: '',
-    correo: ''
+    correo: '',
+    ciudad: '',
+    estado: '',
+    observaciones: ''
   });
 
   const handleAddClient = () => {
@@ -88,6 +183,12 @@ export default function CotizacionForm({ initialData, onCancel, onSave, onDelete
       setValidationModal({ show: true, message: "El total a pagar no puede ser 0 para guardar la cotización." });
       return;
     }
+    
+    if (formData.estado === 'Rechazada' && initialData?.estado !== 'Rechazada') {
+      setShowRechazoModal(true);
+      return;
+    }
+    
     onSave(formData);
   };
 
@@ -97,6 +198,14 @@ export default function CotizacionForm({ initialData, onCancel, onSave, onDelete
     } else {
       executeConvertirOT();
     }
+  };
+
+  const handleDeleteClick = () => {
+    if (formData.estado !== 'Borrador' && formData.estado !== 'Anulada') {
+      setValidationModal({ show: true, message: 'Para poder eliminar esta cotización, primero debes cambiar su estatus a "ANULADA".' });
+      return;
+    }
+    setShowDeleteConfirmModal(true);
   };
 
   const handleWhatsAppSend = () => {
@@ -323,96 +432,88 @@ export default function CotizacionForm({ initialData, onCancel, onSave, onDelete
       case 'Enviada': return 'var(--secondary-color)';
       case 'Aprobada': return 'var(--success-color)';
       case 'Rechazada': return 'var(--error-color)';
+      case 'Anulada': return 'var(--text-muted)';
       default: return 'var(--border-color)';
     }
   };
 
   return (
-    <div className="page-content" style={{ paddingBottom: '120px' }}>
-      <div style={{ marginBottom: '1.5rem' }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', marginBottom: '1rem' }}>
-          <button className="btn btn-secondary" style={{ width: 'auto', padding: '0.5rem' }} onClick={onCancel}>
+    <div 
+      ref={containerRef}
+      className="page-content" 
+      style={{ 
+        paddingBottom: activeTab === 'detalles' ? '120px' : '0px', 
+        overflowY: activeTab === 'detalles' ? 'auto' : 'hidden' 
+      }}
+    >
+      <div style={{
+        position: 'sticky',
+        top: '-1.5rem',
+        zIndex: 100,
+        backgroundColor: 'var(--bg-color)',
+        margin: '-1.5rem -1.5rem 1.5rem -1.5rem',
+        padding: '1.5rem 1.5rem 0.5rem 1.5rem',
+        borderBottom: '1px solid var(--border-color)'
+      }}>
+        <div style={{ 
+          display: 'flex', 
+          justifyContent: 'space-between', 
+          alignItems: 'center', 
+          gap: '1rem', 
+          flexWrap: 'wrap', 
+          marginBottom: '1rem'
+        }}>
+        {/* Left Side: Back + Title */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+          <button className="btn btn-secondary" style={{ width: 'auto', padding: '0.5rem', display: 'flex', alignItems: 'center', justifyContent: 'center' }} onClick={onCancel}>
             <ArrowLeft size={20} />
           </button>
-          <h1 style={{ margin: 0, wordBreak: 'break-word', lineHeight: '1.2', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-            {initialData ? <FileEdit size={24} color="var(--primary-color)" /> : <FilePlus size={24} color="var(--primary-color)" />}
+          <h1 style={{ margin: 0, fontSize: '1.5rem', fontWeight: '700', display: 'flex', alignItems: 'center', gap: '0.5rem', color: 'var(--text-main)' }}>
+            {initialData ? <FileEdit size={22} color="var(--primary-color)" /> : <FilePlus size={22} color="var(--primary-color)" />}
             <span>
               {initialData ? `${initialData.id}` : 'Nueva Cotización'}
               {formData.cliente && (
-                <> - <strong>{formData.cliente}</strong></>
+                <span style={{ fontWeight: '400', fontSize: '1.1rem', color: 'var(--text-muted)', marginLeft: '0.5rem' }}>
+                  | {formData.cliente}
+                </span>
               )}
             </span>
           </h1>
         </div>
-        <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
+
+        {/* Right Side: Action Buttons */}
+        <div className="form-header-actions">
           {initialData && (
             <button 
               type="button" 
-              className="btn" 
+              className="btn form-header-btn" 
               style={{ 
                 border: '1px solid var(--error-color)', 
                 background: 'transparent', 
-                color: 'var(--error-color)', 
-                height: '48px', 
-                flex: 1, 
-                display: 'flex', 
-                alignItems: 'center',
-                justifyContent: 'center',
-                gap: '0.5rem',
-                padding: '0.5rem',
-                fontSize: '0.9rem',
-                fontWeight: '700',
-                minWidth: '100px'
+                color: 'var(--error-color)'
               }} 
-              onClick={onDelete}
+              onClick={handleDeleteClick}
             >
-              <Trash2 size={18} />
+              <Trash2 size={16} />
               <span>Eliminar</span>
+            </button>
+          )}
+          {initialData && (
+            <button 
+              type="button" 
+              className="btn btn-secondary form-header-btn" 
+              onClick={handleConvertirOTClick}
+            >
+              <Package size={16} />
+              <span>Convertir a OT</span>
             </button>
           )}
           <button 
             type="button" 
-            className="btn" 
-            style={{ 
-              border: '1px solid var(--border-color)', 
-              background: 'transparent', 
-              color: '#ffffff', 
-              height: '48px', 
-              flex: 1.2, 
-              display: 'flex', 
-              alignItems: 'center',
-              justifyContent: 'center',
-              gap: '0.5rem',
-              padding: '0.5rem',
-              fontSize: '0.9rem',
-              fontWeight: '700',
-              minWidth: '130px'
-            }} 
-            onClick={handleConvertirOTClick}
-          >
-            <Package size={18} />
-            <span>Convertir a OT</span>
-          </button>
-          <button 
-            type="button" 
-            className="btn" 
-            style={{ 
-              background: 'var(--primary-color)', 
-              color: '#ffffff', 
-              height: '48px', 
-              flex: 1.2, 
-              display: 'flex', 
-              alignItems: 'center',
-              justifyContent: 'center',
-              gap: '0.5rem',
-              padding: '0.5rem',
-              fontSize: '0.9rem',
-              fontWeight: '700',
-              minWidth: '110px'
-            }} 
+            className="btn btn-primary form-header-btn form-header-btn-save" 
             onClick={handleSaveClick}
           >
-            <Save size={18} />
+            <Save size={16} />
             <span>Guardar</span>
           </button>
         </div>
@@ -429,7 +530,7 @@ export default function CotizacionForm({ initialData, onCancel, onSave, onDelete
         backgroundColor: 'var(--surface-color)',
         borderRadius: 'var(--radius-lg)',
         border: '1px solid var(--border-color)',
-        marginBottom: '1.5rem',
+        marginBottom: '0',
         position: 'relative',
         boxShadow: 'var(--shadow-sm)'
       }}>
@@ -528,50 +629,10 @@ export default function CotizacionForm({ initialData, onCancel, onSave, onDelete
           );
         })}
       </div>
-
-      <div style={{ 
-        display: 'flex', 
-        gap: '0.25rem',
-        backgroundColor: '#162238', // Dark grey background container
-        border: '1px solid var(--border-color)', // Grey border around tabs
-        borderBottom: 'none', // Merge with card border below
-        padding: '0.25rem',
-        borderTopLeftRadius: '16px',
-        borderTopRightRadius: '16px',
-        borderBottomLeftRadius: '0px',
-        borderBottomRightRadius: '0px',
-        marginBottom: '0px' 
-      }}>
-        {['Cabecera', 'Detalles', 'Totales'].map(tab => {
-          const isActive = activeTab === tab.toLowerCase();
-          return (
-            <button 
-              key={tab}
-              type="button"
-              onClick={() => setActiveTab(tab.toLowerCase())}
-              style={{
-                padding: '0.65rem 1rem',
-                border: 'none',
-                borderRadius: 'calc(var(--radius-md) - 2px)',
-                background: isActive ? 'var(--primary-color)' : 'transparent',
-                color: '#ffffff', // White letters for both active and inactive
-                fontWeight: isActive ? '700' : '500',
-                fontSize: '0.9rem',
-                cursor: 'pointer',
-                transition: 'all 0.2s',
-                flex: 1,
-                textAlign: 'center',
-                opacity: isActive ? 1 : 0.8
-              }}
-            >
-              {tab}
-            </button>
-          );
-        })}
-      </div>
+    </div>
 
       {activeTab === 'cabecera' && (
-        <div className="card" style={{ borderTopLeftRadius: '0px', borderTopRightRadius: '0px', marginTop: '0px' }}>
+        <div className="card">
           <div className="input-group">
             <label htmlFor="estado-cotizacion">Estado de la Cotización</label>
             <div style={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
@@ -603,6 +664,7 @@ export default function CotizacionForm({ initialData, onCancel, onSave, onDelete
                 <option value="Enviada">Enviada</option>
                 <option value="Aprobada">Aprobada</option>
                 <option value="Rechazada">Rechazada</option>
+                <option value="Anulada">Anulada</option>
               </select>
             </div>
           </div>
@@ -619,22 +681,39 @@ export default function CotizacionForm({ initialData, onCancel, onSave, onDelete
 
           <div className="input-group">
             <label>Cliente / Empresa</label>
-            <div style={{ display: 'flex', gap: '0.5rem' }}>
+            <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
               <select 
                 className="input-control" 
-                style={{ flex: 1 }}
+                style={{ flex: 1, minWidth: '200px' }}
                 value={formData.cliente} 
-                onChange={e => setFormData({...formData, cliente: e.target.value})}
+                onChange={e => {
+                  const matched = clientsList.find(c => c.empresa === e.target.value);
+                  setFormData({
+                    ...formData, 
+                    cliente: e.target.value,
+                    contacto: matched ? matched.contacto : ''
+                  });
+                }}
               >
                 <option value="">Seleccione un cliente...</option>
-                {[...new Set([...mockCotizaciones.map(c => c.cliente), 'Bimbo', 'HUBB', ...customClients])].filter((v, i, a) => a.indexOf(v) === i).map(cliente => (
+                {[...new Set([...clientsList.map(c => c.empresa), ...customClients])].map(cliente => (
                   <option key={cliente} value={cliente}>{cliente}</option>
                 ))}
               </select>
               <button 
                 type="button" 
                 className="btn btn-secondary" 
-                style={{ padding: '0 1rem', width: 'auto' }}
+                style={{ padding: '0 1rem', width: 'auto', display: 'flex', alignItems: 'center', gap: '0.4rem', height: '48px', fontSize: '0.95rem' }}
+                onClick={() => setShowCarouselModal(true)}
+                title="Ver Catálogo de Clientes"
+              >
+                <Users size={20} />
+                <span>Ver Clientes</span>
+              </button>
+              <button 
+                type="button" 
+                className="btn btn-secondary" 
+                style={{ padding: '0 1.25rem', width: 'auto', height: '48px', fontSize: '0.95rem' }}
                 onClick={handleAddClient}
                 title="Agregar nuevo cliente"
               >
@@ -654,15 +733,14 @@ export default function CotizacionForm({ initialData, onCancel, onSave, onDelete
       )}
 
       {activeTab === 'detalles' && (
-        <div style={{ marginTop: '0px' }}>
+        <div>
           {formData.items.map((item, index) => (
             <div 
               key={item.id} 
               className="card" 
               style={{ 
                 position: 'relative', 
-                borderLeft: '4px solid var(--primary-color)',
-                ...(index === 0 ? { borderTopLeftRadius: '0px', borderTopRightRadius: '0px', marginTop: '0px' } : {})
+                borderLeft: '4px solid var(--primary-color)'
               }}
             >
               <button 
@@ -741,14 +819,14 @@ export default function CotizacionForm({ initialData, onCancel, onSave, onDelete
             </div>
           )}
 
-          <button className="btn btn-secondary" onClick={addItem} style={{ borderStyle: 'dashed', borderWidth: '2px', borderColor: 'var(--border-color)', background: 'transparent', marginTop: '0.5rem' }}>
+          <button className="btn btn-secondary" onClick={addItem} style={{ borderStyle: 'dashed', borderWidth: '2px', borderColor: 'var(--border-color)', background: 'transparent', marginTop: '0.5rem', marginBottom: '100px' }}>
             <Plus size={20} /> Añadir Ítem
           </button>
         </div>
       )}
 
       {activeTab === 'totales' && (
-        <div className="card" style={{ borderTopLeftRadius: '0px', borderTopRightRadius: '0px', marginTop: '0px' }}>
+        <div className="card">
           <div className="flex-row-between" style={{ marginBottom: '1rem', paddingBottom: '1rem', borderBottom: '1px solid var(--border-color)' }}>
             <span style={{ color: 'var(--text-muted)' }}>Subtotal</span>
             <strong style={{ fontSize: '1.125rem' }}>${formData.subtotal.toFixed(2)}</strong>
@@ -784,7 +862,7 @@ export default function CotizacionForm({ initialData, onCancel, onSave, onDelete
             </select>
           </div>
 
-          <div style={{ display: 'flex', gap: '0.5rem', marginTop: '1.5rem', flexWrap: 'wrap' }}>
+          <div style={{ display: 'flex', gap: '0.5rem', marginTop: '1.25rem', flexWrap: 'wrap' }}>
             <button 
               type="button" 
               className="btn" 
@@ -834,40 +912,417 @@ export default function CotizacionForm({ initialData, onCancel, onSave, onDelete
         </div>
       )}
 
+      {showCarouselModal && (() => {
+        const filteredClients = clientsList.filter(client => 
+          client.empresa.toLowerCase().includes(carouselSearch.toLowerCase()) ||
+          client.contacto.toLowerCase().includes(carouselSearch.toLowerCase()) ||
+          client.rif.toLowerCase().includes(carouselSearch.toLowerCase()) ||
+          client.ciudad.toLowerCase().includes(carouselSearch.toLowerCase()) ||
+          client.estado.toLowerCase().includes(carouselSearch.toLowerCase())
+        );
+
+        return (
+          <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(3px)', display: 'flex', justifyContent: 'center', alignItems: 'center', zIndex: 1100, padding: '1rem' }}>
+            <div className="card glass-panel" style={{ width: '100%', maxWidth: '480px', margin: 0, border: '1px solid var(--border-color)', display: 'flex', flexDirection: 'column', gap: '1.25rem', padding: '1.5rem', boxShadow: 'var(--shadow-lg)' }}>
+              
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                  <Layers size={22} color="var(--primary-color)" />
+                  <h2 style={{ margin: 0, color: 'var(--text-main)', fontSize: '1.25rem', fontWeight: '700' }}>Catálogo de Clientes</h2>
+                </div>
+                <button 
+                  type="button" 
+                  onClick={() => {
+                    setShowCarouselModal(false);
+                    setCarouselSearch('');
+                  }}
+                  style={{ background: 'transparent', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '0.25rem' }}
+                >
+                  <X size={20} />
+                </button>
+              </div>
+
+              {/* Search input field */}
+              <div style={{ position: 'relative' }}>
+                <Search size={16} style={{ position: 'absolute', left: '1rem', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)' }} />
+                <input 
+                  type="text" 
+                  className="input-control" 
+                  placeholder="Buscar por empresa, contacto, RIF o ubicación..." 
+                  style={{ paddingLeft: '2.5rem', margin: 0 }}
+                  value={carouselSearch}
+                  onChange={e => {
+                    setCarouselSearch(e.target.value);
+                    setCarouselIndex(0);
+                  }}
+                />
+              </div>
+
+              {/* Stack Container */}
+              <div style={{ position: 'relative', height: '330px', margin: '0 24px 0 0', display: 'flex', justifyContent: 'center', alignItems: 'center' }}>
+                {filteredClients.length === 0 ? (
+                  <div style={{ textAlign: 'center', color: 'var(--text-muted)', fontSize: '0.9rem' }}>
+                    No se encontraron clientes para tu búsqueda.
+                  </div>
+                ) : (
+                  filteredClients.map((client, idx) => {
+                    const offset = (idx - carouselIndex + filteredClients.length) % filteredClients.length;
+                    
+                    // Rotation & Scaling for Stack effect
+                    let transformStyle = 'translateX(54px) translateY(24px) scale(0.88) rotate(4.5deg)';
+                    let zIndexVal = 0;
+                    let opacityVal = 0;
+                    let pointerVal = 'none';
+
+                    if (offset === 0) {
+                      transformStyle = 'translateX(0) scale(1) rotate(0deg)';
+                      zIndexVal = 3;
+                      opacityVal = 1;
+                      pointerVal = 'auto';
+                    } else if (offset === 1) {
+                      transformStyle = 'translateX(18px) translateY(8px) scale(0.96) rotate(1.5deg)';
+                      zIndexVal = 2;
+                      opacityVal = 0.85;
+                      pointerVal = 'none';
+                    } else if (offset === 2) {
+                      transformStyle = 'translateX(36px) translateY(16px) scale(0.92) rotate(3deg)';
+                      zIndexVal = 1;
+                      opacityVal = 0.6;
+                      pointerVal = 'none';
+                    }
+
+                    const initials = client.empresa.split(' ').map(n => n[0]).join('').substring(0, 2).toUpperCase();
+
+                    return (
+                      <div 
+                        key={client.rif || idx}
+                        style={{
+                          position: 'absolute',
+                          top: 0,
+                          left: 0,
+                          width: '100%',
+                          height: '100%',
+                          backgroundColor: 'var(--surface-color)',
+                          border: '1px solid var(--border-color)',
+                          borderRadius: 'var(--radius-lg)',
+                          padding: '1.5rem',
+                          display: 'flex',
+                          flexDirection: 'column',
+                          gap: '1rem',
+                          transition: 'all 0.4s cubic-bezier(0.4, 0, 0.2, 1)',
+                          boxShadow: offset === 0 ? '0 10px 25px -5px rgba(0,0,0,0.3)' : 'none',
+                          transform: transformStyle,
+                          zIndex: zIndexVal,
+                          opacity: opacityVal,
+                          pointerEvents: pointerVal,
+                          cursor: offset > 0 ? 'pointer' : 'default'
+                        }}
+                        onClick={() => {
+                          if (offset > 0) {
+                            setCarouselIndex(idx);
+                          }
+                        }}
+                      >
+                        {/* Card Header */}
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
+                          <div style={{
+                            width: '48px',
+                            height: '48px',
+                            borderRadius: 'var(--radius-full)',
+                            background: 'linear-gradient(135deg, var(--primary-color) 0%, var(--secondary-color) 100%)',
+                            color: '#ffffff',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            fontWeight: '700',
+                            fontSize: '1.1rem'
+                          }}>
+                            {initials}
+                          </div>
+                          <div>
+                            <h3 style={{ margin: 0, fontSize: '1.15rem', fontWeight: '700', color: 'var(--text-main)', lineHeight: '1.2' }}>{client.empresa}</h3>
+                            <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>RIF: {client.rif}</span>
+                          </div>
+                        </div>
+
+                        {/* Columns Info */}
+                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem', fontSize: '0.85rem' }}>
+                          <div>
+                            <span style={{ display: 'block', color: 'var(--text-muted)', fontSize: '0.725rem' }}>Contacto</span>
+                            <strong style={{ color: 'var(--text-main)' }}>{client.contacto}</strong>
+                          </div>
+                          <div>
+                            <span style={{ display: 'block', color: 'var(--text-muted)', fontSize: '0.725rem' }}>Teléfono</span>
+                            <strong style={{ color: 'var(--text-main)' }}>{client.telefono}</strong>
+                          </div>
+                          <div>
+                            <span style={{ display: 'block', color: 'var(--text-muted)', fontSize: '0.725rem' }}>Correo</span>
+                            <strong style={{ color: 'var(--text-main)', wordBreak: 'break-all' }}>{client.correo}</strong>
+                          </div>
+                          <div>
+                            <span style={{ display: 'block', color: 'var(--text-muted)', fontSize: '0.725rem' }}>Ubicación</span>
+                            <strong style={{ color: 'var(--text-main)' }}>{client.ciudad}, {client.estado}</strong>
+                          </div>
+                        </div>
+
+                        {/* Observations */}
+                        <div style={{ flex: 1, backgroundColor: 'rgba(255,255,255,0.03)', borderRadius: 'var(--radius-md)', padding: '0.5rem 0.75rem', fontSize: '0.8rem', borderLeft: '3px solid var(--primary-color)', overflow: 'hidden' }}>
+                          <span style={{ display: 'block', color: 'var(--text-muted)', fontSize: '0.65rem', fontWeight: '700', textTransform: 'uppercase', marginBottom: '0.15rem' }}>Observaciones</span>
+                          <p style={{ margin: 0, color: 'var(--text-main)', lineHeight: '1.4', overflow: 'hidden', textOverflow: 'ellipsis', display: '-webkit-box', WebkitLineClamp: 3, WebkitBoxOrient: 'vertical' }}>
+                            {client.observaciones || 'Sin observaciones registradas.'}
+                          </p>
+                        </div>
+                      </div>
+                    );
+                  })
+                )}
+              </div>
+
+              {/* Pagination Controls */}
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '0.5rem' }}>
+                <span style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>
+                  {filteredClients.length > 0 ? (
+                    <>Cliente <strong>{carouselIndex + 1}</strong> de {filteredClients.length}</>
+                  ) : (
+                    <>Sin resultados</>
+                  )}
+                </span>
+                <div style={{ display: 'flex', gap: '0.5rem' }}>
+                  <button 
+                    type="button" 
+                    className="btn btn-secondary" 
+                    style={{ width: '40px', height: '40px', padding: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', borderRadius: '50%' }}
+                    disabled={filteredClients.length <= 1}
+                    onClick={() => setCarouselIndex(prev => (prev - 1 + filteredClients.length) % filteredClients.length)}
+                  >
+                    ‹
+                  </button>
+                  <button 
+                    type="button" 
+                    className="btn btn-secondary" 
+                    style={{ width: '40px', height: '40px', padding: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', borderRadius: '50%' }}
+                    disabled={filteredClients.length <= 1}
+                    onClick={() => setCarouselIndex(prev => (prev + 1) % filteredClients.length)}
+                  >
+                    ›
+                  </button>
+                </div>
+              </div>
+
+              {/* Modal Actions */}
+              <div style={{ display: 'flex', gap: '0.75rem', flexWrap: 'wrap' }}>
+                <button 
+                  type="button"
+                  className="btn btn-secondary" 
+                  style={{ flex: 1, height: '48px', fontSize: '0.95rem', padding: '0 1.25rem', minWidth: '120px' }} 
+                  onClick={() => {
+                    setShowCarouselModal(false);
+                    setCarouselSearch('');
+                  }}
+                >
+                  Cerrar
+                </button>
+                <button 
+                  type="button"
+                  className="btn btn-primary" 
+                  style={{ flex: 1, height: '48px', fontSize: '0.95rem', padding: '0 1.25rem', minWidth: '120px' }} 
+                  disabled={filteredClients.length === 0}
+                  onClick={() => {
+                    const selectedClient = filteredClients[carouselIndex];
+                    setFormData({
+                      ...formData,
+                      cliente: selectedClient.empresa,
+                      contacto: selectedClient.contacto
+                    });
+                    setShowCarouselModal(false);
+                    setCarouselSearch('');
+                  }}
+                >
+                  Seleccionar Cliente
+                </button>
+              </div>
+
+            </div>
+          </div>
+        );
+      })()}
+
       {showNewClientModal && (
-        <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.5)', display: 'flex', justifyContent: 'center', alignItems: 'center', zIndex: 1100, padding: '1rem' }}>
-          <div className="card" style={{ width: '100%', maxWidth: '400px', margin: 0, maxHeight: '90vh', overflowY: 'auto' }}>
-            <h2 style={{ marginBottom: '1rem' }}>Nuevo Cliente</h2>
-            <div className="input-group">
-              <label>Nombre de la Empresa</label>
-              <input type="text" className="input-control" value={newClientData.empresa} onChange={e => setNewClientData({...newClientData, empresa: e.target.value})} />
+        <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(3px)', display: 'flex', justifyContent: 'center', alignItems: 'center', zIndex: 1100, padding: '1rem' }}>
+          <div className="card glass-panel" style={{ width: '100%', maxWidth: '480px', margin: 0, maxHeight: '90vh', overflowY: 'auto', border: '1px solid var(--border-color)', boxShadow: 'var(--shadow-lg)' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                <UserPlus size={22} color="var(--primary-color)" />
+                <h2 style={{ margin: 0, color: 'var(--text-main)', fontSize: '1.25rem', fontWeight: '700' }}>Nuevo Cliente</h2>
+              </div>
+              <button 
+                type="button" 
+                onClick={() => setShowNewClientModal(false)}
+                style={{ background: 'transparent', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '0.25rem' }}
+              >
+                <X size={20} />
+              </button>
             </div>
+            
             <div className="input-group">
-              <label>Nombre del Contacto</label>
-              <input type="text" className="input-control" value={newClientData.contacto} onChange={e => setNewClientData({...newClientData, contacto: e.target.value})} />
+              <label>Nombre de la Empresa <span style={{ color: 'var(--error-color)' }}>*</span></label>
+              <div style={{ position: 'relative' }}>
+                <Building2 size={16} style={{ position: 'absolute', left: '1rem', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)' }} />
+                <input 
+                  type="text" 
+                  className="input-control" 
+                  placeholder="Ej. Alimentos Polar, C.A."
+                  style={{ paddingLeft: '2.5rem' }}
+                  value={newClientData.empresa} 
+                  onChange={e => setNewClientData({...newClientData, empresa: e.target.value})} 
+                />
+              </div>
             </div>
+
             <div className="input-group">
-              <label>RIF / NIT / RUT</label>
-              <input type="text" className="input-control" value={newClientData.rif} onChange={e => setNewClientData({...newClientData, rif: e.target.value})} />
+              <label>Nombre del Contacto <span style={{ color: 'var(--error-color)' }}>*</span></label>
+              <div style={{ position: 'relative' }}>
+                <User size={16} style={{ position: 'absolute', left: '1rem', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)' }} />
+                <input 
+                  type="text" 
+                  className="input-control" 
+                  placeholder="Ej. Juan Pérez"
+                  style={{ paddingLeft: '2.5rem' }}
+                  value={newClientData.contacto} 
+                  onChange={e => setNewClientData({...newClientData, contacto: e.target.value})} 
+                />
+              </div>
             </div>
+
+            <div style={{ display: 'flex', gap: '1rem', flexWrap: 'wrap', marginBottom: '0rem' }}>
+              <div className="input-group" style={{ flex: 1, minWidth: '180px' }}>
+                <label>RIF / NIT / RUT <span style={{ color: 'var(--error-color)' }}>*</span></label>
+                <div style={{ position: 'relative' }}>
+                  <CreditCard size={16} style={{ position: 'absolute', left: '1rem', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)' }} />
+                  <input 
+                    type="text" 
+                    className="input-control" 
+                    placeholder="Ej. J-12345678-9"
+                    style={{ paddingLeft: '2.5rem' }}
+                    value={newClientData.rif} 
+                    onChange={e => setNewClientData({...newClientData, rif: e.target.value})} 
+                  />
+                </div>
+              </div>
+              
+              <div className="input-group" style={{ flex: 1, minWidth: '180px' }}>
+                <label>Número de Teléfono <span style={{ color: 'var(--error-color)' }}>*</span></label>
+                <div style={{ position: 'relative' }}>
+                  <Phone size={16} style={{ position: 'absolute', left: '1rem', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)' }} />
+                  <input 
+                    type="text" 
+                    className="input-control" 
+                    placeholder="Ej. +58 412-1234567"
+                    style={{ paddingLeft: '2.5rem' }}
+                    value={newClientData.telefono} 
+                    onChange={e => setNewClientData({...newClientData, telefono: e.target.value})} 
+                  />
+                </div>
+              </div>
+            </div>
+
             <div className="input-group">
-              <label>Número de Teléfono</label>
-              <input type="text" className="input-control" value={newClientData.telefono} onChange={e => setNewClientData({...newClientData, telefono: e.target.value})} />
+              <label>Correo Electrónico <span style={{ color: 'var(--error-color)' }}>*</span></label>
+              <div style={{ position: 'relative' }}>
+                <Mail size={16} style={{ position: 'absolute', left: '1rem', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)' }} />
+                <input 
+                  type="email" 
+                  className="input-control" 
+                  placeholder="Ej. contacto@empresa.com"
+                  style={{ paddingLeft: '2.5rem' }}
+                  value={newClientData.correo} 
+                  onChange={e => setNewClientData({...newClientData, correo: e.target.value})} 
+                />
+              </div>
             </div>
+
+            <div style={{ display: 'flex', gap: '1rem', flexWrap: 'wrap', marginBottom: '0rem' }}>
+              <div className="input-group" style={{ flex: 1, minWidth: '180px' }}>
+                <label>Ciudad <span style={{ color: 'var(--error-color)' }}>*</span></label>
+                <div style={{ position: 'relative' }}>
+                  <MapPin size={16} style={{ position: 'absolute', left: '1rem', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)' }} />
+                  <input 
+                    type="text" 
+                    className="input-control" 
+                    placeholder="Ej. Caracas"
+                    style={{ paddingLeft: '2.5rem' }}
+                    value={newClientData.ciudad} 
+                    onChange={e => setNewClientData({...newClientData, ciudad: e.target.value})} 
+                  />
+                </div>
+              </div>
+              
+              <div className="input-group" style={{ flex: 1, minWidth: '180px' }}>
+                <label>Estado <span style={{ color: 'var(--error-color)' }}>*</span></label>
+                <div style={{ position: 'relative' }}>
+                  <Map size={16} style={{ position: 'absolute', left: '1rem', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)' }} />
+                  <input 
+                    type="text" 
+                    className="input-control" 
+                    placeholder="Ej. Miranda"
+                    style={{ paddingLeft: '2.5rem' }}
+                    value={newClientData.estado} 
+                    onChange={e => setNewClientData({...newClientData, estado: e.target.value})} 
+                  />
+                </div>
+              </div>
+            </div>
+
             <div className="input-group" style={{ marginBottom: '1.5rem' }}>
-              <label>Correo Electrónico</label>
-              <input type="email" className="input-control" value={newClientData.correo} onChange={e => setNewClientData({...newClientData, correo: e.target.value})} />
+              <label>Observaciones</label>
+              <div style={{ position: 'relative' }}>
+                <MessageSquare size={16} style={{ position: 'absolute', left: '1rem', top: '1rem', color: 'var(--text-muted)' }} />
+                <textarea 
+                  className="input-control" 
+                  rows="3"
+                  placeholder="Detalles u observaciones adicionales..."
+                  style={{ paddingLeft: '2.5rem', paddingTop: '0.75rem' }}
+                  value={newClientData.observaciones} 
+                  onChange={e => setNewClientData({...newClientData, observaciones: e.target.value})} 
+                />
+              </div>
             </div>
-            <div style={{ display: 'flex', gap: '0.5rem' }}>
-              <button className="btn btn-secondary" style={{ flex: 1, padding: '0.75rem' }} onClick={() => setShowNewClientModal(false)}>Cancelar</button>
-              <button className="btn" style={{ flex: 1, padding: '0.75rem' }} onClick={() => {
-                if (newClientData.empresa.trim()) {
+
+            <div style={{ display: 'flex', gap: '0.75rem', flexWrap: 'wrap' }}>
+              <button 
+                type="button"
+                className="btn btn-secondary" 
+                style={{ flex: 1, height: '48px', fontSize: '0.95rem', padding: '0 1.25rem', minWidth: '120px' }} 
+                onClick={() => {
+                  setShowNewClientModal(false);
+                  setNewClientData({ empresa: '', contacto: '', rif: '', telefono: '', correo: '', ciudad: '', estado: '', observaciones: '' });
+                }}
+              >
+                Cancelar
+              </button>
+              <button 
+                type="button"
+                className="btn btn-primary" 
+                style={{ 
+                  flex: 1, 
+                  height: '48px', 
+                  fontSize: '0.95rem', 
+                  padding: '0 1.25rem', 
+                  minWidth: '120px',
+                  opacity: (!newClientData.empresa.trim() || !newClientData.contacto.trim() || !newClientData.rif.trim() || !newClientData.telefono.trim() || !newClientData.correo.trim() || !newClientData.ciudad.trim() || !newClientData.estado.trim()) ? 0.5 : 1
+                }} 
+                disabled={!newClientData.empresa.trim() || !newClientData.contacto.trim() || !newClientData.rif.trim() || !newClientData.telefono.trim() || !newClientData.correo.trim() || !newClientData.ciudad.trim() || !newClientData.estado.trim()}
+                onClick={() => {
+                  const newClientObj = { ...newClientData };
+                  setClientsList(prev => [...prev, newClientObj]);
                   setCustomClients(prev => [...prev, newClientData.empresa.trim()]);
                   setFormData({...formData, cliente: newClientData.empresa.trim(), contacto: newClientData.contacto.trim()});
                   setShowNewClientModal(false);
-                  setNewClientData({ empresa: '', contacto: '', rif: '', telefono: '', correo: '' });
-                }
-              }}>Guardar</button>
+                  setNewClientData({ empresa: '', contacto: '', rif: '', telefono: '', correo: '', ciudad: '', estado: '', observaciones: '' });
+                }}
+              >
+                Guardar
+              </button>
             </div>
           </div>
         </div>
@@ -877,13 +1332,88 @@ export default function CotizacionForm({ initialData, onCancel, onSave, onDelete
         <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.5)', display: 'flex', justifyContent: 'center', alignItems: 'center', zIndex: 1100, padding: '1rem' }}>
           <div className="card glass-panel" style={{ width: '100%', maxWidth: '400px', margin: 0, textAlign: 'center' }}>
             <h2 style={{ marginBottom: '1rem', color: 'var(--text-main)' }}>Aprobar Cotización</h2>
-            <p style={{ marginBottom: '1.5rem', color: 'var(--text-muted)' }}>Debes aprobar la cotización primero. ¿Deseas aprobar la cotización y convertirla a OT ahora?</p>
+            <p style={{ marginBottom: '1.5rem', color: 'var(--text-muted)' }}>Para proceder con esta acción, primero debes cambiar el estatus de la cotización a "Aprobada".</p>
+            <button className="btn btn-primary" style={{ width: '100%', padding: '0.75rem' }} onClick={() => setShowConfirmModal(false)}>
+              Entendido
+            </button>
+          </div>
+        </div>
+      )}
+
+      {showDeleteConfirmModal && (
+        <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.5)', display: 'flex', justifyContent: 'center', alignItems: 'center', zIndex: 1100, padding: '1rem' }}>
+          <div className="card glass-panel" style={{ width: '100%', maxWidth: '400px', margin: 0, textAlign: 'center' }}>
+            <h2 style={{ marginBottom: '1rem', color: 'var(--text-main)' }}>¿Eliminar Registro?</h2>
+            <p style={{ marginBottom: '1.5rem', color: 'var(--text-muted)' }}>¿Estás seguro de que deseas eliminar este registro? Esta acción no se puede deshacer.</p>
             <div style={{ display: 'flex', gap: '0.5rem' }}>
-              <button className="btn btn-secondary" style={{ flex: 1, padding: '0.75rem' }} onClick={() => setShowConfirmModal(false)}>Cancelar</button>
-              <button className="btn" style={{ flex: 1, padding: '0.75rem', background: 'var(--secondary-color)' }} onClick={() => {
-                setShowConfirmModal(false);
-                executeConvertirOT();
-              }}>Aceptar</button>
+              <button className="btn btn-secondary" style={{ flex: 1, padding: '0.75rem' }} onClick={() => setShowDeleteConfirmModal(false)}>Cancelar</button>
+              <button className="btn btn-danger" style={{ flex: 1, padding: '0.75rem', background: 'var(--error-color)', border: 'none', color: '#fff' }} onClick={() => {
+                setShowDeleteConfirmModal(false);
+                onDelete();
+              }}>Eliminar</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {showRechazoModal && (
+        <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.5)', display: 'flex', justifyContent: 'center', alignItems: 'center', zIndex: 1100, padding: '1rem' }}>
+          <div className="card glass-panel" style={{ width: '100%', maxWidth: '450px', margin: 0 }}>
+            <h2 style={{ marginBottom: '1rem', color: 'var(--text-main)', fontSize: '1.25rem' }}>Detalles de Rechazo</h2>
+            
+            <div className="input-group">
+              <label>Motivo del Rechazo</label>
+              <select 
+                className="input-control" 
+                value={tempMotivoRechazo} 
+                onChange={e => setTempMotivoRechazo(e.target.value)}
+              >
+                <option value="">Seleccione una opción...</option>
+                <option value="Rechazo Interno">Rechazo Interno</option>
+                <option value="Rechazo por Parte del Cliente">Rechazo por Parte del Cliente</option>
+                <option value="Rechazo Automático">Rechazo Automático</option>
+              </select>
+            </div>
+
+            <div className="input-group" style={{ marginBottom: '1.5rem' }}>
+              <label>Causas y Razones (Detalle)</label>
+              <textarea 
+                className="input-control" 
+                rows="4" 
+                placeholder="Explica las causas y razones del rechazo..."
+                value={tempDetalleRechazo} 
+                onChange={e => setTempDetalleRechazo(e.target.value)}
+              />
+            </div>
+
+            <div style={{ display: 'flex', gap: '0.5rem' }}>
+              <button 
+                className="btn btn-secondary" 
+                style={{ flex: 1, padding: '0.75rem' }} 
+                onClick={() => {
+                  setShowRechazoModal(false);
+                  setTempMotivoRechazo('');
+                  setTempDetalleRechazo('');
+                }}
+              >
+                Cancelar
+              </button>
+              <button 
+                className="btn btn-primary" 
+                style={{ flex: 1, padding: '0.75rem' }} 
+                disabled={!tempMotivoRechazo || !tempDetalleRechazo.trim()}
+                onClick={() => {
+                  const updatedData = {
+                    ...formData,
+                    motivoRechazo: tempMotivoRechazo,
+                    detalleRechazo: tempDetalleRechazo.trim()
+                  };
+                  setShowRechazoModal(false);
+                  onSave(updatedData);
+                }}
+              >
+                Guardar
+              </button>
             </div>
           </div>
         </div>
@@ -980,13 +1510,52 @@ export default function CotizacionForm({ initialData, onCancel, onSave, onDelete
       {validationModal.show && (
         <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(3px)', display: 'flex', justifyContent: 'center', alignItems: 'center', zIndex: 11000, padding: '1rem' }}>
           <div className="card glass-panel" style={{ width: '100%', maxWidth: '400px', margin: 0, textAlign: 'center', border: '1px solid var(--border-color)' }}>
-            <h2 style={{ marginBottom: '1.25rem', color: 'var(--warning-color)', fontSize: '1.5rem', fontWeight: '700' }}>Atención</h2>
+            <div style={{ display: 'flex', justifyContent: 'center', marginBottom: '1.25rem' }}>
+              <div style={{
+                backgroundColor: 'rgba(245, 158, 11, 0.15)',
+                padding: '1rem',
+                borderRadius: '50%',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center'
+              }}>
+                <AlertTriangle size={36} color="var(--warning-color)" />
+              </div>
+            </div>
             <p style={{ marginBottom: '1.75rem', color: 'var(--text-main)', fontSize: '0.95rem', lineHeight: '1.5' }}>{validationModal.message}</p>
             <button className="btn btn-primary" style={{ width: '100%', padding: '0.75rem', fontWeight: '600' }} onClick={() => setValidationModal({ show: false, message: '' })}>
               Entendido
             </button>
           </div>
         </div>
+      )}
+      {showScrollTop && (
+        <button 
+          type="button"
+          onClick={scrollToTop}
+          style={{
+            position: 'fixed',
+            bottom: '7.5rem',
+            right: '1.5rem',
+            backgroundColor: 'var(--primary-color)',
+            color: '#ffffff',
+            border: 'none',
+            borderRadius: '50%',
+            width: '46px',
+            height: '46px',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            boxShadow: 'var(--shadow-lg)',
+            cursor: 'pointer',
+            zIndex: 999,
+            transition: 'all 0.3s ease',
+            opacity: 0.9
+          }}
+          title="Regresar al inicio"
+        >
+          <ArrowUp size={20} />
+        </button>
       )}
     </div>
   );
