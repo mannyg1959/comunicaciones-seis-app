@@ -228,7 +228,9 @@ export default function OrdenesTrabajo() {
               <span>Actualizar Estatus</span>
               <span style={{ color: 'var(--primary-color)' }}>{selectedOT.id}</span>
             </h2>
-            <p style={{ margin: '0 0 1rem 0', color: 'var(--text-muted)' }}>{selectedOT.cliente} - {selectedOT.tipo}</p>
+            <p style={{ margin: '0 0 1rem 0', color: 'var(--text-muted)', fontSize: '1rem' }}>
+              <strong style={{ fontWeight: '700', color: 'var(--text-main)', fontSize: '1.25rem' }}>{selectedOT.cliente}</strong> - {selectedOT.tipo}
+            </p>
 
             {renderTimeline(tempEstado)}
 
