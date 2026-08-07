@@ -65,14 +65,15 @@ export default function Cotizaciones({ user }) {
 
   const handleEdit = (cotizacion) => {
     setEditingCotizacion({
+      ...cotizacion,
       id: cotizacion.id,
-      fechaEmision: cotizacion.fecha || new Date().toISOString().split('T')[0],
-      fechaValidez: '15',
+      fechaEmision: cotizacion.fecha || cotizacion.fechaEmision || new Date().toISOString().split('T')[0],
+      fechaValidez: cotizacion.fechaValidez || '15',
       cliente: cotizacion.cliente,
-      contacto: '',
-      ejecutivo: user?.name || 'Admin',
+      contacto: cotizacion.contacto || '',
+      ejecutivo: cotizacion.ejecutivo || user?.name || 'Admin',
       estado: cotizacion.estado,
-      items: [
+      items: cotizacion.items || [
         {
           id: Date.now(),
           lineaNegocio: cotizacion.tipo.split(' ')[0] || 'Impresión',
@@ -84,21 +85,20 @@ export default function Cotizaciones({ user }) {
           tipoDiseño: '', formatoEntrega: '', complejidad: '', tipoInstalacion: '', ubicacion: '', requiereAndamios: 'No', tiempoMontaje: ''
         }
       ],
-      subtotal: cotizacion.monto,
-      impuestos: 0,
-      total: cotizacion.monto,
-      condicionesPago: '50% anticipo / 50% contra entrega',
+      subtotal: cotizacion.subtotal || cotizacion.monto,
+      impuestos: cotizacion.impuestos || 0,
+      total: cotizacion.total || cotizacion.monto,
+      condicionesPago: cotizacion.condicionesPago || '50% anticipo / 50% contra entrega',
       fechaEntrega: cotizacion.fechaEntrega || new Date(Date.now() + 5 * 24 * 60 * 60 * 1000).toISOString().split('T')[0]
     });
   };
 
   const handleSave = (nuevaCotizacion) => {
     const listCotizacion = {
-      id: nuevaCotizacion.id,
+      ...nuevaCotizacion,
       cliente: nuevaCotizacion.cliente || 'Sin Cliente',
       tipo: nuevaCotizacion.items.length > 0 ? nuevaCotizacion.items[0].lineaNegocio + (nuevaCotizacion.items.length > 1 ? ' y otros' : '') : 'Varios',
       monto: nuevaCotizacion.total,
-      estado: nuevaCotizacion.estado,
       fecha: nuevaCotizacion.fechaEmision,
       fechaEntrega: nuevaCotizacion.fechaEntrega,
       convertidaAOT: nuevaCotizacion.convertidaAOT || false

@@ -109,7 +109,42 @@ export default function CotizacionForm({ initialData, onCancel, onSave, onDelete
   const [showCarouselModal, setShowCarouselModal] = useState(false);
   const [carouselIndex, setCarouselIndex] = useState(0);
   const [carouselSearch, setCarouselSearch] = useState('');
-  const [clientsList, setClientsList] = useState(defaultClientsData);
+  const [showEditClientModal, setShowEditClientModal] = useState(false);
+  const [editClientData, setEditClientData] = useState({
+    empresa: '',
+    contacto: '',
+    rif: '',
+    telefono: '',
+    correo: '',
+    ciudad: '',
+    estado: '',
+    observaciones: ''
+  });
+  const [clientsList, setClientsList] = useState(() => {
+    const saved = localStorage.getItem('comunicaciones_seis_clients');
+    let base = saved ? JSON.parse(saved) : [...defaultClientsData];
+    if (initialData && initialData.cliente) {
+      const exists = base.some(c => c.empresa === initialData.cliente);
+      if (!exists) {
+        base.push({
+          empresa: initialData.cliente,
+          contacto: initialData.contacto || '',
+          rif: initialData.rif || '',
+          telefono: initialData.telefono || '',
+          correo: initialData.correo || '',
+          ciudad: initialData.ciudad || '',
+          estado: initialData.estado || '',
+          observaciones: initialData.observaciones || ''
+        });
+        localStorage.setItem('comunicaciones_seis_clients', JSON.stringify(base));
+      }
+    }
+    return base;
+  });
+
+  useEffect(() => {
+    localStorage.setItem('comunicaciones_seis_clients', JSON.stringify(clientsList));
+  }, [clientsList]);
   const [tempMotivoRechazo, setTempMotivoRechazo] = useState('');
   const [tempDetalleRechazo, setTempDetalleRechazo] = useState('');
   const [validationModal, setValidationModal] = useState({ show: false, message: '' });
@@ -181,6 +216,24 @@ export default function CotizacionForm({ initialData, onCancel, onSave, onDelete
   const handleSaveClick = () => {
     if (formData.total === 0) {
       setValidationModal({ show: true, message: "El total a pagar no puede ser 0 para guardar la cotización." });
+      return;
+    }
+
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+
+    let deliveryDate = null;
+    if (formData.fechaEntrega) {
+      const [year, month, day] = formData.fechaEntrega.split('-');
+      deliveryDate = new Date(year, month - 1, day);
+      deliveryDate.setHours(0, 0, 0, 0);
+    }
+
+    if (!deliveryDate || deliveryDate.getTime() <= today.getTime()) {
+      setValidationModal({ 
+        show: true, 
+        message: "La Fecha Estimada de Entrega debe ser posterior a la fecha actual." 
+      });
       return;
     }
     
@@ -473,7 +526,7 @@ export default function CotizacionForm({ initialData, onCancel, onSave, onDelete
             <span>
               {initialData ? `${initialData.id}` : 'Nueva Cotización'}
               {formData.cliente && (
-                <span style={{ fontWeight: '400', fontSize: '1.1rem', color: 'var(--text-muted)', marginLeft: '0.5rem' }}>
+                <span style={{ fontWeight: '700', fontSize: '1.3rem', color: 'var(--text-main)', marginLeft: '0.5rem' }}>
                   | {formData.cliente}
                 </span>
               )}
@@ -1124,6 +1177,20 @@ export default function CotizacionForm({ initialData, onCancel, onSave, onDelete
                 </button>
                 <button 
                   type="button"
+                  className="btn btn-secondary" 
+                  style={{ flex: 1, height: '48px', fontSize: '0.95rem', padding: '0 1.25rem', minWidth: '120px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.4rem' }} 
+                  disabled={filteredClients.length === 0}
+                  onClick={() => {
+                    const selectedClient = filteredClients[carouselIndex];
+                    setEditClientData({ ...selectedClient });
+                    setShowEditClientModal(true);
+                  }}
+                >
+                  <FileEdit size={16} />
+                  <span>Editar</span>
+                </button>
+                <button 
+                  type="button"
                   className="btn btn-primary" 
                   style={{ flex: 1, height: '48px', fontSize: '0.95rem', padding: '0 1.25rem', minWidth: '120px' }} 
                   disabled={filteredClients.length === 0}
@@ -1322,6 +1389,207 @@ export default function CotizacionForm({ initialData, onCancel, onSave, onDelete
                 }}
               >
                 Guardar
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {showEditClientModal && (
+        <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(3px)', display: 'flex', justifyContent: 'center', alignItems: 'center', zIndex: 1200, padding: '1rem' }}>
+          <div className="card glass-panel" style={{ width: '100%', maxWidth: '480px', margin: 0, maxHeight: '90vh', overflowY: 'auto', border: '1px solid var(--border-color)', boxShadow: 'var(--shadow-lg)' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                <FileEdit size={22} color="var(--primary-color)" />
+                <h2 style={{ margin: 0, color: 'var(--text-main)', fontSize: '1.25rem', fontWeight: '700' }}>Editar Cliente</h2>
+              </div>
+              <button 
+                type="button" 
+                onClick={() => setShowEditClientModal(false)}
+                style={{ background: 'transparent', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '0.25rem' }}
+              >
+                <X size={20} />
+              </button>
+            </div>
+            
+            <div className="input-group">
+              <label>Nombre de la Empresa <span style={{ color: 'var(--error-color)' }}>*</span></label>
+              <div style={{ position: 'relative' }}>
+                <Building2 size={16} style={{ position: 'absolute', left: '1rem', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)' }} />
+                <input 
+                  type="text" 
+                  className="input-control" 
+                  placeholder="Ej. Alimentos Polar, C.A."
+                  style={{ paddingLeft: '2.5rem' }}
+                  value={editClientData.empresa} 
+                  onChange={e => setEditClientData({...editClientData, empresa: e.target.value})} 
+                />
+              </div>
+            </div>
+
+            <div className="input-group">
+              <label>Nombre del Contacto <span style={{ color: 'var(--error-color)' }}>*</span></label>
+              <div style={{ position: 'relative' }}>
+                <User size={16} style={{ position: 'absolute', left: '1rem', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)' }} />
+                <input 
+                  type="text" 
+                  className="input-control" 
+                  placeholder="Ej. Juan Pérez"
+                  style={{ paddingLeft: '2.5rem' }}
+                  value={editClientData.contacto} 
+                  onChange={e => setEditClientData({...editClientData, contacto: e.target.value})} 
+                />
+              </div>
+            </div>
+
+            <div style={{ display: 'flex', gap: '1rem', flexWrap: 'wrap', marginBottom: '0rem' }}>
+              <div className="input-group" style={{ flex: 1, minWidth: '180px' }}>
+                <label>RIF / NIT / RUT <span style={{ color: 'var(--error-color)' }}>*</span></label>
+                <div style={{ position: 'relative' }}>
+                  <CreditCard size={16} style={{ position: 'absolute', left: '1rem', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)' }} />
+                  <input 
+                     type="text" 
+                     className="input-control" 
+                     placeholder="Ej. J-12345678-9"
+                     style={{ paddingLeft: '2.5rem' }}
+                     value={editClientData.rif || ''} 
+                     onChange={e => setEditClientData({...editClientData, rif: e.target.value})} 
+                  />
+                </div>
+              </div>
+              
+              <div className="input-group" style={{ flex: 1, minWidth: '180px' }}>
+                <label>Número de Teléfono <span style={{ color: 'var(--error-color)' }}>*</span></label>
+                <div style={{ position: 'relative' }}>
+                  <Phone size={16} style={{ position: 'absolute', left: '1rem', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)' }} />
+                  <input 
+                    type="text" 
+                    className="input-control" 
+                    placeholder="Ej. +58 412-1234567"
+                    style={{ paddingLeft: '2.5rem' }}
+                    value={editClientData.telefono || ''} 
+                    onChange={e => setEditClientData({...editClientData, telefono: e.target.value})} 
+                  />
+                </div>
+              </div>
+            </div>
+
+            <div className="input-group">
+              <label>Correo Electrónico <span style={{ color: 'var(--error-color)' }}>*</span></label>
+              <div style={{ position: 'relative' }}>
+                <Mail size={16} style={{ position: 'absolute', left: '1rem', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)' }} />
+                <input 
+                  type="email" 
+                  className="input-control" 
+                  placeholder="Ej. contacto@empresa.com"
+                  style={{ paddingLeft: '2.5rem' }}
+                  value={editClientData.correo || ''} 
+                  onChange={e => setEditClientData({...editClientData, correo: e.target.value})} 
+                />
+              </div>
+            </div>
+
+            <div style={{ display: 'flex', gap: '1rem', flexWrap: 'wrap', marginBottom: '0rem' }}>
+              <div className="input-group" style={{ flex: 1, minWidth: '180px' }}>
+                <label>Ciudad <span style={{ color: 'var(--error-color)' }}>*</span></label>
+                <div style={{ position: 'relative' }}>
+                  <MapPin size={16} style={{ position: 'absolute', left: '1rem', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)' }} />
+                  <input 
+                    type="text" 
+                    className="input-control" 
+                    placeholder="Ej. Caracas"
+                    style={{ paddingLeft: '2.5rem' }}
+                    value={editClientData.ciudad || ''} 
+                    onChange={e => setEditClientData({...editClientData, ciudad: e.target.value})} 
+                  />
+                </div>
+              </div>
+              
+              <div className="input-group" style={{ flex: 1, minWidth: '180px' }}>
+                <label>Estado <span style={{ color: 'var(--error-color)' }}>*</span></label>
+                <div style={{ position: 'relative' }}>
+                  <Map size={16} style={{ position: 'absolute', left: '1rem', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)' }} />
+                  <input 
+                    type="text" 
+                    className="input-control" 
+                    placeholder="Ej. Miranda"
+                    style={{ paddingLeft: '2.5rem' }}
+                    value={editClientData.estado || ''} 
+                    onChange={e => setEditClientData({...editClientData, estado: e.target.value})} 
+                  />
+                </div>
+              </div>
+            </div>
+
+            <div className="input-group" style={{ marginBottom: '1.5rem' }}>
+              <label>Observaciones</label>
+              <div style={{ position: 'relative' }}>
+                <MessageSquare size={16} style={{ position: 'absolute', left: '1rem', top: '1rem', color: 'var(--text-muted)' }} />
+                <textarea 
+                  className="input-control" 
+                  rows="3"
+                  placeholder="Detalles u observaciones adicionales..."
+                  style={{ paddingLeft: '2.5rem', paddingTop: '0.75rem' }}
+                  value={editClientData.observaciones || ''} 
+                  onChange={e => setEditClientData({...editClientData, observaciones: e.target.value})} 
+                />
+              </div>
+            </div>
+
+            <div style={{ display: 'flex', gap: '0.75rem', flexWrap: 'wrap' }}>
+              <button 
+                type="button"
+                className="btn btn-secondary" 
+                style={{ flex: 1, height: '48px', fontSize: '0.95rem', padding: '0 1.25rem', minWidth: '120px' }} 
+                onClick={() => {
+                  setShowEditClientModal(false);
+                }}
+              >
+                Cancelar
+              </button>
+              <button 
+                type="button"
+                className="btn btn-primary" 
+                style={{ 
+                  flex: 1, 
+                  height: '48px', 
+                  fontSize: '0.95rem', 
+                  padding: '0 1.25rem', 
+                  minWidth: '120px',
+                  opacity: (!editClientData.empresa.trim() || !editClientData.contacto.trim() || !editClientData.rif.trim() || !editClientData.telefono.trim() || !editClientData.correo.trim() || !editClientData.ciudad.trim() || !editClientData.estado.trim()) ? 0.5 : 1
+                }} 
+                disabled={!editClientData.empresa.trim() || !editClientData.contacto.trim() || !editClientData.rif.trim() || !editClientData.telefono.trim() || !editClientData.correo.trim() || !editClientData.ciudad.trim() || !editClientData.estado.trim()}
+                onClick={() => {
+                  const filteredClients = clientsList.filter(client => 
+                    client.empresa.toLowerCase().includes(carouselSearch.toLowerCase()) ||
+                    client.contacto.toLowerCase().includes(carouselSearch.toLowerCase()) ||
+                    client.rif.toLowerCase().includes(carouselSearch.toLowerCase()) ||
+                    client.ciudad.toLowerCase().includes(carouselSearch.toLowerCase()) ||
+                    client.estado.toLowerCase().includes(carouselSearch.toLowerCase())
+                  );
+                  const selectedClient = filteredClients[carouselIndex];
+                  
+                  // Update clientsList matching by original company name
+                  setClientsList(prev => prev.map(c => {
+                    if (c.empresa === selectedClient.empresa) {
+                      return editClientData;
+                    }
+                    return c;
+                  }));
+
+                  // Update form data if editing the currently selected client
+                  if (formData.cliente === selectedClient.empresa) {
+                    setFormData({
+                      ...formData,
+                      cliente: editClientData.empresa,
+                      contacto: editClientData.contacto
+                    });
+                  }
+
+                  setShowEditClientModal(false);
+                }}
+              >
+                Guardar Cambios
               </button>
             </div>
           </div>

@@ -117,9 +117,19 @@ export default function Dashboard({ user, onLogout }) {
         margin: '-1.5rem -1.5rem 1rem -1.5rem',
         padding: '1.5rem 1.5rem 0.25rem 1.5rem'
       }}>
-        <h1 style={{ margin: '0 0 0.25rem 0', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-          <LayoutDashboard size={28} color="var(--primary-color)" /> Panel de Control
-        </h1>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '0.5rem', margin: '0 0 0.25rem 0' }}>
+          <h1 style={{ margin: 0, display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+            <LayoutDashboard size={28} color="var(--primary-color)" /> Panel de Control
+          </h1>
+          <span style={{ fontSize: '0.9rem', fontWeight: '600', color: 'var(--primary-color)', backgroundColor: 'var(--primary-light)', padding: '0.25rem 0.75rem', borderRadius: 'var(--radius-md)' }}>
+            {(() => {
+              const days = ['Domingo', 'Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado'];
+              const months = ['enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio', 'julio', 'agosto', 'septiembre', 'octubre', 'noviembre', 'diciembre'];
+              const today = new Date();
+              return `${days[today.getDay()]}, ${today.getDate()} de ${months[today.getMonth()]} de ${today.getFullYear()}`;
+            })()}
+          </span>
+        </div>
 
         <div style={{ display: 'flex', justifyContent: 'flex-start', marginBottom: '0.5rem' }}>
           <div className="logo-container" onClick={() => window.location.reload()} title="Recargar Panel" style={{ padding: 0 }}>
