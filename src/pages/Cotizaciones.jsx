@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { mockCotizaciones } from '../data/mockData';
 import { Plus, Search, FileText, SlidersHorizontal, X } from 'lucide-react';
@@ -16,7 +16,16 @@ export default function Cotizaciones({ user }) {
   const [filterFechaFin, setFilterFechaFin] = useState(null);
   const [filterEstadoSelect, setFilterEstadoSelect] = useState(filterEstadoUrl || '');
   const [editingCotizacion, setEditingCotizacion] = useState(searchParams.get('new') === 'true' ? { id: 'NEW' } : null);
-  const [cotizaciones, setCotizaciones] = useState(mockCotizaciones);
+  const [cotizaciones, setCotizaciones] = useState(() => {
+    const saved = localStorage.getItem('comunicaciones_seis_cotizaciones');
+    return saved ? JSON.parse(saved) : [...mockCotizaciones];
+  });
+
+  // Sync cotizaciones to localStorage when they change
+  useEffect(() => {
+    localStorage.setItem('comunicaciones_seis_cotizaciones', JSON.stringify(cotizaciones));
+  }, [cotizaciones]);
+
   const [isFilterDrawerOpen, setIsFilterDrawerOpen] = useState(false);
 
   const calculateGap = (fechaEntrega) => {
