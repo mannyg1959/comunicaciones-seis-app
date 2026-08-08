@@ -12,7 +12,8 @@ export const mockCotizaciones = [
     monto: 1500.00,
     estado: 'Pendiente',
     fecha: '2026-07-25',
-    fechaEntrega: '2026-07-28'
+    fechaEntrega: '2026-07-28',
+    ejecutivo: 'Carlos Mendoza'
   },
   {
     id: 'C-1002',
@@ -21,7 +22,8 @@ export const mockCotizaciones = [
     monto: 3200.50,
     estado: 'Aprobada',
     fecha: '2026-07-24',
-    fechaEntrega: '2026-07-30'
+    fechaEntrega: '2026-07-30',
+    ejecutivo: 'Ana Gómez'
   },
   {
     id: 'C-1003',
@@ -30,7 +32,8 @@ export const mockCotizaciones = [
     monto: 12500.00,
     estado: 'Pendiente',
     fecha: '2026-07-23',
-    fechaEntrega: '2026-07-20'
+    fechaEntrega: '2026-07-20',
+    ejecutivo: 'Luis Rojas'
   }
 ];
 

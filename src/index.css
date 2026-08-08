@@ -50,6 +50,7 @@
 
   /* Fluid Transitions */
   --transition-fast: 0.2s ease-in-out;
+  --ejecutivo-color: rgb(0, 215, 86);
 }
 
 body.light-mode {
@@ -59,6 +60,7 @@ body.light-mode {
   --text-main: #0f172a;
   --text-muted: #64748b;
   --border-color: #e2e8f0;
+  --ejecutivo-color: #059669;
 }
 
 /* Light mode override removed to enforce dark theme */
@@ -161,7 +163,8 @@ p { color: var(--text-muted); }
   gap: 0.5rem;
   font-family: 'Inter', sans-serif;
   font-weight: 500;
-  font-size: 0.9375rem;
+  font-size: 0.95rem;
+  height: 48px;
   cursor: pointer;
   transition: all var(--transition-fast);
   width: 100%;
@@ -404,6 +407,12 @@ body.light-mode .btn-secondary:hover {
   color: #fff;
 }
 
+.badge-warning {
+  background-color: var(--tertiary-color);
+  color: #fff;
+}
+
+
 /* Flex Utilities */
 .flex-row-between {
   display: flex;
@@ -553,3 +562,112 @@ body.light-mode .btn-secondary:hover {
     justify-content: center;
   }
 }
+
+/* Stacked 3D Card Carousel */
+.carousel-perspective {
+  perspective: 1000px;
+  position: relative;
+  width: 100%;
+  height: 420px;
+  margin: 1.5rem 0;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
+.stacked-card {
+  position: absolute;
+  width: calc(100% - 32px);
+  max-width: 480px;
+  height: 100%;
+  transition: transform 0.4s cubic-bezier(0.25, 0.8, 0.25, 1), opacity 0.4s ease, z-index 0s;
+  transform-style: preserve-3d;
+  margin: 0 auto;
+}
+
+.card-active {
+  transform: translate3d(0, 0, 0) scale(1);
+  z-index: 10;
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.card-next-1 {
+  transform: translate3d(16px, 12px, -30px) scale(0.96);
+  z-index: 9;
+  opacity: 0.85;
+  pointer-events: none;
+}
+
+.card-next-2 {
+  transform: translate3d(32px, 24px, -60px) scale(0.92);
+  z-index: 8;
+  opacity: 0.65;
+  pointer-events: none;
+}
+
+.card-prev {
+  transform: translate3d(-100px, 0, -80px) scale(0.85);
+  z-index: 1;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.card-hidden {
+  transform: translate3d(0, 0, -100px) scale(0.8);
+  z-index: 0;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.carousel-dots {
+  display: flex;
+  justify-content: center;
+  gap: 0.5rem;
+  margin-top: 1rem;
+  margin-bottom: 1.5rem;
+}
+
+.carousel-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background-color: var(--border-color);
+  border: none;
+  cursor: pointer;
+  padding: 0;
+  transition: background-color var(--transition-fast), transform var(--transition-fast);
+}
+
+.carousel-dot.active {
+  background-color: var(--primary-color);
+  transform: scale(1.2);
+}
+
+.carousel-nav-btn {
+  background: var(--surface-hover);
+  border: 1px solid var(--border-color);
+  color: var(--text-main);
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all var(--transition-fast);
+  box-shadow: var(--shadow-sm);
+  z-index: 20;
+}
+
+.carousel-nav-btn:hover {
+  background: var(--primary-color);
+  color: #fff;
+  border-color: var(--primary-color);
+  transform: scale(1.05);
+}
+
+.carousel-nav-btn:active {
+  transform: scale(0.95);
+}
+

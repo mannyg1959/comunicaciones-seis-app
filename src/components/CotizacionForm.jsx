@@ -1,5 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { ArrowLeft, Save, Plus, Trash2, FileEdit, FilePlus, User, Package, FileDown, Expand, X, AlertTriangle, ArrowUp, Building2, CreditCard, Phone, Mail, UserPlus, MapPin, Map, MessageSquare, Users, Layers, Search } from 'lucide-react';
+import { supabase } from '../utils/supabaseClient';
+
 
 const defaultClientsData = [
   {
@@ -43,7 +45,7 @@ const defaultClientsData = [
     observaciones: 'Entregas nocturnas preferidas.'
   }
 ];
-import { mockCotizaciones, mockOrdenesTrabajo, mockOrderStatusData } from '../data/mockData';
+
 
 const loadHtml2Pdf = () => {
   return new Promise((resolve, reject) => {
@@ -71,7 +73,35 @@ const WhatsAppIcon = ({ size = 20 }) => (
   </svg>
 );
 
+const formatCurrency = (value) => {
+  if (value === undefined || value === null || value === '') return '';
+  const cleanValue = String(value).replace(/\D/g, '');
+  if (!cleanValue) return '';
+  const numberValue = parseFloat(cleanValue) / 100;
+  const parts = numberValue.toFixed(2).split('.');
+  const integerPart = parts[0].replace(/\B(?=(\d{3})+(?!\d))/g, '.');
+  const decimalPart = parts[1];
+  return `$${integerPart},${decimalPart}`;
+};
+
+const formatCurrencyDisplay = (num) => {
+  if (num === undefined || num === null || isNaN(num)) return '$0,00';
+  const parts = Number(num).toFixed(2).split('.');
+  const integerPart = parts[0].replace(/\B(?=(\d{3})+(?!\d))/g, '.');
+  const decimalPart = parts[1];
+  return `$${integerPart},${decimalPart}`;
+};
+
+const parseMaskedValueToNumber = (value) => {
+  if (value === undefined || value === null || value === '') return 0;
+  if (typeof value === 'number') return value;
+  const clean = String(value).replace(/[$.]/g, '').replace(',', '.');
+  return parseFloat(clean) || 0;
+};
+
+
 export default function CotizacionForm({ initialData, onCancel, onSave, onDelete, user }) {
+  const isNew = !initialData;
   const [formData, setFormData] = useState(() => {
     if (initialData) {
       return {
@@ -110,6 +140,13 @@ export default function CotizacionForm({ initialData, onCancel, onSave, onDelete
   const [carouselIndex, setCarouselIndex] = useState(0);
   const [carouselSearch, setCarouselSearch] = useState('');
   const [showEditClientModal, setShowEditClientModal] = useState(false);
+  const [showDeleteClientConfirmModal, setShowDeleteClientConfirmModal] = useState(false);
+  const [showDeleteClientWarningModal, setShowDeleteClientWarningModal] = useState(false);
+  const [clientToDelete, setClientToDelete] = useState(null);
+  const [itemToDelete, setItemToDelete] = useState(null);
+  const [showUnsavedConfirmModal, setShowUnsavedConfirmModal] = useState(false);
+  const [associatedTransactionsCount, setAssociatedTransactionsCount] = useState({ quotes: 0, workOrders: 0 });
+  const [deletingClient, setDeletingClient] = useState(false);
   const [editClientData, setEditClientData] = useState({
     empresa: '',
     contacto: '',
@@ -120,31 +157,60 @@ export default function CotizacionForm({ initialData, onCancel, onSave, onDelete
     estado: '',
     observaciones: ''
   });
-  const [clientsList, setClientsList] = useState(() => {
-    const saved = localStorage.getItem('comunicaciones_seis_clients');
-    let base = saved ? JSON.parse(saved) : [...defaultClientsData];
-    if (initialData && initialData.cliente) {
-      const exists = base.some(c => c.empresa === initialData.cliente);
-      if (!exists) {
-        base.push({
-          empresa: initialData.cliente,
-          contacto: initialData.contacto || '',
-          rif: initialData.rif || '',
-          telefono: initialData.telefono || '',
-          correo: initialData.correo || '',
-          ciudad: initialData.ciudad || '',
-          estado: initialData.estado || '',
-          observaciones: initialData.observaciones || ''
-        });
-        localStorage.setItem('comunicaciones_seis_clients', JSON.stringify(base));
-      }
-    }
-    return base;
-  });
+  const [clientsList, setClientsList] = useState([]);
 
   useEffect(() => {
-    localStorage.setItem('comunicaciones_seis_clients', JSON.stringify(clientsList));
-  }, [clientsList]);
+    const fetchClients = async () => {
+      try {
+        const { data, error } = await supabase.from('clients').select('*');
+        if (error) throw error;
+        if (data && data.length > 0) {
+          const mapped = data.map(c => ({
+            id: c.id,
+            empresa: c.name,
+            contacto: c.contact_name,
+            rif: c.id,
+            telefono: c.contact_phone,
+            correo: c.contact_email,
+            ciudad: c.address ? c.address.split(',')[0] || '' : '',
+            estado: c.address ? c.address.split(',')[1] || '' : '',
+            observaciones: ''
+          }));
+          setClientsList(mapped);
+        } else {
+          const seedData = defaultClientsData.map(c => ({
+            name: c.empresa,
+            contact_name: c.contacto,
+            contact_phone: c.telefono,
+            contact_email: c.correo,
+            address: `${c.ciudad}, ${c.estado}`
+          }));
+          const { data: inserted, error: insertErr } = await supabase
+            .from('clients')
+            .insert(seedData)
+            .select();
+          if (!insertErr && inserted) {
+            const mapped = inserted.map(c => ({
+              id: c.id,
+              empresa: c.name,
+              contacto: c.contact_name,
+              rif: c.id,
+              telefono: c.contact_phone,
+              correo: c.contact_email,
+              ciudad: c.address.split(',')[0] || '',
+              estado: c.address.split(',')[1] || '',
+              observaciones: ''
+            }));
+            setClientsList(mapped);
+          }
+        }
+      } catch (err) {
+        console.error('Error fetching clients:', err);
+      }
+    };
+    fetchClients();
+  }, []);
+
   const [tempMotivoRechazo, setTempMotivoRechazo] = useState('');
   const [tempDetalleRechazo, setTempDetalleRechazo] = useState('');
   const [validationModal, setValidationModal] = useState({ show: false, message: '' });
@@ -194,6 +260,113 @@ export default function CotizacionForm({ initialData, onCancel, onSave, onDelete
     setShowNewClientModal(true);
   };
 
+  const handleTryDeleteClient = async (client) => {
+    if (!client || !client.id) {
+      alert('No se puede eliminar un cliente temporal sin guardar en la base de datos.');
+      return;
+    }
+    try {
+      setDeletingClient(true);
+      const { count: quotesCount, error: quotesError } = await supabase
+        .from('quotes')
+        .select('*', { count: 'exact', head: true })
+        .eq('client_id', client.id);
+
+      if (quotesError) throw quotesError;
+
+      const { count: woCount, error: woError } = await supabase
+        .from('work_orders')
+        .select('*', { count: 'exact', head: true })
+        .eq('client_id', client.id);
+
+      if (woError) throw woError;
+
+      setAssociatedTransactionsCount({ quotes: quotesCount || 0, workOrders: woCount || 0 });
+      setClientToDelete(client);
+
+      if ((quotesCount || 0) > 0 || (woCount || 0) > 0) {
+        setShowDeleteClientWarningModal(true);
+      } else {
+        setShowDeleteClientConfirmModal(true);
+      }
+    } catch (err) {
+      console.error('Error checking client transactions:', err);
+      alert('Error al verificar transacciones asociadas al cliente: ' + (err.message || ''));
+    } finally {
+      setDeletingClient(false);
+    }
+  };
+
+  const handleConfirmDeleteClient = async () => {
+    if (!clientToDelete || !clientToDelete.id) return;
+    try {
+      setDeletingClient(true);
+      const { error } = await supabase
+        .from('clients')
+        .delete()
+        .eq('id', clientToDelete.id);
+
+      if (error) throw error;
+
+      setClientsList(prev => prev.filter(c => c.id !== clientToDelete.id));
+      
+      if (formData.cliente === clientToDelete.empresa) {
+        setFormData({
+          ...formData,
+          cliente: '',
+          contacto: ''
+        });
+      }
+
+      setShowDeleteClientConfirmModal(false);
+      setClientToDelete(null);
+      setCarouselIndex(0);
+    } catch (err) {
+      console.error('Error deleting client:', err);
+      alert('Error al eliminar el cliente: ' + (err.message || ''));
+    } finally {
+      setDeletingClient(false);
+    }
+  };
+
+  const hasUnsavedChanges = () => {
+    if (!initialData) {
+      const hasClient = !!formData.cliente;
+      const hasItems = formData.items.length > 0;
+      const hasDescription = !!formData.description;
+      const hasValidezChanged = formData.fechaValidez !== '15';
+      return hasClient || hasItems || hasDescription || hasValidezChanged;
+    }
+    if (formData.cliente !== initialData.cliente) return true;
+    if (formData.contacto !== (initialData.contacto || '')) return true;
+    if (formData.fechaValidez !== initialData.fechaValidez) return true;
+    if (formData.condicionesPago !== initialData.condicionesPago) return true;
+    if (formData.fechaEntrega !== initialData.fechaEntrega) return true;
+    if (formData.description !== (initialData.description || '')) return true;
+    if (formData.estado !== initialData.estado) return true;
+    if (formData.items.length !== (initialData.items || []).length) return true;
+    for (let i = 0; i < formData.items.length; i++) {
+      const item = formData.items[i];
+      const origItem = initialData.items[i];
+      if (!origItem) return true;
+      if (item.lineaNegocio !== origItem.lineaNegocio) return true;
+      if (item.descripcion !== origItem.descripcion) return true;
+      if (parseFloat(item.cantidad) !== parseFloat(origItem.cantidad)) return true;
+      const rawCosto = parseMaskedValueToNumber(item.costoUnitario);
+      const origCosto = parseFloat(origItem.costoUnitario) || 0;
+      if (rawCosto !== origCosto) return true;
+    }
+    return false;
+  };
+
+  const handleBackClick = () => {
+    if (hasUnsavedChanges()) {
+      setShowUnsavedConfirmModal(true);
+    } else {
+      onCancel();
+    }
+  };
+
   const executeConvertirOT = () => {
     const newOtId = `OT-500${Math.floor(Math.random() * 100) + 6}`;
     const nuevaOT = {
@@ -207,6 +380,21 @@ export default function CotizacionForm({ initialData, onCancel, onSave, onDelete
     };
     mockOrdenesTrabajo.unshift(nuevaOT);
     
+    // Persist to localStorage so OrdenesTrabajo page can read it
+    const savedOts = localStorage.getItem('comunicaciones_seis_ots');
+    let currentOts = savedOts ? JSON.parse(savedOts) : [];
+    currentOts.unshift(nuevaOT);
+    localStorage.setItem('comunicaciones_seis_ots', JSON.stringify(currentOts));
+
+    // Initialize logs for this new OT
+    const savedLogs = localStorage.getItem('comunicaciones_seis_ot_logs');
+    let currentLogs = savedLogs ? JSON.parse(savedLogs) : {};
+    const nowStr = new Date().toISOString().replace('T', ' ').substring(0, 16);
+    currentLogs[newOtId] = [
+      { id: Date.now(), type: 'status', text: 'Orden Creada', date: nowStr, icon: 'FilePlus' }
+    ];
+    localStorage.setItem('comunicaciones_seis_ot_logs', JSON.stringify(currentLogs));
+    
     const pendingStatus = mockOrderStatusData.find(s => s.name === 'Programación');
     if (pendingStatus) pendingStatus.cantidad += 1;
 
@@ -214,8 +402,48 @@ export default function CotizacionForm({ initialData, onCancel, onSave, onDelete
   };
 
   const handleSaveClick = () => {
-    if (formData.total === 0) {
-      setValidationModal({ show: true, message: "El total a pagar no puede ser 0 para guardar la cotización." });
+    // 1. Campos obligatorios de Cabecera
+    if (!formData.fechaValidez || String(formData.fechaValidez).trim() === '') {
+      setValidationModal({ show: true, message: "El campo 'Validez (Días)' es obligatorio." });
+      return;
+    }
+    if (!formData.cliente || String(formData.cliente).trim() === '') {
+      setValidationModal({ show: true, message: "El campo 'Cliente / Empresa' es obligatorio." });
+      return;
+    }
+
+    // 2. Al menos un ítem
+    if (!formData.items || formData.items.length === 0) {
+      setValidationModal({ show: true, message: "La cotización debe tener al menos un ítem." });
+      return;
+    }
+
+    // 3. Campos obligatorios de ítems (Línea de Negocio, Descripción, Cantidad, Costo Unitario)
+    for (let i = 0; i < formData.items.length; i++) {
+      const item = formData.items[i];
+      if (!item.lineaNegocio || String(item.lineaNegocio).trim() === '') {
+        setValidationModal({ show: true, message: `La 'Línea de Negocio' en la línea ${i + 1} es obligatoria.` });
+        return;
+      }
+      if (!item.descripcion || String(item.descripcion).trim() === '') {
+        setValidationModal({ show: true, message: `La 'Descripción del Trabajo' en la línea ${i + 1} no puede estar vacía.` });
+        return;
+      }
+      const cant = parseFloat(item.cantidad) || 0;
+      if (cant <= 0) {
+        setValidationModal({ show: true, message: `La 'Cantidad' en la línea ${i + 1} debe ser mayor a 0.` });
+        return;
+      }
+      const rawCosto = parseMaskedValueToNumber(item.costoUnitario);
+      if (rawCosto <= 0) {
+        setValidationModal({ show: true, message: `El 'Costo Unitario' en la línea ${i + 1} debe ser mayor a $0.00.` });
+        return;
+      }
+    }
+
+    // 4. Campos obligatorios de condiciones / Totales
+    if (!formData.fechaEntrega) {
+      setValidationModal({ show: true, message: "El campo 'Fecha Estimada de Entrega' es obligatorio." });
       return;
     }
 
@@ -236,13 +464,33 @@ export default function CotizacionForm({ initialData, onCancel, onSave, onDelete
       });
       return;
     }
-    
-    if (formData.estado === 'Rechazada' && initialData?.estado !== 'Rechazada') {
-      setShowRechazoModal(true);
-      return;
+
+    // 5. Validaciones para estado "Rechazada"
+    if (formData.estado === 'Rechazada') {
+      if (!formData.motivoRechazo || String(formData.motivoRechazo).trim() === '' || !formData.detalleRechazo || String(formData.detalleRechazo).trim() === '') {
+        if (initialData?.estado !== 'Rechazada') {
+          setShowRechazoModal(true);
+          return;
+        }
+        setValidationModal({ show: true, message: "El 'Motivo' y el 'Detalle' del rechazo son obligatorios para cotizaciones rechazadas." });
+        return;
+      }
     }
-    
-    onSave(formData);
+
+    // Limpiar costoUnitario de formatos de máscara para guardar números en la base de datos
+    const cleanItems = formData.items.map(item => {
+      const rawCosto = parseMaskedValueToNumber(item.costoUnitario);
+      return {
+        ...item,
+        costoUnitario: rawCosto
+      };
+    });
+
+    onSave({
+      ...formData,
+      items: cleanItems,
+      _isNew: isNew
+    });
   };
 
   const handleConvertirOTClick = () => {
@@ -356,38 +604,38 @@ export default function CotizacionForm({ initialData, onCancel, onSave, onDelete
         formData.items.forEach((item, index) => {
           let details = item.descripcion || '';
 
-          const price = (parseFloat(item.costoUnitario) || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+          const price = formatCurrencyDisplay(parseFloat(item.costoUnitario) || 0);
 
           tableHTML += `
             <tr class="c8">
               <td class="c1" colspan="1" rowspan="1" style="border: 1px solid #cccccc;"><p class="c14" style="margin: 0; text-align: center;"><span class="c20">${index + 1}</span></p></td>
               <td class="c3" colspan="1" rowspan="1" style="border: 1px solid #cccccc; white-space: pre-wrap;"><p class="c7" style="margin: 0; white-space: pre-wrap;"><span class="c12" style="white-space: pre-wrap;">${details}</span></p></td>
               <td class="c2" colspan="1" rowspan="1" style="border: 1px solid #cccccc;"><p class="c14" style="margin: 0; text-align: center;"><span class="c12">${item.cantidad}</span></p></td>
-              <td class="c36" colspan="1" rowspan="1" style="border: 1px solid #cccccc;"><p class="c15" style="margin: 0; text-align: right;"><span class="c12">$${price}</span></p></td>
+              <td class="c36" colspan="1" rowspan="1" style="border: 1px solid #cccccc;"><p class="c15" style="margin: 0; text-align: right;"><span class="c12">${price}</span></p></td>
             </tr>
           `;
         });
 
-        const subtotalFormatted = formData.subtotal.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-        const taxesFormatted = formData.impuestos.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-        const totalFormatted = formData.total.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+        const subtotalFormatted = formatCurrencyDisplay(formData.subtotal);
+        const taxesFormatted = formatCurrencyDisplay(formData.impuestos);
+        const totalFormatted = formatCurrencyDisplay(formData.total);
 
         tableHTML += `
             <tr class="c8">
               <td class="c4" colspan="1" rowspan="1" style="border: 1px solid #cccccc;"><p class="c10" style="margin: 0;"></p></td>
               <td class="c37" colspan="1" rowspan="1" style="border: 1px solid #cccccc;"><p class="c7" style="margin: 0;"><span class="c12">Subtotal</span></p></td>
               <td class="c31" colspan="1" rowspan="1" style="border: 1px solid #cccccc;"><p class="c10" style="margin: 0;"></p></td>
-              <td class="c9" colspan="1" rowspan="1" style="border: 1px solid #cccccc;"><p class="c15" style="margin: 0; text-align: right;"><span class="c12">$${subtotalFormatted}</span></p></td>
+              <td class="c9" colspan="1" rowspan="1" style="border: 1px solid #cccccc;"><p class="c15" style="margin: 0; text-align: right;"><span class="c12">${subtotalFormatted}</span></p></td>
             </tr>
             <tr class="c8">
               <td class="c4" colspan="1" rowspan="1" style="border: 1px solid #cccccc;"><p class="c10" style="margin: 0;"></p></td>
               <td class="c37" colspan="1" rowspan="1" style="border: 1px solid #cccccc;"><p class="c7" style="margin: 0;"><span class="c12">IVA (16%)</span></p></td>
               <td class="c31" colspan="1" rowspan="1" style="border: 1px solid #cccccc;"><p class="c10" style="margin: 0;"></p></td>
-              <td class="c9" colspan="1" rowspan="1" style="border: 1px solid #cccccc;"><p class="c15" style="margin: 0; text-align: right;"><span class="c12">$${taxesFormatted}</span></p></td>
+              <td class="c9" colspan="1" rowspan="1" style="border: 1px solid #cccccc;"><p class="c15" style="margin: 0; text-align: right;"><span class="c12">${taxesFormatted}</span></p></td>
             </tr>
             <tr class="c8">
               <td class="c17" colspan="3" rowspan="1" style="border: 1px solid #cccccc;"><p class="c28" style="margin: 0; text-align: right;"><span class="c21 c32">TOTAL DE PRESUPUESTO:</span></p></td>
-              <td class="c44" colspan="1" rowspan="1" style="border: 1px solid #cccccc;"><p class="c28" style="margin: 0; text-align: right;"><span class="c21 c32">$${totalFormatted}</span></p></td>
+              <td class="c44" colspan="1" rowspan="1" style="border: 1px solid #cccccc;"><p class="c28" style="margin: 0; text-align: right;"><span class="c21 c32">${totalFormatted}</span></p></td>
             </tr>
           </tbody>
         `;
@@ -463,7 +711,7 @@ export default function CotizacionForm({ initialData, onCancel, onSave, onDelete
   useEffect(() => {
     const subtotal = formData.items.reduce((acc, item) => {
       const cant = parseFloat(item.cantidad) || 0;
-      const costo = parseFloat(item.costoUnitario) || 0;
+      const costo = parseMaskedValueToNumber(item.costoUnitario);
       return acc + (cant * costo);
     }, 0);
     const impuestos = subtotal * 0.16; // 16% IVA example
@@ -483,6 +731,7 @@ export default function CotizacionForm({ initialData, onCancel, onSave, onDelete
       case 'Borrador': return 'var(--text-muted)';
       case 'Pendiente': return 'var(--warning-color)';
       case 'Enviada': return 'var(--secondary-color)';
+      case 'En Negociación': return 'var(--tertiary-color)';
       case 'Aprobada': return 'var(--success-color)';
       case 'Rechazada': return 'var(--error-color)';
       case 'Anulada': return 'var(--text-muted)';
@@ -496,7 +745,7 @@ export default function CotizacionForm({ initialData, onCancel, onSave, onDelete
       className="page-content" 
       style={{ 
         paddingBottom: activeTab === 'detalles' ? '120px' : '0px', 
-        overflowY: activeTab === 'detalles' ? 'auto' : 'hidden' 
+        overflowY: 'auto' 
       }}
     >
       <div style={{
@@ -518,7 +767,7 @@ export default function CotizacionForm({ initialData, onCancel, onSave, onDelete
         }}>
         {/* Left Side: Back + Title */}
         <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
-          <button className="btn btn-secondary" style={{ width: 'auto', padding: '0.5rem', display: 'flex', alignItems: 'center', justifyContent: 'center' }} onClick={onCancel}>
+          <button className="btn btn-secondary" style={{ width: 'auto', padding: '0.5rem', display: 'flex', alignItems: 'center', justifyContent: 'center' }} onClick={handleBackClick}>
             <ArrowLeft size={20} />
           </button>
           <h1 style={{ margin: 0, fontSize: '1.5rem', fontWeight: '700', display: 'flex', alignItems: 'center', gap: '0.5rem', color: 'var(--text-main)' }}>
@@ -705,16 +954,20 @@ export default function CotizacionForm({ initialData, onCancel, onSave, onDelete
                   fontWeight: '700', 
                   fontSize: '1.05rem',
                   paddingLeft: '2.25rem',
-                  color: 'var(--text-main)',
-                  backgroundColor: 'var(--surface-hover)',
-                  borderColor: 'var(--border-color)'
+                  color: isNew ? 'var(--text-muted)' : 'var(--text-main)',
+                  backgroundColor: isNew ? 'var(--surface-color)' : 'var(--surface-hover)',
+                  borderColor: 'var(--border-color)',
+                  cursor: isNew ? 'not-allowed' : 'pointer',
+                  opacity: isNew ? 0.7 : 1
                 }}
                 value={formData.estado} 
                 onChange={e => setFormData({...formData, estado: e.target.value})}
+                disabled={isNew}
               >
                 <option value="Borrador">Borrador</option>
                 <option value="Pendiente">Pendiente</option>
                 <option value="Enviada">Enviada</option>
+                <option value="En Negociación">En Negociación</option>
                 <option value="Aprobada">Aprobada</option>
                 <option value="Rechazada">Rechazada</option>
                 <option value="Anulada">Anulada</option>
@@ -744,9 +997,11 @@ export default function CotizacionForm({ initialData, onCancel, onSave, onDelete
                   setFormData({
                     ...formData, 
                     cliente: e.target.value,
-                    contacto: matched ? matched.contacto : ''
+                    contacto: matched ? matched.contacto : '',
+                    clientId: matched ? matched.id : null
                   });
                 }}
+
               >
                 <option value="">Seleccione un cliente...</option>
                 {[...new Set([...clientsList.map(c => c.empresa), ...customClients])].map(cliente => (
@@ -797,7 +1052,8 @@ export default function CotizacionForm({ initialData, onCancel, onSave, onDelete
               }}
             >
               <button 
-                onClick={() => removeItem(item.id)}
+                type="button"
+                onClick={() => setItemToDelete(item.id)}
                 style={{ position: 'absolute', top: '1rem', right: '1rem', background: 'transparent', border: 'none', color: 'var(--error-color)', cursor: 'pointer' }}
               >
                 <Trash2 size={24} />
@@ -852,7 +1108,16 @@ export default function CotizacionForm({ initialData, onCancel, onSave, onDelete
                 </div>
                 <div className="input-group" style={{ flex: 1 }}>
                   <label>Costo Unitario ($)</label>
-                  <input type="number" className="input-control" value={item.costoUnitario} onChange={e => updateItem(item.id, 'costoUnitario', e.target.value)} />
+                  <input 
+                    type="text" 
+                    className="input-control" 
+                    value={typeof item.costoUnitario === 'number' ? formatCurrency(item.costoUnitario * 100) : (item.costoUnitario || '')} 
+                    onChange={e => {
+                      const formatted = formatCurrency(e.target.value);
+                      updateItem(item.id, 'costoUnitario', formatted);
+                    }} 
+                    placeholder="$0.00"
+                  />
                 </div>
               </div>
 
@@ -882,15 +1147,15 @@ export default function CotizacionForm({ initialData, onCancel, onSave, onDelete
         <div className="card">
           <div className="flex-row-between" style={{ marginBottom: '1rem', paddingBottom: '1rem', borderBottom: '1px solid var(--border-color)' }}>
             <span style={{ color: 'var(--text-muted)' }}>Subtotal</span>
-            <strong style={{ fontSize: '1.125rem' }}>${formData.subtotal.toFixed(2)}</strong>
+            <strong style={{ fontSize: '1.125rem' }}>{formatCurrencyDisplay(formData.subtotal)}</strong>
           </div>
           <div className="flex-row-between" style={{ marginBottom: '1rem', paddingBottom: '1rem', borderBottom: '1px solid var(--border-color)' }}>
             <span style={{ color: 'var(--text-muted)' }}>Impuestos (16%)</span>
-            <strong style={{ fontSize: '1.125rem' }}>${formData.impuestos.toFixed(2)}</strong>
+            <strong style={{ fontSize: '1.125rem' }}>{formatCurrencyDisplay(formData.impuestos)}</strong>
           </div>
           <div className="flex-row-between" style={{ marginBottom: '1.5rem' }}>
             <span style={{ fontSize: '1.25rem', fontWeight: '500' }}>Total a Pagar</span>
-            <strong style={{ fontSize: '1.5rem', color: 'var(--primary-color)' }}>${formData.total.toFixed(2)}</strong>
+            <strong style={{ fontSize: '1.5rem', color: 'var(--primary-color)' }}>{formatCurrencyDisplay(formData.total)}</strong>
           </div>
           
           <div className="input-group">
@@ -913,6 +1178,17 @@ export default function CotizacionForm({ initialData, onCancel, onSave, onDelete
               <option value="Crédito 30 días">Crédito 30 días</option>
               <option value="A convenir con el Cliente">A convenir con el Cliente</option>
             </select>
+          </div>
+
+          <div className="input-group">
+            <label>Comentarios</label>
+            <textarea
+              className="input-control"
+              placeholder="Agregar algún tipo de instrucción adicional..."
+              rows="3"
+              value={formData.description || ''}
+              onChange={e => setFormData({...formData, description: e.target.value})}
+            />
           </div>
 
           <div style={{ display: 'flex', gap: '0.5rem', marginTop: '1.25rem', flexWrap: 'wrap' }}>
@@ -1191,6 +1467,31 @@ export default function CotizacionForm({ initialData, onCancel, onSave, onDelete
                 </button>
                 <button 
                   type="button"
+                  className="btn btn-secondary" 
+                  style={{ 
+                    flex: 1, 
+                    height: '48px', 
+                    fontSize: '0.95rem', 
+                    padding: '0 1.25rem', 
+                    minWidth: '120px', 
+                    display: 'flex', 
+                    alignItems: 'center', 
+                    justifyContent: 'center', 
+                    gap: '0.4rem',
+                    color: 'var(--error-color)',
+                    borderColor: 'rgba(239, 68, 68, 0.2)'
+                  }} 
+                  disabled={filteredClients.length === 0 || deletingClient}
+                  onClick={() => {
+                    const selectedClient = filteredClients[carouselIndex];
+                    handleTryDeleteClient(selectedClient);
+                  }}
+                >
+                  <Trash2 size={16} />
+                  <span>Eliminar</span>
+                </button>
+                <button 
+                  type="button"
                   className="btn btn-primary" 
                   style={{ flex: 1, height: '48px', fontSize: '0.95rem', padding: '0 1.25rem', minWidth: '120px' }} 
                   disabled={filteredClients.length === 0}
@@ -1379,14 +1680,48 @@ export default function CotizacionForm({ initialData, onCancel, onSave, onDelete
                   opacity: (!newClientData.empresa.trim() || !newClientData.contacto.trim() || !newClientData.rif.trim() || !newClientData.telefono.trim() || !newClientData.correo.trim() || !newClientData.ciudad.trim() || !newClientData.estado.trim()) ? 0.5 : 1
                 }} 
                 disabled={!newClientData.empresa.trim() || !newClientData.contacto.trim() || !newClientData.rif.trim() || !newClientData.telefono.trim() || !newClientData.correo.trim() || !newClientData.ciudad.trim() || !newClientData.estado.trim()}
-                onClick={() => {
+                onClick={async () => {
                   const newClientObj = { ...newClientData };
-                  setClientsList(prev => [...prev, newClientObj]);
-                  setCustomClients(prev => [...prev, newClientData.empresa.trim()]);
-                  setFormData({...formData, cliente: newClientData.empresa.trim(), contacto: newClientData.contacto.trim()});
+                  try {
+                    const { data, error } = await supabase
+                      .from('clients')
+                      .insert([{
+                        name: newClientObj.empresa,
+                        contact_name: newClientObj.contacto,
+                        contact_phone: newClientObj.telefono,
+                        contact_email: newClientObj.correo,
+                        address: `${newClientObj.ciudad}, ${newClientObj.estado}`
+                      }])
+                      .select();
+                    if (error) throw error;
+                    if (data && data[0]) {
+                      const dbClient = {
+                        id: data[0].id,
+                        empresa: data[0].name,
+                        contacto: data[0].contact_name,
+                        rif: data[0].id,
+                        telefono: data[0].contact_phone,
+                        correo: data[0].contact_email,
+                        ciudad: data[0].address.split(',')[0] || '',
+                        estado: data[0].address.split(',')[1] || '',
+                        observaciones: ''
+                      };
+                      setClientsList(prev => [...prev, dbClient]);
+                      setCustomClients(prev => [...prev, dbClient.empresa]);
+                      setFormData({
+                        ...formData,
+                        cliente: dbClient.empresa,
+                        contacto: dbClient.contacto,
+                        clientId: dbClient.id
+                      });
+                    }
+                  } catch (err) {
+                    console.error('Error saving client:', err);
+                  }
                   setShowNewClientModal(false);
                   setNewClientData({ empresa: '', contacto: '', rif: '', telefono: '', correo: '', ciudad: '', estado: '', observaciones: '' });
                 }}
+
               >
                 Guardar
               </button>
@@ -1797,6 +2132,180 @@ export default function CotizacionForm({ initialData, onCancel, onSave, onDelete
           </div>
         </div>
       )}
+
+      {showDeleteClientWarningModal && (
+        <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(3px)', display: 'flex', justifyContent: 'center', alignItems: 'center', zIndex: 12000, padding: '1rem' }}>
+          <div className="card glass-panel" style={{ width: '100%', maxWidth: '440px', margin: 0, textAlign: 'center', border: '1px solid var(--border-color)', padding: '1.75rem' }}>
+            <div style={{ display: 'flex', justifyContent: 'center', marginBottom: '1.25rem' }}>
+              <div style={{
+                backgroundColor: 'rgba(239, 68, 68, 0.15)',
+                padding: '1rem',
+                borderRadius: '50%',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center'
+              }}>
+                <AlertTriangle size={36} color="var(--error-color)" />
+              </div>
+            </div>
+            <h3 style={{ margin: '0 0 0.75rem 0', color: 'var(--text-main)', fontSize: '1.25rem', fontWeight: '700' }}>No se puede eliminar el cliente</h3>
+            <p style={{ marginBottom: '1.75rem', color: 'var(--text-muted)', fontSize: '0.95rem', lineHeight: '1.5' }}>
+              El cliente <strong>{clientToDelete?.empresa}</strong> tiene transacciones asociadas en el sistema:
+              <br />
+              <span style={{ display: 'block', marginTop: '0.5rem', fontWeight: '600', color: 'var(--text-main)' }}>
+                {associatedTransactionsCount.quotes > 0 && `• ${associatedTransactionsCount.quotes} Cotización(es)`}
+                {associatedTransactionsCount.workOrders > 0 && <><br />{`• ${associatedTransactionsCount.workOrders} Orden(es) de Trabajo`}</>}
+              </span>
+              <br />
+              Debes eliminar o reasignar estas transacciones antes de poder borrar este cliente.
+            </p>
+            <button 
+              className="btn btn-primary" 
+              style={{ width: '100%', height: '48px', fontSize: '0.95rem', fontWeight: '600' }} 
+              onClick={() => {
+                setShowDeleteClientWarningModal(false);
+                setClientToDelete(null);
+              }}
+            >
+              Entendido
+            </button>
+          </div>
+        </div>
+      )}
+
+      {showDeleteClientConfirmModal && (
+        <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(3px)', display: 'flex', justifyContent: 'center', alignItems: 'center', zIndex: 12000, padding: '1rem' }}>
+          <div className="card glass-panel" style={{ width: '100%', maxWidth: '440px', margin: 0, textAlign: 'center', border: '1px solid var(--border-color)', padding: '1.75rem' }}>
+            <div style={{ display: 'flex', justifyContent: 'center', marginBottom: '1.25rem' }}>
+              <div style={{
+                backgroundColor: 'rgba(239, 68, 68, 0.15)',
+                padding: '1rem',
+                borderRadius: '50%',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center'
+              }}>
+                <Trash2 size={36} color="var(--error-color)" />
+              </div>
+            </div>
+            <h3 style={{ margin: '0 0 0.75rem 0', color: 'var(--text-main)', fontSize: '1.25rem', fontWeight: '700' }}>Confirmar Eliminación</h3>
+            <p style={{ marginBottom: '1.75rem', color: 'var(--text-muted)', fontSize: '0.95rem', lineHeight: '1.5' }}>
+              ¿Estás seguro de que deseas eliminar al cliente <strong>{clientToDelete?.empresa}</strong>? 
+              <br />Esta acción eliminará el registro permanentemente y no se puede deshacer.
+            </p>
+            <div style={{ display: 'flex', gap: '0.75rem' }}>
+              <button 
+                className="btn btn-secondary" 
+                style={{ flex: 1, height: '48px', fontSize: '0.95rem' }} 
+                disabled={deletingClient}
+                onClick={() => {
+                  setShowDeleteClientConfirmModal(false);
+                  setClientToDelete(null);
+                }}
+              >
+                Cancelar
+              </button>
+              <button 
+                className="btn btn-primary" 
+                style={{ flex: 1, height: '48px', fontSize: '0.95rem', backgroundColor: 'var(--error-color)', borderColor: 'var(--error-color)', color: '#ffffff' }} 
+                disabled={deletingClient}
+                onClick={handleConfirmDeleteClient}
+              >
+                {deletingClient ? 'Eliminando...' : 'Sí, Eliminar'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {itemToDelete !== null && (
+        <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(3px)', display: 'flex', justifyContent: 'center', alignItems: 'center', zIndex: 12000, padding: '1rem' }}>
+          <div className="card glass-panel" style={{ width: '100%', maxWidth: '400px', margin: 0, textAlign: 'center', border: '1px solid var(--border-color)', padding: '1.75rem' }}>
+            <div style={{ display: 'flex', justifyContent: 'center', marginBottom: '1.25rem' }}>
+              <div style={{
+                backgroundColor: 'rgba(239, 68, 68, 0.15)',
+                padding: '1rem',
+                borderRadius: '50%',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center'
+              }}>
+                <Trash2 size={36} color="var(--error-color)" />
+              </div>
+            </div>
+            <h3 style={{ margin: '0 0 0.75rem 0', color: 'var(--text-main)', fontSize: '1.25rem', fontWeight: '700' }}>¿Eliminar Línea?</h3>
+            <p style={{ marginBottom: '1.75rem', color: 'var(--text-muted)', fontSize: '0.95rem', lineHeight: '1.5' }}>
+              ¿Estás seguro de que deseas eliminar esta línea de la cotización? Esta acción no se puede deshacer.
+            </p>
+            <div style={{ display: 'flex', gap: '0.75rem' }}>
+              <button 
+                type="button"
+                className="btn btn-secondary" 
+                style={{ flex: 1, height: '48px', fontSize: '0.95rem' }} 
+                onClick={() => setItemToDelete(null)}
+              >
+                Cancelar
+              </button>
+              <button 
+                type="button"
+                className="btn btn-primary" 
+                style={{ flex: 1, height: '48px', fontSize: '0.95rem', backgroundColor: 'var(--error-color)', borderColor: 'var(--error-color)', color: '#ffffff' }} 
+                onClick={() => {
+                  removeItem(itemToDelete);
+                  setItemToDelete(null);
+                }}
+              >
+                Eliminar
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {showUnsavedConfirmModal && (
+        <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(3px)', display: 'flex', justifyContent: 'center', alignItems: 'center', zIndex: 12000, padding: '1rem' }}>
+          <div className="card glass-panel" style={{ width: '100%', maxWidth: '400px', margin: 0, textAlign: 'center', border: '1px solid var(--border-color)', padding: '1.75rem' }}>
+            <div style={{ display: 'flex', justifyContent: 'center', marginBottom: '1.25rem' }}>
+              <div style={{
+                backgroundColor: 'rgba(245, 158, 11, 0.15)',
+                padding: '1rem',
+                borderRadius: '50%',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center'
+              }}>
+                <AlertTriangle size={36} color="var(--warning-color)" />
+              </div>
+            </div>
+            <h3 style={{ margin: '0 0 0.75rem 0', color: 'var(--text-main)', fontSize: '1.25rem', fontWeight: '700' }}>Cambios sin guardar</h3>
+            <p style={{ marginBottom: '1.75rem', color: 'var(--text-muted)', fontSize: '0.95rem', lineHeight: '1.5' }}>
+              Tienes cambios sin guardar en esta cotización. ¿Estás seguro de que deseas salir? Los cambios se perderán.
+            </p>
+            <div style={{ display: 'flex', gap: '0.75rem' }}>
+              <button 
+                type="button"
+                className="btn btn-secondary" 
+                style={{ flex: 1, height: '48px', fontSize: '0.95rem' }} 
+                onClick={() => setShowUnsavedConfirmModal(false)}
+              >
+                Seguir Editando
+              </button>
+              <button 
+                type="button"
+                className="btn btn-primary" 
+                style={{ flex: 1, height: '48px', fontSize: '0.95rem', backgroundColor: 'var(--error-color)', borderColor: 'var(--error-color)', color: '#ffffff' }} 
+                onClick={() => {
+                  setShowUnsavedConfirmModal(false);
+                  onCancel();
+                }}
+              >
+                Salir sin Guardar
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {showScrollTop && (
         <button 
           type="button"

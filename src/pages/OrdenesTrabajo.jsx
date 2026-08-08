@@ -1,10 +1,11 @@
-import { useState } from 'react';
-import { mockOrdenesTrabajo } from '../data/mockData';
+import { useState, useEffect } from 'react';
 import { Package, Search, SlidersHorizontal, X } from 'lucide-react';
 import DatePicker from 'react-datepicker';
 import 'react-datepicker/dist/react-datepicker.css';
+import { logEvent } from '../utils/logs';
+import { checkPermission } from '../utils/permissions';
 
-export default function OrdenesTrabajo() {
+export default function OrdenesTrabajo({ user }) {
   const [searchTerm, setSearchTerm] = useState('');
   const [filterCliente, setFilterCliente] = useState('');
   const [filterFechaInicio, setFilterFechaInicio] = useState(null);
@@ -17,59 +18,37 @@ export default function OrdenesTrabajo() {
   const [tempEstado, setTempEstado] = useState('');
   const [isFilterDrawerOpen, setIsFilterDrawerOpen] = useState(false);
 
+  // State for cotizaciones
+  const [cotizaciones] = useState(() => {
+    const saved = localStorage.getItem('comunicaciones_seis_cotizaciones');
+    return saved ? JSON.parse(saved) : [];
+  });
+
+  // State for summary view
+  const [selectedOTForSummary, setSelectedOTForSummary] = useState(null);
+
   // State for OTs (persisted in localStorage)
   const [ordenesTrabajo, setOrdenesTrabajo] = useState(() => {
     const saved = localStorage.getItem('comunicaciones_seis_ots');
-    return saved ? JSON.parse(saved) : [...mockOrdenesTrabajo];
+    if (saved && saved.includes('OT-5001')) {
+      localStorage.removeItem('comunicaciones_seis_ots');
+      localStorage.removeItem('comunicaciones_seis_ot_incidents');
+      localStorage.removeItem('comunicaciones_seis_ot_logs');
+      return [];
+    }
+    return saved ? JSON.parse(saved) : [];
   });
 
   // State for active incidents per OT (persisted in localStorage)
   const [otIncidents, setOtIncidents] = useState(() => {
     const saved = localStorage.getItem('comunicaciones_seis_ot_incidents');
-    const defaultIncidents = {
-      'OT-5001': [
-        { id: 1, type: 'incident', text: 'Retraso de materia prima: sustrato agotado', date: '2026-07-27 10:00', severity: 'Alta' }
-      ]
-    };
-    return saved ? JSON.parse(saved) : defaultIncidents;
+    return saved ? JSON.parse(saved) : {};
   });
 
   // Initial mockup history logs (persisted in localStorage)
   const [otLogs, setOtLogs] = useState(() => {
     const saved = localStorage.getItem('comunicaciones_seis_ot_logs');
-    const defaultLogs = {
-      'OT-5001': [
-        { id: 1, type: 'status', text: 'Orden Creada', date: '2026-07-25 09:00', icon: 'FilePlus' },
-        { id: 2, type: 'status', text: 'Estatus cambiado a Programación', date: '2026-07-25 10:15', icon: 'SlidersHorizontal' },
-        { id: 3, type: 'status', text: 'Estatus cambiado a Producción', date: '2026-07-26 14:30', icon: 'Package' }
-      ],
-      'OT-5002': [
-        { id: 1, type: 'status', text: 'Orden Creada', date: '2026-07-18 08:30', icon: 'FilePlus' },
-        { id: 2, type: 'status', text: 'Estatus cambiado a Programación', date: '2026-07-18 09:00', icon: 'SlidersHorizontal' },
-        { id: 3, type: 'status', text: 'Estatus cambiado a Producción', date: '2026-07-18 11:00', icon: 'Package' },
-        { id: 4, type: 'status', text: 'Estatus cambiado a Revisión', date: '2026-07-19 15:45', icon: 'SlidersHorizontal' },
-        { id: 5, type: 'status', text: 'Estatus cambiado a Finalizado', date: '2026-07-20 12:00', icon: 'CheckCircle' }
-      ],
-      'OT-5003': [
-        { id: 1, type: 'status', text: 'Orden Creada', date: '2026-07-24 11:20', icon: 'FilePlus' },
-        { id: 2, type: 'status', text: 'Estatus cambiado a Programación', date: '2026-07-25 09:30', icon: 'SlidersHorizontal' }
-      ],
-      'OT-5004': [
-        { id: 1, type: 'status', text: 'Orden Creada', date: '2026-07-25 10:00', icon: 'FilePlus' },
-        { id: 2, type: 'status', text: 'Estatus cambiado a Programación', date: '2026-07-25 11:30', icon: 'SlidersHorizontal' },
-        { id: 3, type: 'status', text: 'Estatus cambiado a Producción', date: '2026-07-26 09:00', icon: 'Package' },
-        { id: 4, type: 'status', text: 'Estatus cambiado a Revisión', date: '2026-07-28 14:00', icon: 'SlidersHorizontal' }
-      ],
-      'OT-5005': [
-        { id: 1, type: 'status', text: 'Orden Creada', date: '2026-07-10 09:00', icon: 'FilePlus' },
-        { id: 2, type: 'status', text: 'Estatus cambiado a Programación', date: '2026-07-10 10:00', icon: 'SlidersHorizontal' },
-        { id: 3, type: 'status', text: 'Estatus cambiado a Producción', date: '2026-07-11 08:30', icon: 'Package' },
-        { id: 4, type: 'status', text: 'Estatus cambiado a Revisión', date: '2026-07-14 13:00', icon: 'SlidersHorizontal' },
-        { id: 5, type: 'status', text: 'Estatus cambiado a Finalizado', date: '2026-07-15 11:00', icon: 'CheckCircle' },
-        { id: 6, type: 'status', text: 'Estatus cambiado a Entregado', date: '2026-07-15 16:30', icon: 'Truck' }
-      ]
-    };
-    return saved ? JSON.parse(saved) : defaultLogs;
+    return saved ? JSON.parse(saved) : {};
   });
 
   // Keep localStorage updated when state changes
@@ -84,6 +63,50 @@ export default function OrdenesTrabajo() {
   useEffect(() => {
     localStorage.setItem('comunicaciones_seis_ot_logs', JSON.stringify(otLogs));
   }, [otLogs]);
+
+  const getStatusColor = (estado) => {
+    switch (estado) {
+      case 'Programación': return '#64748b';
+      case 'Producción': return '#3b82f6';
+      case 'Revisión': return '#f59e0b';
+      case 'Finalizado': return '#10b981';
+      case 'Entregado': return '#a855f7';
+      default: return '#64748b';
+    }
+  };
+
+  const calculateGap = (fechaEntrega) => {
+    if (!fechaEntrega) return { text: 'Sin fecha', color: 'var(--text-muted)' };
+    const today = new Date();
+    today.setHours(0,0,0,0);
+    const [year, month, day] = fechaEntrega.split('-');
+    const deliveryDate = new Date(year, month - 1, day);
+    
+    const diffTime = deliveryDate.getTime() - today.getTime();
+    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+    
+    if (diffDays < 0) return { text: `Vencido (${Math.abs(diffDays)}d)`, color: 'var(--error-color)' };
+    if (diffDays === 0) return { text: '¡Hoy!', color: 'var(--error-color)' };
+    if (diffDays <= 2) return { text: `${diffDays} días`, color: 'var(--warning-color)' };
+    return { text: `${diffDays} días`, color: 'var(--success-color)' };
+  };
+
+  const getStageForLog = (logId, logsList) => {
+    const list = logsList || [];
+    const logIdx = list.findIndex(l => l.id === logId);
+    if (logIdx === -1) return 'Programación';
+    for (let j = logIdx; j >= 0; j--) {
+      if (list[j].type === 'status') {
+        const text = list[j].text;
+        if (text === 'Orden Creada') return 'Programación';
+        const match = text.match(/Estatus cambiado a (.*)/);
+        if (match) return match[1];
+      }
+    }
+    return 'Programación';
+  };
+
+  const isAnyFilterActive = filterCliente || filterFechaInicio || filterFechaFin || filterEstadoSelect || filterIncidencia;
 
   const filtered = ordenesTrabajo.filter(ot => {
     const matchesSearch = ot.cliente.toLowerCase().includes(searchTerm.toLowerCase()) || ot.id.toLowerCase().includes(searchTerm.toLowerCase());
@@ -110,20 +133,62 @@ export default function OrdenesTrabajo() {
   const [newIncidentText, setNewIncidentText] = useState('');
   const [newIncidentSeverity, setNewIncidentSeverity] = useState('Media');
 
+  // State for editing incidents
+  const [editingIncidentId, setEditingIncidentId] = useState(null);
+  const [editingText, setEditingText] = useState('');
+  const [editingSeverity, setEditingSeverity] = useState('Media');
+
+  // State for reversion authorization flow
+  const [authStep, setAuthStep] = useState('none');
+  const [adminPasswordInput, setAdminPasswordInput] = useState('');
+  const [authError, setAuthError] = useState('');
+
   const handleOpenOT = (ot) => {
     setSelectedOT(ot);
     setTempEstado(ot.estado);
     setActiveModalView('menu');
     setNewIncidentText('');
     setNewIncidentSeverity('Media');
+    setEditingIncidentId(null);
+    setAuthStep('none');
+    setAdminPasswordInput('');
+    setAuthError('');
   };
 
-  const handleSaveEstado = () => {
-    if (!selectedOT) return;
+  const handleUpdateIncident = (incidentId) => {
+    if (!selectedOT || !editingText.trim()) return;
+    
+    setOtIncidents(prev => {
+      const list = prev[selectedOT.id] || [];
+      const updatedList = list.map(inc => {
+        if (inc.id === incidentId) {
+          return { ...inc, text: editingText, severity: editingSeverity };
+        }
+        return inc;
+      });
+      return { ...prev, [selectedOT.id]: updatedList };
+    });
+
+    setOtLogs(prev => {
+      const list = prev[selectedOT.id] || [];
+      const updatedList = list.map(log => {
+        if (log.id === incidentId && log.type === 'incident') {
+          return { ...log, text: `Incidencia registrada (${editingSeverity}): ${editingText}` };
+        }
+        return log;
+      });
+      return { ...prev, [selectedOT.id]: updatedList };
+    });
+
+    setEditingIncidentId(null);
+    setEditingText('');
+  };
+
+  const executeSaveEstado = (targetEstado, isRetroceder = false) => {
     const index = ordenesTrabajo.findIndex(o => o.id === selectedOT.id);
     if (index !== -1) {
       let progreso = 0;
-      switch(tempEstado) {
+      switch(targetEstado) {
         case 'Programación': progreso = 0; break;
         case 'Producción': progreso = 30; break;
         case 'Revisión': progreso = 70; break;
@@ -132,38 +197,94 @@ export default function OrdenesTrabajo() {
       }
       const oldEstado = ordenesTrabajo[index].estado;
       
+      if (isRetroceder) {
+        const currentStage = oldEstado;
+        
+        // 1. Delete active incidents of the current stage
+        setOtIncidents(prev => {
+          const list = prev[selectedOT.id] || [];
+          const updatedList = list.filter(inc => {
+            const logForInc = (otLogs[selectedOT.id] || []).find(l => l.id === inc.id);
+            const incStage = logForInc ? getStageForLog(inc.id, otLogs[selectedOT.id] || []) : inc.estado;
+            return incStage !== currentStage;
+          });
+          return { ...prev, [selectedOT.id]: updatedList };
+        });
+
+        // 2. Delete logs of the current stage
+        setOtLogs(prev => {
+          const list = prev[selectedOT.id] || [];
+          const updatedList = list.filter(log => {
+            const logStage = getStageForLog(log.id, list);
+            return logStage !== currentStage;
+          });
+          return { ...prev, [selectedOT.id]: updatedList };
+        });
+      }
+
       const updatedOts = [...ordenesTrabajo];
-      updatedOts[index] = { ...updatedOts[index], estado: tempEstado, progreso };
+      updatedOts[index] = { ...updatedOts[index], estado: targetEstado, progreso };
       setOrdenesTrabajo(updatedOts);
       
-      if (oldEstado !== tempEstado) {
-        // Add log entry
+      if (oldEstado !== targetEstado) {
         const nowStr = new Date().toISOString().replace('T', ' ').substring(0, 16);
         const newLog = {
           id: Date.now(),
           type: 'status',
-          text: `Estatus cambiado a ${tempEstado}`,
+          text: `Estatus cambiado a ${targetEstado}`,
           date: nowStr,
-          icon: tempEstado === 'Entregado' ? 'Truck' : tempEstado === 'Finalizado' ? 'CheckCircle' : 'SlidersHorizontal'
+          icon: targetEstado === 'Entregado' ? 'Truck' : targetEstado === 'Finalizado' ? 'CheckCircle' : 'SlidersHorizontal',
+          estado: targetEstado
         };
         setOtLogs(prev => ({
           ...prev,
           [selectedOT.id]: [...(prev[selectedOT.id] || []), newLog]
         }));
+        logEvent(user, 'Estatus OT Actualizado', `Se cambió el estatus de la orden ${selectedOT.id} de ${oldEstado} a ${targetEstado}`);
       }
     }
     setSelectedOT(null);
+    setAuthStep('none');
+  };
+
+  const handleSaveEstado = () => {
+    if (!selectedOT) return;
+    const currentIndex = stages.indexOf(selectedOT.estado);
+    const tempIndex = stages.indexOf(tempEstado);
+
+    if (tempIndex < currentIndex) {
+      setAuthStep('password');
+      setAdminPasswordInput('');
+      setAuthError('');
+    } else {
+      executeSaveEstado(tempEstado);
+    }
+  };
+
+  const handleValidatePassword = () => {
+    if (adminPasswordInput === '1234') {
+      setAuthStep('warning');
+      setAuthError('');
+    } else {
+      setAuthError('Clave incorrecta. Intente nuevamente.');
+    }
+  };
+
+  const executeSaveEstadoRetroceder = () => {
+    executeSaveEstado(tempEstado, true);
   };
 
   const handleSaveIncident = () => {
     if (!selectedOT || !newIncidentText.trim()) return;
     const nowStr = new Date().toISOString().replace('T', ' ').substring(0, 16);
+    const incidentId = Date.now();
     const newIncident = {
-      id: Date.now(),
+      id: incidentId,
       type: 'incident',
       text: newIncidentText,
       date: nowStr,
-      severity: newIncidentSeverity
+      severity: newIncidentSeverity,
+      estado: selectedOT.estado
     };
 
     // Save to active incidents
@@ -174,16 +295,19 @@ export default function OrdenesTrabajo() {
 
     // Add to history logs
     const newLog = {
-      id: Date.now() + 1,
+      id: incidentId,
       type: 'incident',
       text: `Incidencia registrada (${newIncidentSeverity}): ${newIncidentText}`,
       date: nowStr,
-      icon: 'AlertTriangle'
+      icon: 'AlertTriangle',
+      estado: selectedOT.estado
     };
     setOtLogs(prev => ({
       ...prev,
       [selectedOT.id]: [...(prev[selectedOT.id] || []), newLog]
     }));
+
+    logEvent(user, 'Incidencia OT Registrada', `Se registró una incidencia (${newIncidentSeverity}) en la orden ${selectedOT.id}: ${newIncidentText}`);
 
     setNewIncidentText('');
     setNewIncidentSeverity('Media');
@@ -268,6 +392,7 @@ export default function OrdenesTrabajo() {
           <Search size={18} style={{ position: 'absolute', left: '1rem', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)' }} />
           <input 
             type="text" 
+            autoComplete="off"
             className="input-control" 
             placeholder="Buscar orden o cliente..." 
             style={{ paddingLeft: '2.5rem' }}
@@ -334,6 +459,29 @@ export default function OrdenesTrabajo() {
                 </div>
                 <span style={{ fontSize: '0.75rem', fontWeight: '600' }}>{ot.progreso}%</span>
               </div>
+              
+              <div style={{ display: 'flex', justifyContent: 'flex-end', borderTop: '1px solid var(--border-color)', paddingTop: '0.5rem', marginTop: '0.75rem' }}>
+                <button 
+                  type="button" 
+                  className="btn btn-secondary" 
+                  style={{ 
+                    padding: '0.25rem 0.5rem', 
+                    fontSize: '0.8rem', 
+                    height: '32px', 
+                    width: 'auto', 
+                    display: 'flex', 
+                    alignItems: 'center', 
+                    gap: '0.25rem',
+                    margin: 0
+                  }}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setSelectedOTForSummary(ot);
+                  }}
+                >
+                  📄 Ver Resumen de OT
+                </button>
+              </div>
             </div>
           );
         })}
@@ -347,7 +495,15 @@ export default function OrdenesTrabajo() {
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '1rem' }}>
               <div>
                 <h2 style={{ margin: 0, fontSize: '1.25rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                  <span>{activeModalView === 'menu' ? 'Acciones de Orden' : activeModalView === 'estatus' ? 'Actualizar Estatus' : activeModalView === 'incidencia' ? 'Registrar Incidencia' : 'Historial y Trazabilidad'}</span>
+                  <span>
+                    {activeModalView === 'menu' 
+                      ? 'Acciones de Orden' 
+                      : activeModalView === 'estatus' 
+                        ? (authStep === 'password' ? 'Autorizar Retroceso' : authStep === 'warning' ? 'Confirmar Retroceso' : 'Actualizar Estatus') 
+                        : activeModalView === 'incidencia' 
+                          ? 'Registrar Incidencia' 
+                          : 'Historial y Trazabilidad'}
+                  </span>
                   <span style={{ 
                     color: document.body.classList.contains('light-mode') ? '#000000' : '#60a5fa',
                     fontWeight: 'bold',
@@ -434,38 +590,123 @@ export default function OrdenesTrabajo() {
             {/* Vista 2: Cambiar Estatus */}
             {activeModalView === 'estatus' && (
               <div>
-                {renderTimeline(tempEstado)}
+                {authStep === 'none' && (
+                  <>
+                    {renderTimeline(tempEstado)}
 
-                <div className="input-group" style={{ marginTop: '1.5rem' }}>
-                  <label>Seleccionar Estatus:</label>
-                  <select className="input-control" value={tempEstado} onChange={e => setTempEstado(e.target.value)}>
-                    {stages.map((stage, index) => {
-                      const originalIndex = stages.indexOf(selectedOT.estado);
-                      // Permitir revertir a previos o avanzar hasta 1 estatus siguiente
-                      if (index <= originalIndex + 1) {
-                        return <option key={stage} value={stage}>{stage}</option>;
-                      }
-                      return null;
-                    })}
-                  </select>
-                </div>
+                    <div className="input-group" style={{ marginTop: '1.5rem' }}>
+                      <label>Seleccionar Estatus:</label>
+                      <select className="input-control" value={tempEstado} onChange={e => setTempEstado(e.target.value)}>
+                        {stages.map((stage, index) => {
+                          const originalIndex = stages.indexOf(selectedOT.estado);
+                          // Permitir exclusivamente retroceder a la inmediatamente anterior, mantenerse, o avanzar a la inmediatamente siguiente
+                          if (index >= originalIndex - 1 && index <= originalIndex + 1) {
+                            return <option key={stage} value={stage}>{stage}</option>;
+                          }
+                          return null;
+                        })}
+                      </select>
+                    </div>
 
-                <div style={{ display: 'flex', gap: '0.75rem', marginTop: '2rem', flexWrap: 'wrap' }}>
-                  <button 
-                    className="btn btn-secondary" 
-                    style={{ flex: 1, height: '48px', fontSize: '0.95rem', minWidth: '120px' }} 
-                    onClick={() => setActiveModalView('menu')}
-                  >
-                    Atrás
-                  </button>
-                  <button 
-                    className="btn btn-primary" 
-                    style={{ flex: 1, height: '48px', fontSize: '0.95rem', minWidth: '120px' }} 
-                    onClick={handleSaveEstado}
-                  >
-                    Guardar Cambios
-                  </button>
-                </div>
+                    <div style={{ display: 'flex', gap: '0.75rem', marginTop: '2rem', flexWrap: 'wrap' }}>
+                      <button 
+                        className="btn btn-secondary" 
+                        style={{ flex: 1, height: '48px', fontSize: '0.95rem', minWidth: '120px' }} 
+                        onClick={() => setActiveModalView('menu')}
+                      >
+                        Atrás
+                      </button>
+                      <button 
+                        className="btn btn-primary" 
+                        style={{ flex: 1, height: '48px', fontSize: '0.95rem', minWidth: '120px' }} 
+                        onClick={handleSaveEstado}
+                      >
+                        Guardar Cambios
+                      </button>
+                    </div>
+                  </>
+                )}
+
+                {authStep === 'password' && (
+                  <div style={{ padding: '0.5rem 0' }}>
+                    <h3 style={{ margin: '0 0 1rem 0', fontSize: '1.1rem', color: 'var(--text-main)', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                      🔒 Autorización Requerida
+                    </h3>
+                    <p style={{ fontSize: '0.9rem', color: 'var(--text-muted)', marginBottom: '1.25rem', lineHeight: '1.4' }}>
+                      Para retroceder a la etapa anterior, se requiere ingresar la clave de autorización del administrador.
+                    </p>
+                    <div className="input-group">
+                      <label>Clave de Administrador:</label>
+                      <input 
+                        type="password" 
+                        autoComplete="new-password"
+                        className="input-control" 
+                        placeholder="Ingrese clave..." 
+                        value={adminPasswordInput}
+                        onChange={e => {
+                          setAdminPasswordInput(e.target.value);
+                          setAuthError('');
+                        }}
+                        style={{ letterSpacing: adminPasswordInput ? '0.3em' : 'normal' }}
+                      />
+                      {authError && <span style={{ color: 'var(--error-color)', fontSize: '0.8rem', marginTop: '0.25rem', display: 'block', fontWeight: '500' }}>⚠️ {authError}</span>}
+                    </div>
+                    <div style={{ display: 'flex', gap: '0.75rem', marginTop: '2rem', flexWrap: 'wrap' }}>
+                      <button 
+                        className="btn btn-secondary" 
+                        style={{ flex: 1, height: '48px', fontSize: '0.95rem', minWidth: '120px' }} 
+                        onClick={() => {
+                          setAuthStep('none');
+                          setAdminPasswordInput('');
+                          setAuthError('');
+                        }}
+                      >
+                        Cancelar
+                      </button>
+                      <button 
+                        className="btn btn-primary" 
+                        style={{ flex: 1, height: '48px', fontSize: '0.95rem', minWidth: '120px' }} 
+                        onClick={handleValidatePassword}
+                      >
+                        Validar Clave
+                      </button>
+                    </div>
+                  </div>
+                )}
+
+                {authStep === 'warning' && (
+                  <div style={{ padding: '0.5rem 0' }}>
+                    <h3 style={{ margin: '0 0 1rem 0', fontSize: '1.1rem', color: 'var(--error-color)', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                      ⚠️ Advertencia de Eliminación
+                    </h3>
+                    <p style={{ fontSize: '0.9rem', color: 'var(--text-main)', marginBottom: '1.25rem', lineHeight: '1.5' }}>
+                      Está a punto de retroceder la orden al estatus <strong>{tempEstado}</strong>. 
+                      Esta acción <strong>eliminará permanentemente</strong> todas las incidencias y registros de trazabilidad (observaciones) creados durante la etapa actual (<strong>{selectedOT.estado}</strong>).
+                    </p>
+                    <p style={{ fontSize: '0.85rem', color: 'var(--text-muted)', marginBottom: '1.5rem' }}>
+                      ¿Está seguro de que desea continuar?
+                    </p>
+                    <div style={{ display: 'flex', gap: '0.75rem', marginTop: '2rem', flexWrap: 'wrap' }}>
+                      <button 
+                        className="btn btn-secondary" 
+                        style={{ flex: 1, height: '48px', fontSize: '0.95rem', minWidth: '120px' }} 
+                        onClick={() => {
+                          setAuthStep('none');
+                          setAdminPasswordInput('');
+                        }}
+                      >
+                        Cancelar
+                      </button>
+                      <button 
+                        className="btn btn-primary" 
+                        style={{ flex: 1, height: '48px', fontSize: '0.95rem', minWidth: '120px', backgroundColor: 'var(--error-color)', borderColor: 'var(--error-color)' }} 
+                        onClick={executeSaveEstadoRetroceder}
+                      >
+                        Confirmar y Retroceder
+                      </button>
+                    </div>
+                  </div>
+                )}
               </div>
             )}
 
@@ -544,6 +785,28 @@ export default function OrdenesTrabajo() {
                             durationText = `(DURACIÓN: ${diffDays} ${diffDays === '1.0' ? 'día' : 'días'})`;
                           }
 
+                          const logStage = getStageForLog(log.id, logs);
+                          const incidentStageIndex = stages.indexOf(logStage);
+                          const currentStageIndex = stages.indexOf(selectedOT.estado);
+                          const isEditableIncident = isIncident && currentStageIndex <= incidentStageIndex;
+
+                          const incidentData = isIncident ? (otIncidents[selectedOT.id] || []).find(inc => inc.id === log.id) : null;
+                          const rawText = incidentData ? incidentData.text : '';
+                          const severity = incidentData ? incidentData.severity : 'Media';
+
+                          let initialText = rawText;
+                          if (isIncident && !initialText) {
+                            const matches = log.text.match(/Incidencia registrada \([^)]+\):\s*(.*)/);
+                            initialText = matches ? matches[1] : log.text;
+                          }
+                          let initialSeverity = severity;
+                          if (isIncident && !incidentData) {
+                            const severityMatch = log.text.match(/Incidencia registrada \(([^)]+)\)/);
+                            initialSeverity = severityMatch ? severityMatch[1] : 'Media';
+                          }
+
+                          const isEditing = editingIncidentId === log.id;
+
                           return (
                             <div key={log.id} style={{ position: 'relative', marginBottom: '0.5rem' }}>
                               <div style={{
@@ -557,32 +820,89 @@ export default function OrdenesTrabajo() {
                                 boxShadow: '0 0 0 4px var(--surface-color)'
                               }} />
                               <span style={{ fontSize: '0.7rem', color: 'var(--text-muted)', display: 'block' }}>{log.date}</span>
-                              <p style={{ 
-                                margin: '0.2rem 0 0 0', 
-                                fontSize: '0.875rem', 
-                                color: isIncident ? 'var(--error-color)' : 'var(--text-main)', 
-                                fontWeight: isIncident ? '600' : '400',
-                                display: 'flex',
-                                flexWrap: 'wrap',
-                                alignItems: 'center',
-                                gap: '0.35rem'
-                              }}>
-                                <span>{log.text}</span>
-                                {durationText && (
-                                  <span style={{ 
-                                    fontSize: '0.7rem', 
-                                    padding: '0.1rem 0.4rem', 
-                                    borderRadius: 'var(--radius-sm)', 
-                                    backgroundColor: document.body.classList.contains('light-mode') ? 'rgba(16, 185, 129, 0.15)' : 'rgba(16, 185, 129, 0.25)', 
-                                    color: document.body.classList.contains('light-mode') ? '#059669' : '#34d399',
-                                    fontWeight: 'bold',
-                                    display: 'inline-block',
-                                    border: '1px solid ' + (document.body.classList.contains('light-mode') ? '#a7f3d0' : '#059669')
-                                  }}>
-                                    {durationText}
-                                  </span>
-                                )}
-                              </p>
+                              
+                              {isEditing ? (
+                                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', padding: '0.5rem', backgroundColor: 'rgba(239, 68, 68, 0.05)', borderRadius: 'var(--radius-md)', border: '1px solid var(--border-color)', margin: '0.5rem 0' }}>
+                                  <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
+                                    <span style={{ fontSize: '0.75rem', fontWeight: 'bold' }}>Gravedad:</span>
+                                    <select 
+                                      className="input-control" 
+                                      style={{ padding: '0.2rem 0.5rem', fontSize: '0.8rem', width: 'auto', height: 'auto', margin: 0 }} 
+                                      value={editingSeverity} 
+                                      onChange={e => setEditingSeverity(e.target.value)}
+                                    >
+                                      <option value="Baja">Baja</option>
+                                      <option value="Media">Media</option>
+                                      <option value="Alta">Alta</option>
+                                    </select>
+                                  </div>
+                                  <textarea 
+                                    className="input-control" 
+                                    rows="2" 
+                                    style={{ fontSize: '0.85rem', width: '100%', margin: 0 }} 
+                                    value={editingText} 
+                                    onChange={e => setEditingText(e.target.value)}
+                                  />
+                                  <div style={{ display: 'flex', gap: '0.5rem', justifyContent: 'flex-end' }}>
+                                    <button 
+                                      type="button"
+                                      className="btn btn-secondary" 
+                                      style={{ padding: '0.2rem 0.5rem', fontSize: '0.8rem', height: '30px', width: 'auto', display: 'flex', alignItems: 'center' }} 
+                                      onClick={() => setEditingIncidentId(null)}
+                                    >
+                                      Cancelar
+                                    </button>
+                                    <button 
+                                      type="button"
+                                      className="btn btn-primary" 
+                                      style={{ padding: '0.2rem 0.5rem', fontSize: '0.8rem', height: '30px', width: 'auto', display: 'flex', alignItems: 'center' }} 
+                                      disabled={!editingText.trim()}
+                                      onClick={() => handleUpdateIncident(log.id)}
+                                    >
+                                      Guardar
+                                    </button>
+                                  </div>
+                                </div>
+                              ) : (
+                                <p 
+                                  style={{ 
+                                    margin: '0.2rem 0 0 0', 
+                                    fontSize: '0.875rem', 
+                                    color: isIncident ? 'var(--error-color)' : 'var(--text-main)', 
+                                    fontWeight: isIncident ? '600' : '400',
+                                    display: 'flex',
+                                    flexWrap: 'wrap',
+                                    alignItems: 'center',
+                                    gap: '0.35rem',
+                                    cursor: isEditableIncident ? 'pointer' : 'default',
+                                  }}
+                                  onClick={() => {
+                                    if (isEditableIncident) {
+                                      setEditingIncidentId(log.id);
+                                      setEditingText(initialText);
+                                      setEditingSeverity(initialSeverity);
+                                    }
+                                  }}
+                                  title={isEditableIncident ? "Haz clic para editar la incidencia" : undefined}
+                                >
+                                  <span>{log.text}</span>
+                                  {isEditableIncident && <span style={{ fontSize: '0.75rem', opacity: 0.7 }}>✏️</span>}
+                                  {durationText && (
+                                    <span style={{ 
+                                      fontSize: '0.7rem', 
+                                      padding: '0.1rem 0.4rem', 
+                                      borderRadius: 'var(--radius-sm)', 
+                                      backgroundColor: document.body.classList.contains('light-mode') ? 'rgba(16, 185, 129, 0.15)' : 'rgba(16, 185, 129, 0.25)', 
+                                      color: document.body.classList.contains('light-mode') ? '#059669' : '#34d399',
+                                      fontWeight: 'bold',
+                                      display: 'inline-block',
+                                      border: '1px solid ' + (document.body.classList.contains('light-mode') ? '#a7f3d0' : '#059669')
+                                    }}>
+                                      {durationText}
+                                    </span>
+                                  )}
+                                </p>
+                              )}
                             </div>
                           );
                         });
@@ -713,6 +1033,120 @@ export default function OrdenesTrabajo() {
           </div>
         </div>
       )}
+      {selectedOTForSummary && (() => {
+        const matchingCotizacion = cotizaciones.find(c => c.id === selectedOTForSummary.cotizacionId);
+        return (
+          <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(3px)', display: 'flex', justifyContent: 'center', alignItems: 'center', zIndex: 1100, padding: '1rem' }} onClick={() => setSelectedOTForSummary(null)}>
+            <div className="card glass-panel" style={{ width: '100%', maxWidth: '500px', margin: 0, maxHeight: '90vh', overflowY: 'auto' }} onClick={e => e.stopPropagation()}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem', borderBottom: '1px solid var(--border-color)', paddingBottom: '0.75rem' }}>
+                <h2 style={{ margin: 0, fontSize: '1.25rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                  <span>📄 Resumen de OT</span>
+                  <span style={{ 
+                    color: document.body.classList.contains('light-mode') ? '#000000' : '#60a5fa',
+                    fontWeight: 'bold',
+                    padding: '0.1rem 0.4rem',
+                    borderRadius: 'var(--radius-sm)',
+                    backgroundColor: document.body.classList.contains('light-mode') ? 'rgba(0, 0, 0, 0.05)' : 'rgba(96, 165, 250, 0.15)'
+                  }}>{selectedOTForSummary.id}</span>
+                </h2>
+                <button 
+                  type="button" 
+                  onClick={() => setSelectedOTForSummary(null)}
+                  style={{ background: 'transparent', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '0.25rem' }}
+                >
+                  <X size={20} />
+                </button>
+              </div>
+
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+                
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.35rem', padding: '0.75rem', backgroundColor: 'rgba(var(--primary-color-rgb, 124, 58, 237), 0.03)', borderRadius: 'var(--radius-md)', borderLeft: '3px solid var(--primary-color)' }}>
+                  <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)', fontWeight: '600', textTransform: 'uppercase' }}>Información de Origen (Cotización)</span>
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.5rem', marginTop: '0.25rem' }}>
+                    <div>
+                      <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)', display: 'block' }}>No. Cotización:</span>
+                      <strong style={{ color: 'var(--text-main)', fontSize: '0.9rem' }}>{selectedOTForSummary.cotizacionId}</strong>
+                    </div>
+                    <div>
+                      <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)', display: 'block' }}>Fecha de Emisión:</span>
+                      <strong style={{ color: 'var(--text-main)', fontSize: '0.9rem' }}>{matchingCotizacion?.fechaEmision || 'N/D'}</strong>
+                    </div>
+                    <div style={{ gridColumn: 'span 2' }}>
+                      <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)', display: 'block' }}>Ejecutivo de Ventas:</span>
+                      <strong style={{ color: 'var(--text-main)', fontSize: '0.9rem' }}>{matchingCotizacion?.ejecutivo || 'N/D'}</strong>
+                    </div>
+                  </div>
+                </div>
+
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.8rem', padding: '0.25rem' }}>
+                  
+                  <div>
+                    <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)', display: 'block', marginBottom: '0.15rem' }}>Nombre del Cliente:</span>
+                    <span style={{ fontWeight: '600', color: 'var(--text-main)', fontSize: '0.95rem' }}>{selectedOTForSummary.cliente}</span>
+                  </div>
+
+                  <div>
+                    <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)', display: 'block', marginBottom: '0.15rem' }}>Tipo de Servicio:</span>
+                    <span style={{ fontWeight: '500', color: 'var(--text-main)', fontSize: '0.95rem' }}>{selectedOTForSummary.tipo}</span>
+                  </div>
+
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
+                    <div>
+                      <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)', display: 'block', marginBottom: '0.25rem' }}>Estado de OT:</span>
+                      <span style={{ 
+                        background: `color-mix(in srgb, ${getStatusColor(selectedOTForSummary.estado)} 15%, transparent)`, 
+                        color: getStatusColor(selectedOTForSummary.estado),
+                        padding: '0.25rem 0.6rem',
+                        borderRadius: 'var(--radius-full)',
+                        fontWeight: 'bold',
+                        fontSize: '0.75rem',
+                        display: 'inline-block'
+                      }}>{selectedOTForSummary.estado}</span>
+                    </div>
+                    <div>
+                      <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)', display: 'block', marginBottom: '0.25rem' }}>Fecha de Entrega:</span>
+                      <span style={{ fontWeight: '600', color: 'var(--text-main)', fontSize: '0.9rem' }}>{selectedOTForSummary.fechaEntrega}</span>
+                    </div>
+                  </div>
+
+                  <div style={{ margin: '0.75rem 0', borderTop: '1px solid var(--border-color)', borderBottom: '1px solid var(--border-color)', padding: '0.75rem 0' }}>
+                    <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)', display: 'block', marginBottom: '0.5rem', fontWeight: '600', textTransform: 'uppercase' }}>Avance de la Orden (Línea de Tiempo)</span>
+                    {renderTimeline(selectedOTForSummary.estado)}
+                  </div>
+
+                  <div style={{ marginTop: '0.5rem' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.25rem' }}>
+                      <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>Progreso de la OT:</span>
+                      <span style={{ fontSize: '0.75rem', fontWeight: 'bold', color: 'var(--text-main)' }}>{selectedOTForSummary.progreso}%</span>
+                    </div>
+                    <div style={{ width: '100%', height: '8px', background: 'var(--border-color)', borderRadius: '4px', overflow: 'hidden' }}>
+                      <div style={{ 
+                        height: '100%', 
+                        width: `${selectedOTForSummary.progreso}%`, 
+                        background: getStatusColor(selectedOTForSummary.estado),
+                        borderRadius: '4px'
+                      }} />
+                    </div>
+                  </div>
+
+                </div>
+
+              </div>
+
+              <div style={{ display: 'flex', justifyContent: 'flex-end', borderTop: '1px solid var(--border-color)', paddingTop: '1rem', marginTop: '1.5rem' }}>
+                <button 
+                  type="button" 
+                  className="btn btn-secondary" 
+                  style={{ minWidth: '100px', height: '40px', fontSize: '0.9rem' }}
+                  onClick={() => setSelectedOTForSummary(null)}
+                >
+                  Cerrar
+                </button>
+              </div>
+            </div>
+          </div>
+        );
+      })()}
     </div>
   );
 }

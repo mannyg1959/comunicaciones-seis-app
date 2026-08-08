@@ -1,12 +1,17 @@
 import { useState, useEffect } from 'react';
 import { useSearchParams } from 'react-router-dom';
-import { mockCotizaciones } from '../data/mockData';
 import { Plus, Search, FileText, SlidersHorizontal, X } from 'lucide-react';
 import CotizacionForm from '../components/CotizacionForm';
 import DatePicker from 'react-datepicker';
 import 'react-datepicker/dist/react-datepicker.css';
+import { logEvent } from '../utils/logs';
+import { checkPermission } from '../utils/permissions';
+import { supabase } from '../utils/supabaseClient';
 
 export default function Cotizaciones({ user }) {
+  const canCreate = checkPermission(user, 'crear_cotizaciones');
+  const canDelete = checkPermission(user, 'eliminar_cotizaciones');
+
   const [searchTerm, setSearchTerm] = useState('');
   const [searchParams] = useSearchParams();
   const filterEstadoUrl = searchParams.get('estado');
@@ -16,15 +21,62 @@ export default function Cotizaciones({ user }) {
   const [filterFechaFin, setFilterFechaFin] = useState(null);
   const [filterEstadoSelect, setFilterEstadoSelect] = useState(filterEstadoUrl || '');
   const [editingCotizacion, setEditingCotizacion] = useState(searchParams.get('new') === 'true' ? { id: 'NEW' } : null);
-  const [cotizaciones, setCotizaciones] = useState(() => {
-    const saved = localStorage.getItem('comunicaciones_seis_cotizaciones');
-    return saved ? JSON.parse(saved) : [...mockCotizaciones];
-  });
+  const [cotizaciones, setCotizaciones] = useState([]);
+  const [loading, setLoading] = useState(true);
 
-  // Sync cotizaciones to localStorage when they change
+  const fetchCotizaciones = async () => {
+    setLoading(true);
+    try {
+      const { data, error } = await supabase
+        .from('quotes')
+        .select(`
+          *,
+          client:clients (id, name, contact_name),
+          seller:profiles (name),
+          items:quote_items (*)
+        `)
+        .order('created_at', { ascending: false });
+
+      if (error) throw error;
+
+      const mapped = data.map(q => ({
+        id: q.id,
+        cliente: q.client?.name || 'Sin Cliente',
+        clientId: q.client_id,
+        contacto: q.contact_name || q.client?.contact_name || '',
+        tipo: q.items && q.items.length > 0 ? q.items[0].line_of_business + (q.items.length > 1 ? ' y otros' : '') : 'Varios',
+        monto: q.total,
+        estado: q.status,
+        fecha: q.created_at.split('T')[0],
+        fechaEntrega: q.estimated_delivery_date,
+        ejecutivo: q.seller?.name || 'Desconocido',
+        sellerId: q.seller_id,
+        items: q.items.map(item => ({
+          id: item.id,
+          lineaNegocio: item.line_of_business,
+          descripcion: item.description,
+          cantidad: item.quantity,
+          costoUnitario: item.unit_price,
+          ...item.technical_details
+        })),
+        subtotal: q.subtotal,
+        impuestos: q.taxes,
+        total: q.total,
+        condicionesPago: q.payment_terms,
+        description: q.description || ''
+      }));
+
+      setCotizaciones(mapped);
+    } catch (err) {
+      console.error('Error fetching quotes:', err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
   useEffect(() => {
-    localStorage.setItem('comunicaciones_seis_cotizaciones', JSON.stringify(cotizaciones));
-  }, [cotizaciones]);
+    fetchCotizaciones();
+  }, []);
 
   const [isFilterDrawerOpen, setIsFilterDrawerOpen] = useState(false);
 
@@ -48,6 +100,8 @@ export default function Cotizaciones({ user }) {
     switch(estado) {
       case 'Aprobada': return 'badge badge-success';
       case 'Pendiente': return 'badge badge-pending';
+      case 'Enviada': return 'badge badge-primary';
+      case 'En Negociación': return 'badge badge-warning';
       case 'Rechazada': return 'badge badge-danger';
       case 'Anulada': return 'badge badge-muted';
       default: return 'badge badge-primary';
@@ -79,56 +133,120 @@ export default function Cotizaciones({ user }) {
       fechaEmision: cotizacion.fecha || cotizacion.fechaEmision || new Date().toISOString().split('T')[0],
       fechaValidez: cotizacion.fechaValidez || '15',
       cliente: cotizacion.cliente,
+      clientId: cotizacion.clientId,
       contacto: cotizacion.contacto || '',
       ejecutivo: cotizacion.ejecutivo || user?.name || 'Admin',
       estado: cotizacion.estado,
-      items: cotizacion.items || [
-        {
-          id: Date.now(),
-          lineaNegocio: cotizacion.tipo.split(' ')[0] || 'Impresión',
-          descripcion: 'Trabajo recuperado de resumen',
-          cantidad: 1,
-          costoUnitario: cotizacion.monto,
-          adjuntos: '',
-          formato: '', sustrato: '', tintas: '', acabados: '', dimensiones: '', tipoMaterial: '', resolucion: '', terminaciones: '', dimensiones3D: '', materialesEstructurales: '', iluminacion: '', instalacion: 'No', materialCorte: '', grosor: '', tipoCorte: '', metraje: '',
-          tipoDiseño: '', formatoEntrega: '', complejidad: '', tipoInstalacion: '', ubicacion: '', requiereAndamios: 'No', tiempoMontaje: ''
-        }
-      ],
+      items: cotizacion.items || [],
       subtotal: cotizacion.subtotal || cotizacion.monto,
       impuestos: cotizacion.impuestos || 0,
       total: cotizacion.total || cotizacion.monto,
       condicionesPago: cotizacion.condicionesPago || '50% anticipo / 50% contra entrega',
-      fechaEntrega: cotizacion.fechaEntrega || new Date(Date.now() + 5 * 24 * 60 * 60 * 1000).toISOString().split('T')[0]
+      fechaEntrega: cotizacion.fechaEntrega || new Date(Date.now() + 5 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
+      description: cotizacion.description || ''
     });
   };
 
-  const handleSave = (nuevaCotizacion) => {
-    const listCotizacion = {
-      ...nuevaCotizacion,
-      cliente: nuevaCotizacion.cliente || 'Sin Cliente',
-      tipo: nuevaCotizacion.items.length > 0 ? nuevaCotizacion.items[0].lineaNegocio + (nuevaCotizacion.items.length > 1 ? ' y otros' : '') : 'Varios',
-      monto: nuevaCotizacion.total,
-      fecha: nuevaCotizacion.fechaEmision,
-      fechaEntrega: nuevaCotizacion.fechaEntrega,
-      convertidaAOT: nuevaCotizacion.convertidaAOT || false
-    };
-    
-    if (cotizaciones.find(c => c.id === nuevaCotizacion.id)) {
-      const updatedList = cotizaciones.map(c => c.id === nuevaCotizacion.id ? listCotizacion : c);
-      setCotizaciones(updatedList);
-      
-      const mockIndex = mockCotizaciones.findIndex(c => c.id === nuevaCotizacion.id);
-      if (mockIndex !== -1) mockCotizaciones[mockIndex] = listCotizacion;
-    } else {
-      setCotizaciones([listCotizacion, ...cotizaciones]);
-      mockCotizaciones.unshift(listCotizacion);
+  const handleSave = async (nuevaCotizacion) => {
+    try {
+      let finalId = nuevaCotizacion.id;
+
+      if (nuevaCotizacion._isNew) {
+        const { data: insertedQuote, error: insertError } = await supabase
+          .from('quotes')
+          .insert([{
+            client_id: nuevaCotizacion.clientId,
+            contact_name: nuevaCotizacion.contacto,
+            status: nuevaCotizacion.estado,
+            seller_id: user.id,
+            title: nuevaCotizacion.items.length > 0 ? nuevaCotizacion.items[0].lineaNegocio : 'Varios',
+            subtotal: nuevaCotizacion.subtotal,
+            taxes: nuevaCotizacion.impuestos,
+            total: nuevaCotizacion.total,
+            payment_terms: nuevaCotizacion.condicionesPago,
+            estimated_delivery_date: nuevaCotizacion.fechaEntrega,
+            description: nuevaCotizacion.description || '',
+            version: 1
+          }])
+          .select('id')
+          .single();
+
+        if (insertError) throw insertError;
+        finalId = insertedQuote.id;
+        logEvent(user, 'Creación de Cotización', `Se creó la cotización ${finalId} (Monto: $${nuevaCotizacion.total.toFixed(2)})`);
+      } else {
+        const { error: updateError } = await supabase
+          .from('quotes')
+          .update({
+            client_id: nuevaCotizacion.clientId,
+            contact_name: nuevaCotizacion.contacto,
+            status: nuevaCotizacion.status || nuevaCotizacion.estado,
+            title: nuevaCotizacion.items.length > 0 ? nuevaCotizacion.items[0].lineaNegocio : 'Varios',
+            subtotal: nuevaCotizacion.subtotal,
+            taxes: nuevaCotizacion.impuestos,
+            total: nuevaCotizacion.total,
+            payment_terms: nuevaCotizacion.condicionesPago,
+            estimated_delivery_date: nuevaCotizacion.fechaEntrega,
+            description: nuevaCotizacion.description || '',
+            version: (nuevaCotizacion.version || 1) + 1
+          })
+          .eq('id', nuevaCotizacion.id);
+
+        if (updateError) throw updateError;
+        
+        const { error: deleteItemsError } = await supabase
+          .from('quote_items')
+          .delete()
+          .eq('quote_id', finalId);
+
+        if (deleteItemsError) throw deleteItemsError;
+        logEvent(user, 'Modificación de Cotización', `Se modificó la cotización ${finalId} (Monto: $${nuevaCotizacion.total.toFixed(2)})`);
+      }
+
+      const itemsToInsert = nuevaCotizacion.items.map(item => {
+        const { id, lineaNegocio, descripcion, cantidad, costoUnitario, ...details } = item;
+        // Clean details of extra attributes if necessary
+        return {
+          quote_id: finalId,
+          line_of_business: lineaNegocio,
+          description: descripcion,
+          quantity: parseFloat(cantidad) || 1,
+          unit_price: parseFloat(costoUnitario) || 0,
+          technical_details: details
+        };
+      });
+
+      if (itemsToInsert.length > 0) {
+        const { error: itemsError } = await supabase
+          .from('quote_items')
+          .insert(itemsToInsert);
+        if (itemsError) throw itemsError;
+      }
+
+      fetchCotizaciones();
+      setEditingCotizacion(null);
+    } catch (err) {
+      console.error('Error saving quote:', err);
+      alert(`Error al guardar la cotización: ${err.message || 'Error desconocido'}`);
     }
-    setEditingCotizacion(null);
   };
 
-  const handleDelete = (id) => {
-    setCotizaciones(cotizaciones.filter(c => c.id !== id));
-    setEditingCotizacion(null);
+  const handleDelete = async (id) => {
+    try {
+      const { error } = await supabase
+        .from('quotes')
+        .delete()
+        .eq('id', id);
+
+      if (error) throw error;
+
+      logEvent(user, 'Eliminación de Cotización', `Se eliminó la cotización ${id}`);
+      fetchCotizaciones();
+      setEditingCotizacion(null);
+    } catch (err) {
+      console.error('Error deleting quote:', err);
+      alert(`No se pudo eliminar la cotización: ${err.message || 'Error de permisos/estado'}`);
+    }
   };
 
   if (editingCotizacion) {
@@ -136,7 +254,7 @@ export default function Cotizaciones({ user }) {
       initialData={editingCotizacion.id !== 'NEW' ? editingCotizacion : null} 
       onCancel={() => setEditingCotizacion(null)} 
       onSave={handleSave} 
-      onDelete={() => handleDelete(editingCotizacion.id)}
+      onDelete={handleDelete}
       user={user}
     />;
   }
@@ -159,14 +277,16 @@ export default function Cotizaciones({ user }) {
             <FileText size={28} color="var(--primary-color)" /> Cotizaciones
           </h1>
           <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'center' }}>
-            <button 
-              className="btn btn-primary" 
-              style={{ padding: '0.65rem 1.25rem', width: 'auto', display: 'flex', alignItems: 'center', gap: '0.5rem', fontSize: '0.95rem' }} 
-              onClick={() => setEditingCotizacion({id: 'NEW'})}
-            >
-              <Plus size={18} />
-              <span>Nueva</span>
-            </button>
+            {canCreate && (
+              <button 
+                className="btn btn-primary" 
+                style={{ padding: '0.65rem 1.25rem', width: 'auto', display: 'flex', alignItems: 'center', gap: '0.5rem', fontSize: '0.95rem' }} 
+                onClick={() => setEditingCotizacion({id: 'NEW'})}
+              >
+                <Plus size={18} />
+                <span>Nueva</span>
+              </button>
+            )}
             <button 
               className={`btn ${isAnyFilterActive ? 'btn-primary' : 'btn-secondary'}`} 
               style={{ padding: '0.65rem 1.25rem', width: 'auto', display: 'flex', alignItems: 'center', gap: '0.5rem', fontSize: '0.95rem' }} 
@@ -299,6 +419,7 @@ export default function Cotizaciones({ user }) {
                     <option value="Borrador">Borrador</option>
                     <option value="Pendiente">Pendiente</option>
                     <option value="Enviada">Enviada</option>
+                    <option value="En Negociación">En Negociación</option>
                     <option value="Aprobada">Aprobada</option>
                     <option value="Rechazada">Rechazada</option>
                     <option value="Anulada">Anulada</option>

@@ -74,10 +74,10 @@ function App() {
         
         <Route path="/dashboard" element={<AppLayout user={user}><Dashboard user={user} onLogout={handleLogout} /></AppLayout>} />
         <Route path="/cotizaciones" element={<AppLayout user={user}><Cotizaciones user={user} /></AppLayout>} />
-        <Route path="/ordenes" element={<AppLayout user={user}><OrdenesTrabajo /></AppLayout>} />
+        <Route path="/ordenes" element={<AppLayout user={user}><OrdenesTrabajo user={user} /></AppLayout>} />
         <Route path="/perfil" element={<AppLayout user={user}><Perfiles user={user} /></AppLayout>} />
         <Route path="/herramientas" element={<AppLayout user={user}><Herramientas /></AppLayout>} />
-        <Route path="/ajustes" element={<AppLayout user={user}><Ajustes onLogout={handleLogout} /></AppLayout>} />
+        <Route path="/ajustes" element={<AppLayout user={user}><Ajustes user={user} onLogout={handleLogout} /></AppLayout>} />
         
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
