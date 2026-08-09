@@ -51,6 +51,8 @@ CREATE TABLE IF NOT EXISTS public.quotes (
     purchase_order_number TEXT,
     purchase_order_doc_url TEXT,
     approved_at TIMESTAMP WITH TIME ZONE,
+    rejection_reason TEXT,
+    rejection_details TEXT,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL,
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL
 );

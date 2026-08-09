@@ -4,6 +4,7 @@ import DatePicker from 'react-datepicker';
 import 'react-datepicker/dist/react-datepicker.css';
 import { logEvent } from '../utils/logs';
 import { checkPermission } from '../utils/permissions';
+import { supabase } from '../utils/supabaseClient';
 
 export default function OrdenesTrabajo({ user }) {
   const [searchTerm, setSearchTerm] = useState('');
@@ -19,50 +20,138 @@ export default function OrdenesTrabajo({ user }) {
   const [isFilterDrawerOpen, setIsFilterDrawerOpen] = useState(false);
 
   // State for cotizaciones
-  const [cotizaciones] = useState(() => {
-    const saved = localStorage.getItem('comunicaciones_seis_cotizaciones');
-    return saved ? JSON.parse(saved) : [];
-  });
+  const [cotizaciones, setCotizaciones] = useState([]);
 
   // State for summary view
   const [selectedOTForSummary, setSelectedOTForSummary] = useState(null);
 
-  // State for OTs (persisted in localStorage)
-  const [ordenesTrabajo, setOrdenesTrabajo] = useState(() => {
-    const saved = localStorage.getItem('comunicaciones_seis_ots');
-    if (saved && saved.includes('OT-5001')) {
-      localStorage.removeItem('comunicaciones_seis_ots');
-      localStorage.removeItem('comunicaciones_seis_ot_incidents');
-      localStorage.removeItem('comunicaciones_seis_ot_logs');
-      return [];
+  // State for OTs
+  const [ordenesTrabajo, setOrdenesTrabajo] = useState([]);
+
+  // State for active incidents per OT
+  const [otIncidents, setOtIncidents] = useState({});
+
+  // Initial mockup history logs
+  const [otLogs, setOtLogs] = useState({});
+
+  const [loading, setLoading] = useState(true);
+
+  const fetchAllData = async () => {
+    try {
+      setLoading(true);
+      
+      const { data: quotesData, error: quotesError } = await supabase
+        .from('quotes')
+        .select('*, client:clients(name), seller:profiles(name)');
+      if (quotesError) throw quotesError;
+
+      const mappedQuotes = quotesData.map(q => ({
+        id: q.id,
+        cliente: q.client?.name || 'Sin Cliente',
+        monto: q.total,
+        estado: q.status,
+        fechaEmision: q.created_at.split('T')[0],
+        ejecutivo: q.seller?.name || 'Desconocido'
+      }));
+      setCotizaciones(mappedQuotes);
+
+      const { data: otsData, error: otsError } = await supabase
+        .from('work_orders')
+        .select('*, client:clients(name), quote:quotes(title)');
+      if (otsError) throw otsError;
+
+      const mappedOts = otsData.map(ot => ({
+        id: ot.id,
+        cotizacionId: ot.quote_id,
+        cliente: ot.client?.name || 'Sin Cliente',
+        tipo: ot.quote?.title || 'Varios',
+        estado: ot.status,
+        progreso: ot.progress,
+        fechaEntrega: ot.estimated_closure ? ot.estimated_closure.split('T')[0] : 'Sin fecha'
+      }));
+      setOrdenesTrabajo(mappedOts);
+
+      const { data: incidentsData, error: incidentsError } = await supabase
+        .from('work_order_incidents')
+        .select('*');
+      if (incidentsError) throw incidentsError;
+
+      const mappedIncidents = {};
+      incidentsData.forEach(inc => {
+        let text = inc.description || '';
+        let severity = 'Media';
+        try {
+          if (inc.description && inc.description.startsWith('{')) {
+            const parsed = JSON.parse(inc.description);
+            text = parsed.text || '';
+            severity = parsed.severity || 'Media';
+          }
+        } catch (e) {}
+
+        const mappedInc = {
+          id: inc.id,
+          type: 'incident',
+          text,
+          severity,
+          resolved: inc.resolved,
+          resolvedAt: inc.resolved_at,
+          createdAt: inc.created_at,
+          estado: inc.status || 'Programación'
+        };
+
+        if (!mappedIncidents[inc.work_order_id]) {
+          mappedIncidents[inc.work_order_id] = [];
+        }
+        mappedIncidents[inc.work_order_id].push(mappedInc);
+      });
+      setOtIncidents(mappedIncidents);
+
+      const { data: logsData, error: logsError } = await supabase
+        .from('work_order_logs')
+        .select('*')
+        .order('created_at', { ascending: true });
+      if (logsError) throw logsError;
+
+      const mappedLogs = {};
+      logsData.forEach(log => {
+        let text = log.message || '';
+        let icon = 'SlidersHorizontal';
+        let estado = '';
+        try {
+          if (log.message && log.message.startsWith('{')) {
+            const parsed = JSON.parse(log.message);
+            text = parsed.text || '';
+            icon = parsed.icon || 'SlidersHorizontal';
+            estado = parsed.estado || '';
+          }
+        } catch (e) {}
+
+        const mappedLog = {
+          id: log.id,
+          type: log.type,
+          text,
+          date: log.created_at ? log.created_at.replace('T', ' ').substring(0, 16) : '',
+          icon,
+          estado
+        };
+
+        if (!mappedLogs[log.work_order_id]) {
+          mappedLogs[log.work_order_id] = [];
+        }
+        mappedLogs[log.work_order_id].push(mappedLog);
+      });
+      setOtLogs(mappedLogs);
+
+    } catch (err) {
+      console.error('Error fetching work orders data:', err);
+    } finally {
+      setLoading(false);
     }
-    return saved ? JSON.parse(saved) : [];
-  });
-
-  // State for active incidents per OT (persisted in localStorage)
-  const [otIncidents, setOtIncidents] = useState(() => {
-    const saved = localStorage.getItem('comunicaciones_seis_ot_incidents');
-    return saved ? JSON.parse(saved) : {};
-  });
-
-  // Initial mockup history logs (persisted in localStorage)
-  const [otLogs, setOtLogs] = useState(() => {
-    const saved = localStorage.getItem('comunicaciones_seis_ot_logs');
-    return saved ? JSON.parse(saved) : {};
-  });
-
-  // Keep localStorage updated when state changes
-  useEffect(() => {
-    localStorage.setItem('comunicaciones_seis_ots', JSON.stringify(ordenesTrabajo));
-  }, [ordenesTrabajo]);
+  };
 
   useEffect(() => {
-    localStorage.setItem('comunicaciones_seis_ot_incidents', JSON.stringify(otIncidents));
-  }, [otIncidents]);
-
-  useEffect(() => {
-    localStorage.setItem('comunicaciones_seis_ot_logs', JSON.stringify(otLogs));
-  }, [otLogs]);
+    fetchAllData();
+  }, []);
 
   const getStatusColor = (estado) => {
     switch (estado) {
@@ -155,36 +244,49 @@ export default function OrdenesTrabajo({ user }) {
     setAuthError('');
   };
 
-  const handleUpdateIncident = (incidentId) => {
+  const handleUpdateIncident = async (incidentId) => {
     if (!selectedOT || !editingText.trim()) return;
     
-    setOtIncidents(prev => {
-      const list = prev[selectedOT.id] || [];
-      const updatedList = list.map(inc => {
-        if (inc.id === incidentId) {
-          return { ...inc, text: editingText, severity: editingSeverity };
-        }
-        return inc;
+    try {
+      const descriptionPayload = JSON.stringify({
+        text: editingText,
+        severity: editingSeverity
       });
-      return { ...prev, [selectedOT.id]: updatedList };
-    });
 
-    setOtLogs(prev => {
-      const list = prev[selectedOT.id] || [];
-      const updatedList = list.map(log => {
-        if (log.id === incidentId && log.type === 'incident') {
-          return { ...log, text: `Incidencia registrada (${editingSeverity}): ${editingText}` };
-        }
-        return log;
+      const { error: incError } = await supabase
+        .from('work_order_incidents')
+        .update({
+          description: descriptionPayload
+        })
+        .eq('id', incidentId);
+
+      if (incError) throw incError;
+
+      const logText = `Incidencia registrada (${editingSeverity}): ${editingText}`;
+      const logMessagePayload = JSON.stringify({
+        text: logText,
+        icon: 'AlertTriangle',
+        estado: selectedOT.estado
       });
-      return { ...prev, [selectedOT.id]: updatedList };
-    });
 
-    setEditingIncidentId(null);
-    setEditingText('');
+      const { error: logError } = await supabase
+        .from('work_order_logs')
+        .update({
+          message: logMessagePayload
+        })
+        .eq('id', incidentId);
+
+      if (logError) throw logError;
+
+      await fetchAllData();
+      setEditingIncidentId(null);
+      setEditingText('');
+    } catch (err) {
+      console.error('Error updating incident in Supabase:', err);
+    }
   };
 
-  const executeSaveEstado = (targetEstado, isRetroceder = false) => {
+  const executeSaveEstado = async (targetEstado, isRetroceder = false) => {
     const index = ordenesTrabajo.findIndex(o => o.id === selectedOT.id);
     if (index !== -1) {
       let progreso = 0;
@@ -197,50 +299,68 @@ export default function OrdenesTrabajo({ user }) {
       }
       const oldEstado = ordenesTrabajo[index].estado;
       
-      if (isRetroceder) {
-        const currentStage = oldEstado;
+      try {
+        if (isRetroceder) {
+          const currentStage = oldEstado;
+          const logsForOT = otLogs[selectedOT.id] || [];
+          const logsToDelete = logsForOT.filter(log => getStageForLog(log.id, logsForOT) === currentStage);
+          
+          const logIdsToDelete = logsToDelete.map(l => l.id);
+          const incidentIdsToDelete = logsToDelete.filter(l => l.type === 'incident').map(l => l.id);
+
+          if (logIdsToDelete.length > 0) {
+            const { error: deleteLogsError } = await supabase
+              .from('work_order_logs')
+              .delete()
+              .in('id', logIdsToDelete);
+            if (deleteLogsError) throw deleteLogsError;
+          }
+
+          if (incidentIdsToDelete.length > 0) {
+            const { error: deleteIncidentsError } = await supabase
+              .from('work_order_incidents')
+              .delete()
+              .in('id', incidentIdsToDelete);
+            if (deleteIncidentsError) throw deleteIncidentsError;
+          }
+        }
+
+        const { error: updateError } = await supabase
+          .from('work_orders')
+          .update({
+            status: targetEstado,
+            progress: progreso
+          })
+          .eq('id', selectedOT.id);
+
+        if (updateError) throw updateError;
         
-        // 1. Delete active incidents of the current stage
-        setOtIncidents(prev => {
-          const list = prev[selectedOT.id] || [];
-          const updatedList = list.filter(inc => {
-            const logForInc = (otLogs[selectedOT.id] || []).find(l => l.id === inc.id);
-            const incStage = logForInc ? getStageForLog(inc.id, otLogs[selectedOT.id] || []) : inc.estado;
-            return incStage !== currentStage;
+        if (oldEstado !== targetEstado) {
+          const nowStr = new Date().toISOString();
+          const messagePayload = JSON.stringify({
+            text: `Estatus cambiado a ${targetEstado}`,
+            icon: targetEstado === 'Entregado' ? 'Truck' : targetEstado === 'Finalizado' ? 'CheckCircle' : 'SlidersHorizontal',
+            estado: targetEstado
           });
-          return { ...prev, [selectedOT.id]: updatedList };
-        });
 
-        // 2. Delete logs of the current stage
-        setOtLogs(prev => {
-          const list = prev[selectedOT.id] || [];
-          const updatedList = list.filter(log => {
-            const logStage = getStageForLog(log.id, list);
-            return logStage !== currentStage;
-          });
-          return { ...prev, [selectedOT.id]: updatedList };
-        });
-      }
+          const { error: insertLogError } = await supabase
+            .from('work_order_logs')
+            .insert([{
+              id: crypto.randomUUID(),
+              work_order_id: selectedOT.id,
+              user_id: user?.id || null,
+              type: 'status',
+              message: messagePayload,
+              created_at: nowStr
+            }]);
 
-      const updatedOts = [...ordenesTrabajo];
-      updatedOts[index] = { ...updatedOts[index], estado: targetEstado, progreso };
-      setOrdenesTrabajo(updatedOts);
-      
-      if (oldEstado !== targetEstado) {
-        const nowStr = new Date().toISOString().replace('T', ' ').substring(0, 16);
-        const newLog = {
-          id: Date.now(),
-          type: 'status',
-          text: `Estatus cambiado a ${targetEstado}`,
-          date: nowStr,
-          icon: targetEstado === 'Entregado' ? 'Truck' : targetEstado === 'Finalizado' ? 'CheckCircle' : 'SlidersHorizontal',
-          estado: targetEstado
-        };
-        setOtLogs(prev => ({
-          ...prev,
-          [selectedOT.id]: [...(prev[selectedOT.id] || []), newLog]
-        }));
-        logEvent(user, 'Estatus OT Actualizado', `Se cambió el estatus de la orden ${selectedOT.id} de ${oldEstado} a ${targetEstado}`);
+          if (insertLogError) throw insertLogError;
+          logEvent(user, 'Estatus OT Actualizado', `Se cambió el estatus de la orden ${selectedOT.id} de ${oldEstado} a ${targetEstado}`);
+        }
+
+        await fetchAllData();
+      } catch (err) {
+        console.error('Error saving state change in Supabase:', err);
       }
     }
     setSelectedOT(null);
@@ -274,44 +394,58 @@ export default function OrdenesTrabajo({ user }) {
     executeSaveEstado(tempEstado, true);
   };
 
-  const handleSaveIncident = () => {
+  const handleSaveIncident = async () => {
     if (!selectedOT || !newIncidentText.trim()) return;
-    const nowStr = new Date().toISOString().replace('T', ' ').substring(0, 16);
-    const incidentId = Date.now();
-    const newIncident = {
-      id: incidentId,
-      type: 'incident',
-      text: newIncidentText,
-      date: nowStr,
-      severity: newIncidentSeverity,
-      estado: selectedOT.estado
-    };
+    try {
+      const nowStr = new Date().toISOString();
+      const incidentId = crypto.randomUUID();
+      
+      const descriptionPayload = JSON.stringify({
+        text: newIncidentText,
+        severity: newIncidentSeverity
+      });
 
-    // Save to active incidents
-    setOtIncidents(prev => ({
-      ...prev,
-      [selectedOT.id]: [...(prev[selectedOT.id] || []), newIncident]
-    }));
+      const { error: incError } = await supabase
+        .from('work_order_incidents')
+        .insert([{
+          id: incidentId,
+          work_order_id: selectedOT.id,
+          description: descriptionPayload,
+          resolved: false,
+          created_at: nowStr
+        }]);
 
-    // Add to history logs
-    const newLog = {
-      id: incidentId,
-      type: 'incident',
-      text: `Incidencia registrada (${newIncidentSeverity}): ${newIncidentText}`,
-      date: nowStr,
-      icon: 'AlertTriangle',
-      estado: selectedOT.estado
-    };
-    setOtLogs(prev => ({
-      ...prev,
-      [selectedOT.id]: [...(prev[selectedOT.id] || []), newLog]
-    }));
+      if (incError) throw incError;
 
-    logEvent(user, 'Incidencia OT Registrada', `Se registró una incidencia (${newIncidentSeverity}) en la orden ${selectedOT.id}: ${newIncidentText}`);
+      const logText = `Incidencia registrada (${newIncidentSeverity}): ${newIncidentText}`;
+      const logMessagePayload = JSON.stringify({
+        text: logText,
+        icon: 'AlertTriangle',
+        estado: selectedOT.estado
+      });
 
-    setNewIncidentText('');
-    setNewIncidentSeverity('Media');
-    setActiveModalView('menu');
+      const { error: logError } = await supabase
+        .from('work_order_logs')
+        .insert([{
+          id: incidentId,
+          work_order_id: selectedOT.id,
+          user_id: user?.id || null,
+          type: 'incident',
+          message: logMessagePayload,
+          created_at: nowStr
+        }]);
+
+      if (logError) throw logError;
+
+      logEvent(user, 'Incidencia OT Registrada', `Se registró una incidencia (${newIncidentSeverity}) en la orden ${selectedOT.id}: ${newIncidentText}`);
+
+      await fetchAllData();
+      setNewIncidentText('');
+      setNewIncidentSeverity('Media');
+      setActiveModalView('menu');
+    } catch (err) {
+      console.error('Error saving incident in Supabase:', err);
+    }
   };
 
   const renderTimeline = (currentEstado) => {
@@ -368,6 +502,14 @@ export default function OrdenesTrabajo({ user }) {
       </div>
     );
   };
+
+  if (loading) {
+    return (
+      <div className="page-content" style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '60vh' }}>
+        <div style={{ color: 'var(--text-main)', fontSize: '1.2rem' }}>Cargando Órdenes de Trabajo...</div>
+      </div>
+    );
+  }
 
   return (
     <div className="page-content" style={{ paddingBottom: '90px' }}>

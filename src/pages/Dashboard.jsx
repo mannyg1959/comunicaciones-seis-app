@@ -4,7 +4,6 @@ import {
   mockRejectionReasonData,
   mockTopClientsData,
   mockOnTimeDeliveryData,
-  mockProductionCycleTimeData,
   mockWorkloadByTypeData
 } from '../data/mockData';
 import { useNavigate } from 'react-router-dom';
@@ -40,26 +39,51 @@ export default function Dashboard({ user, onLogout }) {
         if (error) throw error;
         
         if (data) {
-          const mapped = data.map(q => ({
-            id: q.id,
-            cliente: q.client?.name || 'Sin Cliente',
-            tipo: q.items && q.items.length > 0 ? q.items[0].line_of_business : 'Varios',
-            monto: q.total,
-            estado: q.status,
-            fecha: q.created_at.split('T')[0],
-            fechaEntrega: q.estimated_delivery_date,
-            approvedAt: q.approved_at,
-            createdAt: q.created_at
-          }));
+          const mapped = data.map(q => {
+            return {
+              id: q.id,
+              cliente: q.client?.name || 'Sin Cliente',
+              tipo: q.items && q.items.length > 0 ? q.items[0].line_of_business : 'Varios',
+              monto: q.total,
+              estado: q.status,
+              fecha: q.created_at.split('T')[0],
+              fechaEntrega: q.estimated_delivery_date,
+              approvedAt: q.approved_at,
+              createdAt: q.created_at,
+              description: q.description || '',
+              motivoRechazo: q.rejection_reason || '',
+              detalleRechazo: q.rejection_details || ''
+            };
+          });
           setCotizaciones(mapped);
         }
 
-        const savedOts = localStorage.getItem('comunicaciones_seis_ots');
-        if (savedOts) {
-          setOrdenesTrabajo(JSON.parse(savedOts));
-        } else {
-          setOrdenesTrabajo([]);
-        }
+        // Fetch OTs from Supabase
+        const { data: otsData, error: otsError } = await supabase
+          .from('work_orders')
+          .select(`
+            *,
+            client:clients (name),
+            quote:quotes (title)
+          `);
+
+        if (otsError) throw otsError;
+
+        const mappedOts = otsData.map(ot => ({
+          id: ot.id,
+          cotizacionId: ot.quote_id,
+          cliente: ot.client?.name || 'Sin Cliente',
+          tipo: ot.quote?.title || 'Varios',
+          estado: ot.status,
+          progreso: ot.progress,
+          fechaEntrega: ot.estimated_closure ? ot.estimated_closure.split('T')[0] : 'Sin fecha',
+          realStart: ot.real_start,
+          realClosure: ot.real_closure,
+          createdAt: ot.created_at,
+          updatedAt: ot.updated_at
+        }));
+
+        setOrdenesTrabajo(mappedOts);
       } catch (err) {
         console.error('Error fetching dashboard statistics:', err);
         setHasError(true);
@@ -97,7 +121,7 @@ export default function Dashboard({ user, onLogout }) {
       });
     }
   };
-  const activeCotizaciones = cotizaciones.filter(c => c.estado !== 'Convertida'); // Or simple status mapping
+  const activeQuotesForStats = cotizaciones.filter(c => !ordenesTrabajo.some(ot => ot.cotizacionId === c.id));
   const cotizacionStatusCounts = {
     'Borrador': 0,
     'Pendiente': 0,
@@ -107,7 +131,7 @@ export default function Dashboard({ user, onLogout }) {
     'Rechazada': 0,
     'Anulada': 0
   };
-  cotizaciones.forEach(c => {
+  activeQuotesForStats.forEach(c => {
     if (cotizacionStatusCounts[c.estado] !== undefined) {
       cotizacionStatusCounts[c.estado]++;
     }
@@ -156,24 +180,45 @@ export default function Dashboard({ user, onLogout }) {
   const filteredOrderStatusData = dynamicOrderStatusData.filter(item => item.name !== 'Entregado');
   const totalOrders = filteredOrderStatusData.reduce((sum, item) => sum + item.cantidad, 0);
 
-  const totalQuotes = cotizaciones.length;
-  const aprobadas = cotizaciones.filter(c => c.estado === 'Aprobada').length;
-  const rechazadas = cotizaciones.filter(c => c.estado === 'Rechazada' || c.estado === 'Anulada').length;
+  const totalQuotes = activeQuotesForStats.length;
+  const aprobadas = activeQuotesForStats.filter(c => c.estado === 'Aprobada').length;
+  const rechazadas = activeQuotesForStats.filter(c => c.estado === 'Rechazada' || c.estado === 'Anulada').length;
   const pendientes = totalQuotes - aprobadas - rechazadas;
 
-  const pctAprobadas = totalQuotes > 0 ? Math.round((aprobadas / totalQuotes) * 100) : 0;
-  const pctRechazadas = totalQuotes > 0 ? Math.round((rechazadas / totalQuotes) * 100) : 0;
-  const pctPendientes = totalQuotes > 0 ? (100 - pctAprobadas - pctRechazadas) : 0;
-
+  const totalActiveQuotes = activeQuotesForStats.length;
   const conversionData = [
-    { name: 'Aprobadas', value: pctAprobadas, color: 'var(--success-color)' },
-    { name: 'Rechazadas', value: pctRechazadas, color: 'var(--error-color)' },
-    { name: 'Pendientes', value: pctPendientes, color: 'var(--warning-color)' }
+    { name: 'Borrador', value: totalActiveQuotes > 0 ? Math.round((cotizacionStatusCounts['Borrador'] / totalActiveQuotes) * 100) : 0, color: '#94a3b8' },
+    { name: 'Pendiente', value: totalActiveQuotes > 0 ? Math.round((cotizacionStatusCounts['Pendiente'] / totalActiveQuotes) * 100) : 0, color: 'var(--warning-color)' },
+    { name: 'Enviada', value: totalActiveQuotes > 0 ? Math.round((cotizacionStatusCounts['Enviada'] / totalActiveQuotes) * 100) : 0, color: 'var(--secondary-color)' },
+    { name: 'En Negociación', value: totalActiveQuotes > 0 ? Math.round((cotizacionStatusCounts['En Negociación'] / totalActiveQuotes) * 100) : 0, color: 'var(--tertiary-color)' },
+    { name: 'Aprobada', value: totalActiveQuotes > 0 ? Math.round((cotizacionStatusCounts['Aprobada'] / totalActiveQuotes) * 100) : 0, color: 'var(--success-color)' },
+    { name: 'Rechazada', value: totalActiveQuotes > 0 ? Math.round((cotizacionStatusCounts['Rechazada'] / totalActiveQuotes) * 100) : 0, color: 'var(--error-color)' },
+    { name: 'Anulada', value: totalActiveQuotes > 0 ? Math.round((cotizacionStatusCounts['Anulada'] / totalActiveQuotes) * 100) : 0, color: '#64748b' }
+  ].filter(item => item.value > 0);
+
+  const rechazadasQuotes = cotizaciones.filter(c => c.estado === 'Rechazada');
+  const totalRechazadas = rechazadasQuotes.length;
+
+  const countInterno = rechazadasQuotes.filter(c => c.motivoRechazo === 'Rechazo Interno').length;
+  const countCliente = rechazadasQuotes.filter(c => c.motivoRechazo === 'Rechazo por Parte del Cliente').length;
+  const countAutomatico = rechazadasQuotes.filter(c => c.motivoRechazo === 'Rechazo Automático').length;
+
+  const pctInterno = totalRechazadas > 0 ? Math.round((countInterno / totalRechazadas) * 100) : 0;
+  const pctCliente = totalRechazadas > 0 ? Math.round((countCliente / totalRechazadas) * 100) : 0;
+  const pctAutomatico = totalRechazadas > 0 ? Math.round((countAutomatico / totalRechazadas) * 100) : 0;
+
+  const rejectionReasonData = [
+    { name: 'Rechazo Interno', value: pctInterno, color: '#ff4d4f' },
+    { name: 'Rechazo por Parte del Cliente', value: pctCliente, color: '#faad14' },
+    { name: 'Rechazo Automático', value: pctAutomatico, color: '#722ed1' }
   ];
 
   const clientVolumes = {};
   cotizaciones.forEach(c => {
-    clientVolumes[c.cliente] = (clientVolumes[c.cliente] || 0) + (c.monto || 0);
+    const hasOT = ordenesTrabajo.some(ot => ot.cotizacionId === c.id);
+    if (c.estado === 'Aprobada' && hasOT) {
+      clientVolumes[c.cliente] = (clientVolumes[c.cliente] || 0) + (c.monto || 0);
+    }
   });
   const topClientsData = Object.keys(clientVolumes)
     .map(name => ({ name, volumen: clientVolumes[name] }))
@@ -199,6 +244,49 @@ export default function Dashboard({ user, onLogout }) {
     { name: 'A Tiempo', value: pctOnTime, color: 'var(--success-color)' },
     { name: 'Con Retraso', value: pctDelayed, color: 'var(--error-color)' }
   ];
+
+  const getDynamicCycleTimeData = (ots) => {
+    const data = [];
+    const todayVal = new Date();
+    
+    const completedOts = ots.filter(ot => 
+      (ot.estado === 'Finalizado' || ot.estado === 'Entregado')
+    );
+
+    for (let i = 4; i >= 0; i--) {
+      const weekStart = new Date(todayVal);
+      weekStart.setDate(todayVal.getDate() - (i + 1) * 7);
+      const weekEnd = new Date(todayVal);
+      weekEnd.setDate(todayVal.getDate() - i * 7);
+      
+      const otsInWeek = completedOts.filter(ot => {
+        const completionDate = new Date(ot.realClosure || ot.updatedAt || ot.fechaEntrega);
+        return completionDate >= weekStart && completionDate < weekEnd;
+      });
+
+      let avgDays = 0;
+      if (otsInWeek.length > 0) {
+        const sumDays = otsInWeek.reduce((sum, ot) => {
+          const start = new Date(ot.realStart || ot.createdAt || ot.fechaEntrega);
+          const end = new Date(ot.realClosure || ot.updatedAt || ot.fechaEntrega);
+          const diffTime = Math.max(0, end - start);
+          const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24)) || 1;
+          return sum + diffDays;
+        }, 0);
+        avgDays = Math.round((sumDays / otsInWeek.length) * 10) / 10;
+      }
+
+      const startStr = weekStart.toLocaleDateString('es-ES', { day: 'numeric', month: 'short' });
+      const endStr = weekEnd.toLocaleDateString('es-ES', { day: 'numeric', month: 'short' });
+      data.push({
+        name: `${startStr} - ${endStr}`,
+        dias: avgDays
+      });
+    }
+    return data;
+  };
+
+  const productionCycleTimeData = getDynamicCycleTimeData(ordenesTrabajo);
 
   const typeCounts = {};
   ordenesTrabajo.forEach(ot => {
@@ -237,8 +325,10 @@ export default function Dashboard({ user, onLogout }) {
       avgDays = parseFloat((sumDays / quotesInWeek.length).toFixed(1));
     }
     
+    const startStr = weekStart.toLocaleDateString('es-ES', { day: 'numeric', month: 'short' });
+    const endStr = weekEnd.toLocaleDateString('es-ES', { day: 'numeric', month: 'short' });
     timeToCloseData.push({
-      name: `Sem ${4 - i}`,
+      name: `${startStr} - ${endStr}`,
       dias: avgDays
     });
   }
@@ -403,7 +493,7 @@ export default function Dashboard({ user, onLogout }) {
             <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
               <div className="card glass-panel" style={{ padding: '1.5rem', height: '320px', display: 'flex', flexDirection: 'column', margin: 0 }}>
                 <h3 style={{ fontSize: '1rem', marginBottom: '1rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                  <PieChartIcon size={18} color="var(--success-color)" /> Tasa de Conversión de Cotizaciones
+                  <PieChartIcon size={18} color="var(--success-color)" /> Situación de Cotizaciones sin OT
                 </h3>
                 <div style={{ flex: 1, width: '100%', minHeight: 0, position: 'relative' }}>
                   <ResponsiveContainer width="100%" height="100%">
@@ -416,6 +506,7 @@ export default function Dashboard({ user, onLogout }) {
                         outerRadius={75}
                         paddingAngle={5}
                         dataKey="value"
+                        label={({ percent }) => `${(percent * 100).toFixed(0)}%`}
                       >
                         {conversionData.map((entry, index) => (
                           <Cell key={`cell-${index}`} fill={entry.color} />
@@ -424,18 +515,24 @@ export default function Dashboard({ user, onLogout }) {
                       <Tooltip 
                         contentStyle={{ backgroundColor: 'var(--surface-color)', borderColor: 'var(--border-color)', borderRadius: 'var(--radius-md)' }}
                         itemStyle={{ color: 'var(--text-main)' }}
+                        formatter={(value) => `${value}%`}
                       />
-                      <Legend verticalAlign="bottom" height={36} />
+                      <Legend 
+                        verticalAlign="bottom" 
+                        height={36} 
+                        formatter={(value, entry) => `${value}: ${entry.payload.value}%`}
+                      />
                     </PieChart>
                   </ResponsiveContainer>
-                  <div style={{ position: 'absolute', top: '40%', left: '0', right: '0', textAlign: 'center', pointerEvents: 'none' }}>
-                    <span style={{ fontSize: '1.75rem', fontWeight: 'bold', color: 'var(--text-main)' }}>{pctAprobadas}%</span>
+                  <div style={{ position: 'absolute', top: '35%', left: '0', right: '0', textAlign: 'center', pointerEvents: 'none' }}>
+                    <span style={{ fontSize: '1.5rem', fontWeight: 'bold', color: 'var(--text-main)' }}>{totalActiveQuotes}</span>
+                    <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>Activas</div>
                   </div>
                 </div>
               </div>
               <div className="card glass-panel" style={{ padding: '0.75rem 1rem', margin: 0, backgroundColor: 'var(--surface-hover)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                 <p style={{ margin: 0, fontSize: '0.8rem', color: 'var(--text-muted)', textAlign: 'center', lineHeight: '1.4' }}>
-                  Mide la efectividad de las propuestas comerciales, calculando el porcentaje de cotizaciones que se convierten en proyectos aprobados.
+                  Muestra la distribución porcentual y situación actual de todas las cotizaciones cargadas en el sistema que todavía no se han convertido en una Orden de Trabajo (OT).
                 </p>
               </div>
             </div>
@@ -488,7 +585,7 @@ export default function Dashboard({ user, onLogout }) {
                 ) : (
                   <div style={{ flex: 1, width: '100%', minHeight: 0 }}>
                     <ResponsiveContainer width="100%" height="100%">
-                      <BarChart data={mockRejectionReasonData} layout="vertical" margin={{ top: 10, right: 30, left: 30, bottom: 0 }}>
+                      <BarChart data={rejectionReasonData} layout="vertical" margin={{ top: 10, right: 30, left: 30, bottom: 0 }}>
                         <CartesianGrid strokeDasharray="3 3" stroke="var(--border-color)" horizontal={false} />
                         <XAxis type="number" stroke="var(--text-muted)" fontSize={11} tickLine={false} axisLine={false} unit="%" />
                         <YAxis dataKey="name" type="category" stroke="var(--text-main)" fontSize={11} tickLine={false} axisLine={false} width={120} />
@@ -498,7 +595,7 @@ export default function Dashboard({ user, onLogout }) {
                           cursor={{ fill: 'var(--surface-hover)' }}
                         />
                         <Bar dataKey="value" name="Porcentaje" radius={[0, 4, 4, 0]}>
-                          {mockRejectionReasonData.map((entry, index) => (
+                          {rejectionReasonData.map((entry, index) => (
                             <Cell key={`cell-${index}`} fill={entry.color} />
                           ))}
                           <LabelList dataKey="value" position="right" formatter={(val) => `${val}%`} style={{ fill: 'var(--text-muted)', fontSize: '0.75rem' }} />
@@ -555,112 +652,122 @@ export default function Dashboard({ user, onLogout }) {
           )}
 
           {activeKpiTab === 'produccion' && (
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 320px), 1fr))', gap: '1.5rem', marginBottom: '2rem' }}>
-              
-              {/* KPI 1: On-Time Delivery */}
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
-                <div className="card glass-panel" style={{ padding: '1.5rem', height: '320px', display: 'flex', flexDirection: 'column', margin: 0 }}>
-                  <h3 style={{ fontSize: '1rem', marginBottom: '1rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                    <CheckCircle size={18} color="var(--success-color)" /> Índice de Entregas a Tiempo
-                  </h3>
-                  <div style={{ flex: 1, width: '100%', minHeight: 0, position: 'relative' }}>
-                    <ResponsiveContainer width="100%" height="100%">
-                      <PieChart>
-                        <Pie
-                          data={onTimeDeliveryData}
-                          cx="50%"
-                          cy="50%"
-                          innerRadius={50}
-                          outerRadius={75}
-                          paddingAngle={5}
-                          dataKey="value"
-                        >
-                          {onTimeDeliveryData.map((entry, index) => (
-                            <Cell key={`cell-${index}`} fill={entry.color} />
-                          ))}
-                        </Pie>
-                        <Tooltip 
-                          contentStyle={{ backgroundColor: 'var(--surface-color)', borderColor: 'var(--border-color)', borderRadius: 'var(--radius-md)' }}
-                          itemStyle={{ color: 'var(--text-main)' }}
-                        />
-                        <Legend verticalAlign="bottom" height={36} />
-                      </PieChart>
-                    </ResponsiveContainer>
-                    <div style={{ position: 'absolute', top: '40%', left: '0', right: '0', textAlign: 'center', pointerEvents: 'none' }}>
-                      <span style={{ fontSize: '1.75rem', fontWeight: 'bold', color: 'var(--text-main)' }}>{pctOnTime}%</span>
+            totalOTs === 0 ? (
+              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '4rem 1.5rem', backgroundColor: 'var(--surface-color)', borderRadius: 'var(--radius-lg)', border: '1px solid var(--border-color)', width: '100%', gap: '1rem', textAlign: 'center', marginBottom: '2rem' }}>
+                <AlertTriangle size={48} color="var(--warning-color)" style={{ color: 'var(--warning-color)' }} />
+                <h3 style={{ margin: 0, fontSize: '1.1rem', color: 'var(--text-main)' }}>Sin Órdenes de Trabajo</h3>
+                <p style={{ margin: 0, fontSize: '0.85rem', color: 'var(--text-muted)', maxWidth: '400px' }}>
+                  No hay Órdenes de Trabajo registradas en el sistema. Genera una Orden de Trabajo desde una cotización aprobada para comenzar a visualizar las estadísticas operativas en este panel.
+                </p>
+              </div>
+            ) : (
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 320px), 1fr))', gap: '1.5rem', marginBottom: '2rem' }}>
+                
+                {/* KPI 1: On-Time Delivery */}
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+                  <div className="card glass-panel" style={{ padding: '1.5rem', height: '320px', display: 'flex', flexDirection: 'column', margin: 0 }}>
+                    <h3 style={{ fontSize: '1rem', marginBottom: '1rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                      <CheckCircle size={18} color="var(--success-color)" /> Índice de Entregas a Tiempo
+                    </h3>
+                    <div style={{ flex: 1, width: '100%', minHeight: 0, position: 'relative' }}>
+                      <ResponsiveContainer width="100%" height="100%">
+                        <PieChart>
+                          <Pie
+                            data={onTimeDeliveryData}
+                            cx="50%"
+                            cy="50%"
+                            innerRadius={50}
+                            outerRadius={75}
+                            paddingAngle={5}
+                            dataKey="value"
+                          >
+                            {onTimeDeliveryData.map((entry, index) => (
+                              <Cell key={`cell-${index}`} fill={entry.color} />
+                            ))}
+                          </Pie>
+                          <Tooltip 
+                            contentStyle={{ backgroundColor: 'var(--surface-color)', borderColor: 'var(--border-color)', borderRadius: 'var(--radius-md)' }}
+                            itemStyle={{ color: 'var(--text-main)' }}
+                          />
+                          <Legend verticalAlign="bottom" height={36} />
+                        </PieChart>
+                      </ResponsiveContainer>
+                      <div style={{ position: 'absolute', top: '40%', left: '0', right: '0', textAlign: 'center', pointerEvents: 'none' }}>
+                        <span style={{ fontSize: '1.75rem', fontWeight: 'bold', color: 'var(--text-main)' }}>{pctOnTime}%</span>
+                      </div>
                     </div>
                   </div>
-                </div>
-                <div className="card glass-panel" style={{ padding: '0.75rem 1rem', margin: 0, backgroundColor: 'var(--surface-hover)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                  <p style={{ margin: 0, fontSize: '0.8rem', color: 'var(--text-muted)', textAlign: 'center', lineHeight: '1.4' }}>
-                    Porcentaje de Órdenes de Trabajo que se completan y entregan al cliente en o antes de la fecha límite acordada.
-                  </p>
-                </div>
-              </div>
-
-              {/* KPI 2: Production Cycle Time */}
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
-                <div className="card glass-panel" style={{ padding: '1.5rem', height: '320px', display: 'flex', flexDirection: 'column', margin: 0 }}>
-                  <h3 style={{ fontSize: '1rem', marginBottom: '1rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                    <Clock size={18} color="var(--primary-color)" /> Ciclo de Producción
-                  </h3>
-                  <div style={{ flex: 1, width: '100%', minHeight: 0 }}>
-                    <ResponsiveContainer width="100%" height="100%">
-                      <LineChart data={mockProductionCycleTimeData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
-                        <CartesianGrid strokeDasharray="3 3" stroke="var(--border-color)" vertical={false} />
-                        <XAxis dataKey="name" stroke="var(--text-muted)" fontSize={11} tickLine={false} axisLine={false} />
-                        <YAxis stroke="var(--text-muted)" fontSize={11} tickLine={false} axisLine={false} unit="d" />
-                        <Tooltip 
-                          contentStyle={{ backgroundColor: 'var(--surface-color)', borderColor: 'var(--border-color)', borderRadius: 'var(--radius-md)' }}
-                          itemStyle={{ color: 'var(--text-main)' }}
-                          cursor={{ stroke: 'var(--border-color)', strokeWidth: 1, strokeDasharray: '3 3' }}
-                        />
-                        <Line type="monotone" dataKey="dias" name="Días" stroke="var(--primary-color)" strokeWidth={3} dot={{ r: 4, fill: 'var(--primary-color)' }} activeDot={{ r: 6 }} />
-                      </LineChart>
-                    </ResponsiveContainer>
+                  <div className="card glass-panel" style={{ padding: '0.75rem 1rem', margin: 0, backgroundColor: 'var(--surface-hover)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                    <p style={{ margin: 0, fontSize: '0.8rem', color: 'var(--text-muted)', textAlign: 'center', lineHeight: '1.4' }}>
+                      Porcentaje de Órdenes de Trabajo que se completan y entregan al cliente en o antes de la fecha límite acordada.
+                    </p>
                   </div>
                 </div>
-                <div className="card glass-panel" style={{ padding: '0.75rem 1rem', margin: 0, backgroundColor: 'var(--surface-hover)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                  <p style={{ margin: 0, fontSize: '0.8rem', color: 'var(--text-muted)', textAlign: 'center', lineHeight: '1.4' }}>
-                    Cantidad promedio de días que una Orden de Trabajo pasa estrictamente en el estado de Producción.
-                  </p>
-                </div>
-              </div>
 
-              {/* KPI 3: Workload Distribution */}
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
-                <div className="card glass-panel" style={{ padding: '1.5rem', height: '320px', display: 'flex', flexDirection: 'column', margin: 0 }}>
-                  <h3 style={{ fontSize: '1rem', marginBottom: '1rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                    <Activity size={18} color="var(--secondary-color)" /> Carga por Servicio
-                  </h3>
-                  <div style={{ flex: 1, width: '100%', minHeight: 0 }}>
-                    <ResponsiveContainer width="100%" height="100%">
-                      <BarChart data={workloadByTypeData} layout="vertical" margin={{ top: 10, right: 30, left: 40, bottom: 0 }}>
-                        <CartesianGrid strokeDasharray="3 3" stroke="var(--border-color)" horizontal={false} />
-                        <XAxis type="number" stroke="var(--text-muted)" fontSize={11} tickLine={false} axisLine={false} unit="%" />
-                        <YAxis dataKey="name" type="category" stroke="var(--text-main)" fontSize={11} tickLine={false} axisLine={false} width={80} />
-                        <Tooltip 
-                          contentStyle={{ backgroundColor: 'var(--surface-color)', borderColor: 'var(--border-color)', borderRadius: 'var(--radius-md)' }}
-                          itemStyle={{ color: 'var(--text-main)' }}
-                          cursor={{ fill: 'var(--surface-hover)' }}
-                        />
-                        <Bar dataKey="value" name="Volumen" radius={[0, 4, 4, 0]}>
-                          {workloadByTypeData.map((entry, index) => (
-                            <Cell key={`cell-${index}`} fill={entry.color} />
-                          ))}
-                          <LabelList dataKey="value" position="right" formatter={(val) => `${val}%`} style={{ fill: 'var(--text-muted)', fontSize: '0.75rem' }} />
-                        </Bar>
-                      </BarChart>
-                    </ResponsiveContainer>
+                {/* KPI 2: Production Cycle Time */}
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+                  <div className="card glass-panel" style={{ padding: '1.5rem', height: '320px', display: 'flex', flexDirection: 'column', margin: 0 }}>
+                    <h3 style={{ fontSize: '1rem', marginBottom: '1rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                      <Clock size={18} color="var(--primary-color)" /> Ciclo de Producción
+                    </h3>
+                    <div style={{ flex: 1, width: '100%', minHeight: 0 }}>
+                      <ResponsiveContainer width="100%" height="100%">
+                        <LineChart data={productionCycleTimeData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
+                          <CartesianGrid strokeDasharray="3 3" stroke="var(--border-color)" vertical={false} />
+                          <XAxis dataKey="name" stroke="var(--text-muted)" fontSize={11} tickLine={false} axisLine={false} />
+                          <YAxis stroke="var(--text-muted)" fontSize={11} tickLine={false} axisLine={false} unit="d" />
+                          <Tooltip 
+                            contentStyle={{ backgroundColor: 'var(--surface-color)', borderColor: 'var(--border-color)', borderRadius: 'var(--radius-md)' }}
+                            itemStyle={{ color: 'var(--text-main)' }}
+                            cursor={{ stroke: 'var(--border-color)', strokeWidth: 1, strokeDasharray: '3 3' }}
+                          />
+                          <Line type="monotone" dataKey="dias" name="Días" stroke="var(--primary-color)" strokeWidth={3} dot={{ r: 4, fill: 'var(--primary-color)' }} activeDot={{ r: 6 }} />
+                        </LineChart>
+                      </ResponsiveContainer>
+                    </div>
+                  </div>
+                  <div className="card glass-panel" style={{ padding: '0.75rem 1rem', margin: 0, backgroundColor: 'var(--surface-hover)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                    <p style={{ margin: 0, fontSize: '0.8rem', color: 'var(--text-muted)', textAlign: 'center', lineHeight: '1.4' }}>
+                      Cantidad promedio de días que una Orden de Trabajo pasa estrictamente en el estado de Producción.
+                    </p>
                   </div>
                 </div>
-                <div className="card glass-panel" style={{ padding: '0.75rem 1rem', margin: 0, backgroundColor: 'var(--surface-hover)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                  <p style={{ margin: 0, fontSize: '0.8rem', color: 'var(--text-muted)', textAlign: 'center', lineHeight: '1.4' }}>
-                    Porcentaje de volumen de trabajo por línea de negocio o tipo de servicio sobre el total de órdenes de trabajo activas.
-                  </p>
+
+                {/* KPI 3: Workload Distribution */}
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+                  <div className="card glass-panel" style={{ padding: '1.5rem', height: '320px', display: 'flex', flexDirection: 'column', margin: 0 }}>
+                    <h3 style={{ fontSize: '1rem', marginBottom: '1rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                      <Activity size={18} color="var(--secondary-color)" /> Carga por Servicio
+                    </h3>
+                    <div style={{ flex: 1, width: '100%', minHeight: 0 }}>
+                      <ResponsiveContainer width="100%" height="100%">
+                        <BarChart data={workloadByTypeData} layout="vertical" margin={{ top: 10, right: 30, left: 40, bottom: 0 }}>
+                          <CartesianGrid strokeDasharray="3 3" stroke="var(--border-color)" horizontal={false} />
+                          <XAxis type="number" stroke="var(--text-muted)" fontSize={11} tickLine={false} axisLine={false} unit="%" />
+                          <YAxis dataKey="name" type="category" stroke="var(--text-main)" fontSize={11} tickLine={false} axisLine={false} width={80} />
+                          <Tooltip 
+                            contentStyle={{ backgroundColor: 'var(--surface-color)', borderColor: 'var(--border-color)', borderRadius: 'var(--radius-md)' }}
+                            itemStyle={{ color: 'var(--text-main)' }}
+                            cursor={{ fill: 'var(--surface-hover)' }}
+                          />
+                          <Bar dataKey="value" name="Volumen" radius={[0, 4, 4, 0]}>
+                            {workloadByTypeData.map((entry, index) => (
+                              <Cell key={`cell-${index}`} fill={entry.color} />
+                            ))}
+                            <LabelList dataKey="value" position="right" formatter={(val) => `${val}%`} style={{ fill: 'var(--text-muted)', fontSize: '0.75rem' }} />
+                          </Bar>
+                        </BarChart>
+                      </ResponsiveContainer>
+                    </div>
+                  </div>
+                  <div className="card glass-panel" style={{ padding: '0.75rem 1rem', margin: 0, backgroundColor: 'var(--surface-hover)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                    <p style={{ margin: 0, fontSize: '0.8rem', color: 'var(--text-muted)', textAlign: 'center', lineHeight: '1.4' }}>
+                      Porcentaje de volumen de trabajo por línea de negocio o tipo de servicio sobre el total de órdenes de trabajo activas.
+                    </p>
+                  </div>
                 </div>
               </div>
-            </div>
+            )
           )}
         </>
       )}

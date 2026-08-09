@@ -14,11 +14,11 @@ import {
   TrendingDown,
   Sparkles,
   FileSpreadsheet,
-  Download
+  Download,
+  X
 } from 'lucide-react';
 import { 
-  mockRejectionReasonData,
-  mockProductionCycleTimeData
+  mockRejectionReasonData
 } from '../data/mockData';
 import { 
   BarChart, Bar, Cell, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
@@ -26,12 +26,16 @@ import {
 } from 'recharts';
 import { supabase } from '../utils/supabaseClient';
 
-export default function Herramientas() {
-  const [activeTab, setActiveTab] = useState('reportes');
+export default function Herramientas({ user }) {
+  const [activeTab, setActiveTab] = useState('reportes'); // 'reportes' or 'alertas'
   const [reportSubTab, setReportSubTab] = useState('cotizaciones');
   const [cotizaciones, setCotizaciones] = useState([]);
   const [ordenesTrabajo, setOrdenesTrabajo] = useState([]);
   const [loading, setLoading] = useState(true);
+
+  // Alert modals state
+  const [selectedAlertCotizacion, setSelectedAlertCotizacion] = useState(null);
+  const [selectedAlertOT, setSelectedAlertOT] = useState(null);
 
   // Export State
   const [exportType, setExportType] = useState('cotizaciones');
@@ -55,37 +59,61 @@ export default function Herramientas() {
 
         if (quotesError) throw quotesError;
 
-        const mappedQuotes = quotesData.map(q => ({
-          id: q.id,
-          cliente: q.client?.name || 'Sin Cliente',
-          clientId: q.client_id,
-          contacto: q.contact_name || q.client?.contact_name || '',
-          tipo: q.items && q.items.length > 0 ? q.items[0].line_of_business + (q.items.length > 1 ? ' y otros' : '') : 'Varios',
-          monto: q.total,
-          estado: q.status,
-          fecha: q.created_at.split('T')[0],
-          fechaEntrega: q.estimated_delivery_date,
-          ejecutivo: q.seller?.name || 'Desconocido',
-          sellerId: q.seller_id,
-          items: q.items.map(item => ({
-            id: item.id,
-            lineaNegocio: item.line_of_business,
-            descripcion: item.description,
-            cantidad: item.quantity,
-            costoUnitario: item.unit_price,
-            ...item.technical_details
-          }))
-        }));
+        const mappedQuotes = quotesData.map(q => {
+          return {
+            id: q.id,
+            cliente: q.client?.name || 'Sin Cliente',
+            clientId: q.client_id,
+            contacto: q.contact_name || q.client?.contact_name || '',
+            tipo: q.items && q.items.length > 0 ? q.items[0].line_of_business + (q.items.length > 1 ? ' y otros' : '') : 'Varios',
+            monto: q.total,
+            estado: q.status,
+            fecha: q.created_at.split('T')[0],
+            fechaEntrega: q.estimated_delivery_date,
+            ejecutivo: q.seller?.name || 'Desconocido',
+            sellerId: q.seller_id,
+            description: q.description || '',
+            motivoRechazo: q.rejection_reason || '',
+            detalleRechazo: q.rejection_details || '',
+            items: q.items.map(item => ({
+              id: item.id,
+              lineaNegocio: item.line_of_business,
+              descripcion: item.description,
+              cantidad: item.quantity,
+              costoUnitario: item.unit_price,
+              ...item.technical_details
+            }))
+          };
+        });
 
         setCotizaciones(mappedQuotes);
 
-        // Fetch OTs from localStorage
-        const savedOts = localStorage.getItem('comunicaciones_seis_ots');
-        if (savedOts) {
-          setOrdenesTrabajo(JSON.parse(savedOts));
-        } else {
-          setOrdenesTrabajo([]);
-        }
+        // Fetch OTs from Supabase
+        const { data: otsData, error: otsError } = await supabase
+          .from('work_orders')
+          .select(`
+            *,
+            client:clients (name),
+            quote:quotes (title)
+          `);
+
+        if (otsError) throw otsError;
+
+        const mappedOts = otsData.map(ot => ({
+          id: ot.id,
+          cotizacionId: ot.quote_id,
+          cliente: ot.client?.name || 'Sin Cliente',
+          tipo: ot.quote?.title || 'Varios',
+          estado: ot.status,
+          progreso: ot.progress,
+          fechaEntrega: ot.estimated_closure ? ot.estimated_closure.split('T')[0] : 'Sin fecha',
+          realStart: ot.real_start,
+          realClosure: ot.real_closure,
+          createdAt: ot.created_at,
+          updatedAt: ot.updated_at
+        }));
+
+        setOrdenesTrabajo(mappedOts);
       } catch (err) {
         console.error('Error fetching dashboard tools data:', err);
       } finally {
@@ -167,9 +195,10 @@ export default function Herramientas() {
   };
 
   // Dynamic computations for charts
-  const totalQuotes = cotizaciones.length;
-  const aprobadas = cotizaciones.filter(c => c.estado === 'Aprobada').length;
-  const rechazadas = cotizaciones.filter(c => c.estado === 'Rechazada' || c.estado === 'Anulada').length;
+  const activeQuotesForStats = cotizaciones.filter(c => !ordenesTrabajo.some(ot => ot.cotizacionId === c.id));
+  const totalQuotes = activeQuotesForStats.length;
+  const aprobadas = activeQuotesForStats.filter(c => c.estado === 'Aprobada').length;
+  const rechazadas = activeQuotesForStats.filter(c => c.estado === 'Rechazada' || c.estado === 'Anulada').length;
   const pendientes = totalQuotes - aprobadas - rechazadas;
 
   const pctAprobadas = totalQuotes > 0 ? Math.round((aprobadas / totalQuotes) * 100) : 0;
@@ -182,17 +211,30 @@ export default function Herramientas() {
     { name: 'Pendientes', value: pctPendientes, color: 'var(--warning-color)' }
   ];
 
-  const rejectionReasonData = [
-    { name: 'Precio Alto', value: rechazadas > 0 ? 45 : 0, color: '#ff4d4f' },
-    { name: 'Competencia', value: rechazadas > 0 ? 25 : 0, color: '#faad14' },
-    { name: 'Presupuesto Cancelado', value: rechazadas > 0 ? 20 : 0, color: '#722ed1' },
-    { name: 'Tiempos de Entrega', value: rechazadas > 0 ? 10 : 0, color: '#595959' }
-  ];
+   const rechazadasQuotes = cotizaciones.filter(c => c.estado === 'Rechazada');
+   const totalRechazadas = rechazadasQuotes.length;
+   
+   const countInterno = rechazadasQuotes.filter(c => c.motivoRechazo === 'Rechazo Interno').length;
+   const countCliente = rechazadasQuotes.filter(c => c.motivoRechazo === 'Rechazo por Parte del Cliente').length;
+   const countAutomatico = rechazadasQuotes.filter(c => c.motivoRechazo === 'Rechazo Automático').length;
+   
+   const pctInterno = totalRechazadas > 0 ? Math.round((countInterno / totalRechazadas) * 100) : 0;
+   const pctCliente = totalRechazadas > 0 ? Math.round((countCliente / totalRechazadas) * 100) : 0;
+   const pctAutomatico = totalRechazadas > 0 ? Math.round((countAutomatico / totalRechazadas) * 100) : 0;
 
-  const clientVolumes = {};
-  cotizaciones.forEach(c => {
-    clientVolumes[c.cliente] = (clientVolumes[c.cliente] || 0) + (c.monto || 0);
-  });
+   const rejectionReasonData = [
+     { name: 'Rechazo Interno', value: pctInterno, color: '#ff4d4f' },
+     { name: 'Rechazo por Parte del Cliente', value: pctCliente, color: '#faad14' },
+     { name: 'Rechazo Automático', value: pctAutomatico, color: '#722ed1' }
+   ];
+
+   const clientVolumes = {};
+   cotizaciones.forEach(c => {
+     const hasOT = ordenesTrabajo.some(ot => ot.cotizacionId === c.id);
+     if (c.estado === 'Aprobada' && hasOT) {
+       clientVolumes[c.cliente] = (clientVolumes[c.cliente] || 0) + (c.monto || 0);
+     }
+   });
   const topClientsData = Object.keys(clientVolumes)
     .map(name => ({ name, volumen: clientVolumes[name] }))
     .sort((a, b) => b.volumen - a.volumen)
@@ -217,6 +259,49 @@ export default function Herramientas() {
     { name: 'A Tiempo', value: pctOnTime, color: 'var(--success-color)' },
     { name: 'Con Retraso', value: pctDelayed, color: 'var(--error-color)' }
   ];
+
+  const getDynamicCycleTimeData = (ots) => {
+    const data = [];
+    const todayVal = new Date();
+    
+    const completedOts = ots.filter(ot => 
+      (ot.estado === 'Finalizado' || ot.estado === 'Entregado')
+    );
+
+    for (let i = 4; i >= 0; i--) {
+      const weekStart = new Date(todayVal);
+      weekStart.setDate(todayVal.getDate() - (i + 1) * 7);
+      const weekEnd = new Date(todayVal);
+      weekEnd.setDate(todayVal.getDate() - i * 7);
+      
+      const otsInWeek = completedOts.filter(ot => {
+        const completionDate = new Date(ot.realClosure || ot.updatedAt || ot.fechaEntrega);
+        return completionDate >= weekStart && completionDate < weekEnd;
+      });
+
+      let avgDays = 0;
+      if (otsInWeek.length > 0) {
+        const sumDays = otsInWeek.reduce((sum, ot) => {
+          const start = new Date(ot.realStart || ot.createdAt || ot.fechaEntrega);
+          const end = new Date(ot.realClosure || ot.updatedAt || ot.fechaEntrega);
+          const diffTime = Math.max(0, end - start);
+          const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24)) || 1;
+          return sum + diffDays;
+        }, 0);
+        avgDays = Math.round((sumDays / otsInWeek.length) * 10) / 10;
+      }
+
+      const startStr = weekStart.toLocaleDateString('es-ES', { day: 'numeric', month: 'short' });
+      const endStr = weekEnd.toLocaleDateString('es-ES', { day: 'numeric', month: 'short' });
+      data.push({
+        name: `${startStr} - ${endStr}`,
+        dias: avgDays
+      });
+    }
+    return data;
+  };
+
+  const productionCycleTimeData = getDynamicCycleTimeData(ordenesTrabajo);
 
   const typeCounts = {};
   ordenesTrabajo.forEach(ot => {
@@ -453,7 +538,7 @@ export default function Herramientas() {
                       {rejectionReasonData.map((item, idx) => (
                         <span key={idx} style={{ display: 'flex', alignItems: 'center', gap: '0.2rem', opacity: rechazadas === 0 ? 0.5 : 1 }}>
                           <span style={{ width: '8px', height: '8px', borderRadius: '50%', backgroundColor: item.color }} />
-                          {item.name}
+                          {item.name} ({item.value}%)
                         </span>
                       ))}
                     </div>
@@ -485,95 +570,107 @@ export default function Herramientas() {
             </div>
           ) : (
             <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-              {/* OT Performance charts */}
-              <div className="card" style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-                <h3 style={{ fontSize: '1.05rem', margin: 0, display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                  <Clock size={18} color="var(--secondary-color)" /> Rendimiento e Impacto Operativo
-                </h3>
-                
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '1rem', minHeight: '180px' }}>
-                  <div>
-                    <h4 style={{ fontSize: '0.85rem', color: 'var(--text-muted)', textAlign: 'center', marginBottom: '0.5rem' }}>Entregas a Tiempo (SLA)</h4>
-                    <div style={{ height: '140px' }}>
-                      <ResponsiveContainer width="100%" height="100%">
-                        <PieChart>
-                          <Pie 
-                            data={onTimeDeliveryData} 
-                            dataKey="value" 
-                            nameKey="name" 
-                            cx="50%" 
-                            cy="50%" 
-                            innerRadius={30} 
-                            outerRadius={50}
-                          >
-                            {onTimeDeliveryData.map((entry, index) => (
-                              <Cell key={`cell-${index}`} fill={entry.color} />
-                            ))}
-                          </Pie>
-                          <Tooltip formatter={(value) => `${value}%`} />
-                        </PieChart>
-                      </ResponsiveContainer>
-                    </div>
-                    <div style={{ display: 'flex', justifyContent: 'center', gap: '0.8rem', fontSize: '0.75rem' }}>
-                      {onTimeDeliveryData.map((item, idx) => (
-                        <span key={idx} style={{ display: 'flex', alignItems: 'center', gap: '0.2rem' }}>
-                          <span style={{ width: '8px', height: '8px', borderRadius: '50%', backgroundColor: item.color }} />
-                          {item.name} ({item.value}%)
-                        </span>
-                      ))}
+              {totalOTs === 0 ? (
+                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '3rem 1.5rem', backgroundColor: 'var(--surface-color)', borderRadius: 'var(--radius-lg)', border: '1px solid var(--border-color)', width: '100%', gap: '1rem', textAlign: 'center' }}>
+                  <AlertTriangle size={48} color="var(--warning-color)" style={{ color: 'var(--warning-color)' }} />
+                  <h3 style={{ margin: 0, fontSize: '1.1rem', color: 'var(--text-main)' }}>Sin Órdenes de Trabajo</h3>
+                  <p style={{ margin: 0, fontSize: '0.85rem', color: 'var(--text-muted)', maxWidth: '400px' }}>
+                    No hay Órdenes de Trabajo registradas en el sistema. Genera una Orden de Trabajo desde una cotización aprobada para comenzar a visualizar las estadísticas operativas.
+                  </p>
+                </div>
+              ) : (
+                <>
+                  {/* OT Performance charts */}
+                  <div className="card" style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+                    <h3 style={{ fontSize: '1.05rem', margin: 0, display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                      <Clock size={18} color="var(--secondary-color)" /> Rendimiento e Impacto Operativo
+                    </h3>
+                    
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '1rem', minHeight: '180px' }}>
+                      <div>
+                        <h4 style={{ fontSize: '0.85rem', color: 'var(--text-muted)', textAlign: 'center', marginBottom: '0.5rem' }}>Entregas a Tiempo (SLA)</h4>
+                        <div style={{ height: '140px' }}>
+                          <ResponsiveContainer width="100%" height="100%">
+                            <PieChart>
+                              <Pie 
+                                data={onTimeDeliveryData} 
+                                dataKey="value" 
+                                nameKey="name" 
+                                cx="50%" 
+                                cy="50%" 
+                                innerRadius={30} 
+                                outerRadius={50}
+                              >
+                                {onTimeDeliveryData.map((entry, index) => (
+                                  <Cell key={`cell-${index}`} fill={entry.color} />
+                                ))}
+                              </Pie>
+                              <Tooltip formatter={(value) => `${value}%`} />
+                            </PieChart>
+                          </ResponsiveContainer>
+                        </div>
+                        <div style={{ display: 'flex', justifyContent: 'center', gap: '0.8rem', fontSize: '0.75rem' }}>
+                          {onTimeDeliveryData.map((item, idx) => (
+                            <span key={idx} style={{ display: 'flex', alignItems: 'center', gap: '0.2rem' }}>
+                              <span style={{ width: '8px', height: '8px', borderRadius: '50%', backgroundColor: item.color }} />
+                              {item.name} ({item.value}%)
+                            </span>
+                          ))}
+                        </div>
+                      </div>
+
+                      <div>
+                        <h4 style={{ fontSize: '0.85rem', color: 'var(--text-muted)', textAlign: 'center', marginBottom: '0.5rem' }}>Distribución de Carga (Tipo)</h4>
+                        <div style={{ height: '140px' }}>
+                          <ResponsiveContainer width="100%" height="100%">
+                            <PieChart>
+                              <Pie 
+                                data={workloadByTypeData} 
+                                dataKey="value" 
+                                nameKey="name" 
+                                cx="50%" 
+                                cy="50%" 
+                                outerRadius={50}
+                              >
+                                {workloadByTypeData.map((entry, index) => (
+                                  <Cell key={`cell-${index}`} fill={entry.color} />
+                                ))}
+                              </Pie>
+                              <Tooltip formatter={(value) => `${value}%`} />
+                            </PieChart>
+                          </ResponsiveContainer>
+                        </div>
+                        <div style={{ display: 'flex', justifyContent: 'center', gap: '0.5rem', fontSize: '0.7rem', flexWrap: 'wrap' }}>
+                          {workloadByTypeData.map((item, idx) => (
+                            <span key={idx} style={{ display: 'flex', alignItems: 'center', gap: '0.2rem' }}>
+                              <span style={{ width: '8px', height: '8px', borderRadius: '50%', backgroundColor: item.color }} />
+                              {item.name}
+                            </span>
+                          ))}
+                        </div>
+                      </div>
                     </div>
                   </div>
 
-                  <div>
-                    <h4 style={{ fontSize: '0.85rem', color: 'var(--text-muted)', textAlign: 'center', marginBottom: '0.5rem' }}>Distribución de Carga (Tipo)</h4>
-                    <div style={{ height: '140px' }}>
+                  {/* Cycle Time Line chart */}
+                  <div className="card">
+                    <h3 style={{ fontSize: '1.05rem', marginBottom: '0.75rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                      <TrendingUp size={18} color="var(--tertiary-color)" /> Ciclo Promedio de Producción (Días)
+                    </h3>
+                    <div style={{ height: '180px' }}>
                       <ResponsiveContainer width="100%" height="100%">
-                        <PieChart>
-                          <Pie 
-                            data={workloadByTypeData} 
-                            dataKey="value" 
-                            nameKey="name" 
-                            cx="50%" 
-                            cy="50%" 
-                            outerRadius={50}
-                          >
-                            {workloadByTypeData.map((entry, index) => (
-                              <Cell key={`cell-${index}`} fill={entry.color} />
-                            ))}
-                          </Pie>
-                          <Tooltip formatter={(value) => `${value}%`} />
-                        </PieChart>
+                        <LineChart data={productionCycleTimeData} margin={{ left: -10, right: 10, top: 5, bottom: 5 }}>
+                          <CartesianGrid strokeDasharray="3 3" stroke="var(--border-color)" />
+                          <XAxis dataKey="name" stroke="var(--text-muted)" fontSize={10} />
+                          <YAxis stroke="var(--text-muted)" fontSize={10} />
+                          <Tooltip formatter={(value) => `${value} días`} />
+                          <Line type="monotone" dataKey="dias" stroke="var(--primary-color)" strokeWidth={2} activeDot={{ r: 6 }} />
+                        </LineChart>
                       </ResponsiveContainer>
                     </div>
-                    <div style={{ display: 'flex', justifyContent: 'center', gap: '0.5rem', fontSize: '0.7rem', flexWrap: 'wrap' }}>
-                      {workloadByTypeData.map((item, idx) => (
-                        <span key={idx} style={{ display: 'flex', alignItems: 'center', gap: '0.2rem' }}>
-                          <span style={{ width: '8px', height: '8px', borderRadius: '50%', backgroundColor: item.color }} />
-                          {item.name}
-                        </span>
-                      ))}
-                    </div>
                   </div>
-                </div>
-              </div>
-
-              {/* Cycle Time Line chart */}
-              <div className="card">
-                <h3 style={{ fontSize: '1.05rem', marginBottom: '0.75rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                  <TrendingUp size={18} color="var(--tertiary-color)" /> Ciclo Promedio de Producción (Días)
-                </h3>
-                <div style={{ height: '180px' }}>
-                  <ResponsiveContainer width="100%" height="100%">
-                    <LineChart data={mockProductionCycleTimeData} margin={{ left: -10, right: 10, top: 5, bottom: 5 }}>
-                      <CartesianGrid strokeDasharray="3 3" stroke="var(--border-color)" />
-                      <XAxis dataKey="name" stroke="var(--text-muted)" fontSize={10} />
-                      <YAxis stroke="var(--text-muted)" fontSize={10} />
-                      <Tooltip formatter={(value) => `${value} días`} />
-                      <Line type="monotone" dataKey="dias" stroke="var(--primary-color)" strokeWidth={2} activeDot={{ r: 6 }} />
-                    </LineChart>
-                  </ResponsiveContainer>
-                </div>
-              </div>
+                </>
+              )}
             </div>
           )}
         </div>
@@ -741,6 +838,7 @@ export default function Herramientas() {
                 {cotizacionesAlertas.map((cot, idx) => (
                   <div 
                     key={idx} 
+                    onClick={() => setSelectedAlertCotizacion(cot)}
                     style={{ 
                       padding: '0.75rem', 
                       background: 'var(--surface-hover)', 
@@ -749,7 +847,9 @@ export default function Herramientas() {
                       display: 'flex',
                       justifyContent: 'space-between',
                       alignItems: 'center',
-                      fontSize: '0.85rem'
+                      fontSize: '0.85rem',
+                      cursor: 'pointer',
+                      transition: 'background 0.2s'
                     }}
                   >
                     <div>
@@ -789,6 +889,7 @@ export default function Herramientas() {
                   return (
                     <div 
                       key={idx} 
+                      onClick={() => setSelectedAlertOT(ot)}
                       style={{ 
                         padding: '0.75rem', 
                         background: 'var(--surface-hover)', 
@@ -797,7 +898,9 @@ export default function Herramientas() {
                         display: 'flex',
                         justifyContent: 'space-between',
                         alignItems: 'center',
-                        fontSize: '0.85rem'
+                        fontSize: '0.85rem',
+                        cursor: 'pointer',
+                        transition: 'background 0.2s'
                       }}
                     >
                       <div>
@@ -820,6 +923,159 @@ export default function Herramientas() {
           </div>
         </div>
       )}
+
+      {/* Modal para Cotización */}
+      {selectedAlertCotizacion && (
+        <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(3px)', display: 'flex', justifyContent: 'center', alignItems: 'center', zIndex: 1100, padding: '1rem' }} onClick={() => setSelectedAlertCotizacion(null)}>
+          <div className="card glass-panel" style={{ width: '100%', maxWidth: '500px', margin: 0 }} onClick={e => e.stopPropagation()}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem', borderBottom: '1px solid var(--border-color)', paddingBottom: '0.75rem' }}>
+              <h2 style={{ margin: 0, fontSize: '1.2rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                <ClipboardList size={20} color="var(--warning-color)" />
+                Detalles de Cotización
+              </h2>
+              <button type="button" onClick={() => setSelectedAlertCotizacion(null)} style={{ background: 'transparent', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', display: 'flex' }}>
+                <X size={20} />
+              </button>
+            </div>
+            
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.8rem' }}>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
+                <div>
+                  <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)', display: 'block' }}>ID:</span>
+                  <strong style={{ color: 'var(--text-main)', fontSize: '0.95rem' }}>{selectedAlertCotizacion.id}</strong>
+                </div>
+                <div>
+                  <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)', display: 'block' }}>Estado:</span>
+                  <span style={{ fontWeight: 'bold', color: 'var(--warning-color)' }}>{selectedAlertCotizacion.estado}</span>
+                </div>
+                <div style={{ gridColumn: 'span 2' }}>
+                  <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)', display: 'block' }}>Cliente:</span>
+                  <strong style={{ color: 'var(--text-main)', fontSize: '0.95rem' }}>{selectedAlertCotizacion.cliente}</strong>
+                </div>
+                <div>
+                  <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)', display: 'block' }}>Monto:</span>
+                  <strong style={{ color: 'var(--success-color)', fontSize: '0.95rem' }}>${selectedAlertCotizacion.monto.toLocaleString()}</strong>
+                </div>
+                <div>
+                  <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)', display: 'block' }}>Ejecutivo:</span>
+                  <strong style={{ color: 'var(--ejecutivo-color)', fontSize: '0.95rem' }}>{selectedAlertCotizacion.ejecutivo || 'No Asignado'}</strong>
+                </div>
+                <div style={{ gridColumn: 'span 2' }}>
+                  <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)', display: 'block' }}>Fecha Crítica:</span>
+                  <strong style={{ color: 'var(--error-color)', fontSize: '0.95rem' }}>{selectedAlertCotizacion.fechaEntrega || 'N/D'}</strong>
+                </div>
+              </div>
+            </div>
+            
+            <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: '1.5rem' }}>
+              <button className="btn btn-secondary" onClick={() => setSelectedAlertCotizacion(null)}>Cerrar</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal para OT */}
+      {selectedAlertOT && (() => {
+        const matchingCot = cotizaciones.find(c => c.id === selectedAlertOT.cotizacionId);
+        const ejecutivoName = matchingCot?.ejecutivo || 'No Asignado';
+        
+        const today = new Date();
+        
+        // 1. Días en la etapa actual
+        const daysInStage = selectedAlertOT.updatedAt 
+          ? Math.max(0, Math.floor((today - new Date(selectedAlertOT.updatedAt)) / (1000 * 60 * 60 * 24)))
+          : 0;
+          
+        // 2. Días restantes
+        let daysRemaining = 'N/D';
+        if (selectedAlertOT.fechaEntrega && selectedAlertOT.fechaEntrega !== 'Sin fecha') {
+          // Adjust for timezones by setting both to midnight
+          const targetDate = new Date(selectedAlertOT.fechaEntrega + 'T12:00:00');
+          const todayDate = new Date();
+          const diff = Math.ceil((targetDate - todayDate) / (1000 * 60 * 60 * 24));
+          daysRemaining = diff >= 0 ? diff : `${Math.abs(diff)} (Vencido)`;
+        }
+        
+        // 3. Días desde que entró a producción (Conversión de Cotización a OT)
+        const daysSinceStart = selectedAlertOT.createdAt
+          ? Math.max(0, Math.floor((today - new Date(selectedAlertOT.createdAt)) / (1000 * 60 * 60 * 24)))
+          : 'No iniciada';
+
+        return (
+          <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(3px)', display: 'flex', justifyContent: 'center', alignItems: 'center', zIndex: 1100, padding: '1rem' }} onClick={() => setSelectedAlertOT(null)}>
+            <div className="card glass-panel" style={{ width: '100%', maxWidth: '600px', margin: 0 }} onClick={e => e.stopPropagation()}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem', borderBottom: '1px solid var(--border-color)', paddingBottom: '0.75rem' }}>
+                <h2 style={{ margin: 0, fontSize: '1.2rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                  <AlertTriangle size={20} color="var(--error-color)" />
+                  Detalles de Orden Crítica
+                </h2>
+                <button type="button" onClick={() => setSelectedAlertOT(null)} style={{ background: 'transparent', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', display: 'flex' }}>
+                  <X size={20} />
+                </button>
+              </div>
+              
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
+                  <div>
+                    <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)', display: 'block' }}>OT ID:</span>
+                    <strong style={{ color: 'var(--text-main)', fontSize: '0.95rem' }}>{selectedAlertOT.id}</strong>
+                  </div>
+                  <div>
+                    <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)', display: 'block' }}>Estado:</span>
+                    <span style={{ fontWeight: 'bold', color: 'var(--error-color)' }}>{selectedAlertOT.estado}</span>
+                  </div>
+                  <div style={{ gridColumn: 'span 2' }}>
+                    <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)', display: 'block' }}>Cliente:</span>
+                    <strong style={{ color: 'var(--text-main)', fontSize: '0.95rem' }}>{selectedAlertOT.cliente}</strong>
+                  </div>
+                  <div style={{ gridColumn: 'span 2' }}>
+                    <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)', display: 'block' }}>Tipo / Servicio:</span>
+                    <strong style={{ color: 'var(--text-main)', fontSize: '0.95rem' }}>{selectedAlertOT.tipo || 'N/D'}</strong>
+                  </div>
+                  <div>
+                    <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)', display: 'block' }}>Progreso:</span>
+                    <strong style={{ color: 'var(--text-main)', fontSize: '0.95rem' }}>{selectedAlertOT.progreso}%</strong>
+                  </div>
+                  <div>
+                    <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)', display: 'block' }}>Ejecutivo:</span>
+                    <strong style={{ color: 'var(--ejecutivo-color)', fontSize: '0.95rem' }}>{ejecutivoName}</strong>
+                  </div>
+                </div>
+                
+                <div style={{ backgroundColor: 'rgba(239, 68, 68, 0.05)', padding: '1rem', borderRadius: '8px', border: '1px solid rgba(239, 68, 68, 0.2)' }}>
+                  <h4 style={{ margin: '0 0 0.8rem 0', fontSize: '0.85rem', color: 'var(--error-color)', display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+                    <Clock size={16} /> Métricas de Tiempo
+                  </h4>
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
+                    <div>
+                      <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)', display: 'block' }}>Fecha Estimada Entrega:</span>
+                      <strong style={{ color: 'var(--text-main)', fontSize: '0.95rem' }}>{selectedAlertOT.fechaEntrega || 'N/D'}</strong>
+                    </div>
+                    <div>
+                      <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)', display: 'block' }}>Días Restantes:</span>
+                      <strong style={{ color: typeof daysRemaining === 'number' && daysRemaining <= 3 ? 'var(--warning-color)' : (typeof daysRemaining === 'string' && daysRemaining.includes('Vencido') ? 'var(--error-color)' : 'var(--text-main)'), fontSize: '0.95rem' }}>
+                        {daysRemaining}
+                      </strong>
+                    </div>
+                    <div>
+                      <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)', display: 'block' }}>Días en Etapa Actual:</span>
+                      <strong style={{ color: 'var(--text-main)', fontSize: '0.95rem' }}>{daysInStage} {daysInStage === 1 ? 'día' : 'días'}</strong>
+                    </div>
+                    <div>
+                      <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)', display: 'block' }}>Total Días Producción:</span>
+                      <strong style={{ color: 'var(--text-main)', fontSize: '0.95rem' }}>{daysSinceStart !== 'No iniciada' ? `${daysSinceStart} ${daysSinceStart === 1 ? 'día' : 'días'}` : daysSinceStart}</strong>
+                    </div>
+                  </div>
+                </div>
+              </div>
+              
+              <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: '1.5rem' }}>
+                <button className="btn btn-secondary" onClick={() => setSelectedAlertOT(null)}>Cerrar</button>
+              </div>
+            </div>
+          </div>
+        );
+      })()}
       </div>
     </div>
   );

@@ -17,3 +17,10 @@
   1. Solo se pueden eliminar cotizaciones cuyo estatus sea "BORRADOR" o "ANULADA".
   2. Si la cotización tiene cualquier otro estatus, se debe mostrar un modal/dialog de advertencia informativo indicando al usuario que debe cambiar el estatus a "ANULADA" para poder eliminarla (el usuario deberá buscar la opción de cambio de estatus por su cuenta).
   3. Esta regla debe implementarse tanto a nivel visual en el frontend (React) como a nivel de validación en el backend (API) por motivos de seguridad.
+- **Ranking de Clientes**:
+  1. Al generar gráficos de ranking de clientes por volumen de ventas/cotizaciones, solo se deben contabilizar aquellas cotizaciones que estén en estado "Aprobada" y que cuenten con una Orden de Trabajo (OT) asociada.
+  2. Cotizaciones rechazadas, anuladas, o en cualquier otro estado no deben ser sumadas al volumen de facturación o volumen cotizado del cliente en este gráfico.
+- **Uso de Datos Reales de Supabase**:
+  1. Todos los gráficos, listas, paneles y cálculos estadísticos de la aplicación deben utilizar exclusivamente la información real registrada en Supabase.
+  2. Se prohíbe el uso de datos simulados (mock data) para rellenar visualizaciones o informes. Si la base de datos no cuenta con registros o datos suficientes, se debe mostrar un estado vacío informativo y amigable al usuario (empty state) en su lugar.
+

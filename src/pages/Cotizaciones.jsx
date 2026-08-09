@@ -33,38 +33,44 @@ export default function Cotizaciones({ user }) {
           *,
           client:clients (id, name, contact_name),
           seller:profiles (name),
-          items:quote_items (*)
+          items:quote_items (*),
+          work_orders:work_orders(id)
         `)
         .order('created_at', { ascending: false });
 
       if (error) throw error;
 
-      const mapped = data.map(q => ({
-        id: q.id,
-        cliente: q.client?.name || 'Sin Cliente',
-        clientId: q.client_id,
-        contacto: q.contact_name || q.client?.contact_name || '',
-        tipo: q.items && q.items.length > 0 ? q.items[0].line_of_business + (q.items.length > 1 ? ' y otros' : '') : 'Varios',
-        monto: q.total,
-        estado: q.status,
-        fecha: q.created_at.split('T')[0],
-        fechaEntrega: q.estimated_delivery_date,
-        ejecutivo: q.seller?.name || 'Desconocido',
-        sellerId: q.seller_id,
-        items: q.items.map(item => ({
-          id: item.id,
-          lineaNegocio: item.line_of_business,
-          descripcion: item.description,
-          cantidad: item.quantity,
-          costoUnitario: item.unit_price,
-          ...item.technical_details
-        })),
-        subtotal: q.subtotal,
-        impuestos: q.taxes,
-        total: q.total,
-        condicionesPago: q.payment_terms,
-        description: q.description || ''
-      }));
+      const filteredQuotes = data.filter(q => !q.work_orders || q.work_orders.length === 0);
+      const mapped = filteredQuotes.map(q => {
+        return {
+          id: q.id,
+          cliente: q.client?.name || 'Sin Cliente',
+          clientId: q.client_id,
+          contacto: q.contact_name || q.client?.contact_name || '',
+          tipo: q.items && q.items.length > 0 ? q.items[0].line_of_business + (q.items.length > 1 ? ' y otros' : '') : 'Varios',
+          monto: q.total,
+          estado: q.status,
+          fecha: q.created_at.split('T')[0],
+          fechaEntrega: q.estimated_delivery_date,
+          ejecutivo: q.seller?.name || 'Desconocido',
+          sellerId: q.seller_id,
+          items: q.items.map(item => ({
+            id: item.id,
+            lineaNegocio: item.line_of_business,
+            descripcion: item.description,
+            cantidad: item.quantity,
+            costoUnitario: item.unit_price,
+            ...item.technical_details
+          })),
+          subtotal: q.subtotal,
+          impuestos: q.taxes,
+          total: q.total,
+          condicionesPago: q.payment_terms,
+          description: q.description || '',
+          motivoRechazo: q.rejection_reason || '',
+          detalleRechazo: q.rejection_details || ''
+        };
+      });
 
       setCotizaciones(mapped);
     } catch (err) {
@@ -151,12 +157,37 @@ export default function Cotizaciones({ user }) {
     try {
       let finalId = nuevaCotizacion.id;
 
+      const isRechazada = (nuevaCotizacion.estado === 'Rechazada') || (nuevaCotizacion.status === 'Rechazada');
+      const rejectionReason = isRechazada ? nuevaCotizacion.motivoRechazo : null;
+      const rejectionDetails = isRechazada ? nuevaCotizacion.detalleRechazo : null;
+
+      let client_email = null;
+      let client_phone = null;
+      let client_address = null;
+      
+      if (nuevaCotizacion.clientId) {
+        const { data: clientData } = await supabase
+          .from('clients')
+          .select('contact_email, contact_phone, address')
+          .eq('id', nuevaCotizacion.clientId)
+          .single();
+          
+        if (clientData) {
+          client_email = clientData.contact_email;
+          client_phone = clientData.contact_phone;
+          client_address = clientData.address;
+        }
+      }
+
       if (nuevaCotizacion._isNew) {
         const { data: insertedQuote, error: insertError } = await supabase
           .from('quotes')
           .insert([{
             client_id: nuevaCotizacion.clientId,
             contact_name: nuevaCotizacion.contacto,
+            contact_email: client_email,
+            contact_phone: client_phone,
+            address: client_address,
             status: nuevaCotizacion.estado,
             seller_id: user.id,
             title: nuevaCotizacion.items.length > 0 ? nuevaCotizacion.items[0].lineaNegocio : 'Varios',
@@ -166,6 +197,9 @@ export default function Cotizaciones({ user }) {
             payment_terms: nuevaCotizacion.condicionesPago,
             estimated_delivery_date: nuevaCotizacion.fechaEntrega,
             description: nuevaCotizacion.description || '',
+            rejection_reason: rejectionReason,
+            rejection_details: rejectionDetails,
+            approved_at: nuevaCotizacion.estado === 'Aprobada' ? new Date().toISOString() : null,
             version: 1
           }])
           .select('id')
@@ -175,12 +209,16 @@ export default function Cotizaciones({ user }) {
         finalId = insertedQuote.id;
         logEvent(user, 'Creación de Cotización', `Se creó la cotización ${finalId} (Monto: $${nuevaCotizacion.total.toFixed(2)})`);
       } else {
+        const targetStatus = nuevaCotizacion.status || nuevaCotizacion.estado;
         const { error: updateError } = await supabase
           .from('quotes')
           .update({
             client_id: nuevaCotizacion.clientId,
             contact_name: nuevaCotizacion.contacto,
-            status: nuevaCotizacion.status || nuevaCotizacion.estado,
+            contact_email: client_email,
+            contact_phone: client_phone,
+            address: client_address,
+            status: targetStatus,
             title: nuevaCotizacion.items.length > 0 ? nuevaCotizacion.items[0].lineaNegocio : 'Varios',
             subtotal: nuevaCotizacion.subtotal,
             taxes: nuevaCotizacion.impuestos,
@@ -188,6 +226,9 @@ export default function Cotizaciones({ user }) {
             payment_terms: nuevaCotizacion.condicionesPago,
             estimated_delivery_date: nuevaCotizacion.fechaEntrega,
             description: nuevaCotizacion.description || '',
+            rejection_reason: rejectionReason,
+            rejection_details: rejectionDetails,
+            approved_at: targetStatus === 'Aprobada' ? (nuevaCotizacion.approvedAt || new Date().toISOString()) : null,
             version: (nuevaCotizacion.version || 1) + 1
           })
           .eq('id', nuevaCotizacion.id);

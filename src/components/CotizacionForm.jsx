@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
-import { ArrowLeft, Save, Plus, Trash2, FileEdit, FilePlus, User, Package, FileDown, Expand, X, AlertTriangle, ArrowUp, Building2, CreditCard, Phone, Mail, UserPlus, MapPin, Map, MessageSquare, Users, Layers, Search } from 'lucide-react';
+import { ArrowLeft, Save, Plus, Trash2, FileEdit, FilePlus, User, Package, FileDown, Expand, X, AlertTriangle, ArrowUp, Building2, CreditCard, Phone, Mail, UserPlus, MapPin, Map, MessageSquare, Users, Layers, Search, List } from 'lucide-react';
 import { supabase } from '../utils/supabaseClient';
+import { mockOrdenesTrabajo, mockOrderStatusData } from '../data/mockData';
 
 
 const defaultClientsData = [
@@ -122,7 +123,7 @@ export default function CotizacionForm({ initialData, onCancel, onSave, onDelete
       subtotal: 0,
       impuestos: 0,
       total: 0,
-      condicionesPago: '50% anticipo / 50% contra entrega',
+      condicionesPago: '',
       fechaEntrega: new Date(Date.now() + 5 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
       motivoRechazo: '',
       detalleRechazo: ''
@@ -134,9 +135,11 @@ export default function CotizacionForm({ initialData, onCancel, onSave, onDelete
   const [customClients, setCustomClients] = useState([]);
   const [showNewClientModal, setShowNewClientModal] = useState(false);
   const [showConfirmModal, setShowConfirmModal] = useState(false);
+  const [showConvertConfirmModal, setShowConvertConfirmModal] = useState(false);
   const [showDeleteConfirmModal, setShowDeleteConfirmModal] = useState(false);
   const [showRechazoModal, setShowRechazoModal] = useState(false);
   const [showCarouselModal, setShowCarouselModal] = useState(false);
+  const [catalogViewMode, setCatalogViewMode] = useState('carousel');
   const [carouselIndex, setCarouselIndex] = useState(0);
   const [carouselSearch, setCarouselSearch] = useState('');
   const [showEditClientModal, setShowEditClientModal] = useState(false);
@@ -164,8 +167,9 @@ export default function CotizacionForm({ initialData, onCancel, onSave, onDelete
       try {
         const { data, error } = await supabase.from('clients').select('*');
         if (error) throw error;
+        let activeClients = [];
         if (data && data.length > 0) {
-          const mapped = data.map(c => ({
+          activeClients = data.map(c => ({
             id: c.id,
             empresa: c.name,
             contacto: c.contact_name,
@@ -176,7 +180,7 @@ export default function CotizacionForm({ initialData, onCancel, onSave, onDelete
             estado: c.address ? c.address.split(',')[1] || '' : '',
             observaciones: ''
           }));
-          setClientsList(mapped);
+          setClientsList(activeClients);
         } else {
           const seedData = defaultClientsData.map(c => ({
             name: c.empresa,
@@ -190,7 +194,7 @@ export default function CotizacionForm({ initialData, onCancel, onSave, onDelete
             .insert(seedData)
             .select();
           if (!insertErr && inserted) {
-            const mapped = inserted.map(c => ({
+            activeClients = inserted.map(c => ({
               id: c.id,
               empresa: c.name,
               contacto: c.contact_name,
@@ -201,9 +205,10 @@ export default function CotizacionForm({ initialData, onCancel, onSave, onDelete
               estado: c.address.split(',')[1] || '',
               observaciones: ''
             }));
-            setClientsList(mapped);
+            setClientsList(activeClients);
           }
         }
+
       } catch (err) {
         console.error('Error fetching clients:', err);
       }
@@ -367,38 +372,49 @@ export default function CotizacionForm({ initialData, onCancel, onSave, onDelete
     }
   };
 
-  const executeConvertirOT = () => {
-    const newOtId = `OT-500${Math.floor(Math.random() * 100) + 6}`;
-    const nuevaOT = {
-      id: newOtId,
-      cotizacionId: formData.id,
-      cliente: formData.cliente || 'Sin Cliente',
-      tipo: formData.items.length > 0 ? formData.items[0].lineaNegocio : 'Varios',
-      estado: 'Programación',
-      progreso: 0,
-      fechaEntrega: new Date(Date.now() + 5 * 24 * 60 * 60 * 1000).toISOString().split('T')[0]
-    };
-    mockOrdenesTrabajo.unshift(nuevaOT);
-    
-    // Persist to localStorage so OrdenesTrabajo page can read it
-    const savedOts = localStorage.getItem('comunicaciones_seis_ots');
-    let currentOts = savedOts ? JSON.parse(savedOts) : [];
-    currentOts.unshift(nuevaOT);
-    localStorage.setItem('comunicaciones_seis_ots', JSON.stringify(currentOts));
+  const executeConvertirOT = async () => {
+    try {
+      const newOtId = `OT-500${Math.floor(Math.random() * 100) + 6}`;
+      const estimatedClosure = new Date(Date.now() + 5 * 24 * 60 * 60 * 1000).toISOString();
+      
+      const { error: insertError } = await supabase
+        .from('work_orders')
+        .insert([{
+          id: newOtId,
+          quote_id: formData.id,
+          client_id: formData.clientId || '065e6ac5-e528-4523-8e9f-0227d3445043',
+          status: 'Programación',
+          priority: 'Media',
+          progress: 0,
+          estimated_closure: estimatedClosure
+        }]);
 
-    // Initialize logs for this new OT
-    const savedLogs = localStorage.getItem('comunicaciones_seis_ot_logs');
-    let currentLogs = savedLogs ? JSON.parse(savedLogs) : {};
-    const nowStr = new Date().toISOString().replace('T', ' ').substring(0, 16);
-    currentLogs[newOtId] = [
-      { id: Date.now(), type: 'status', text: 'Orden Creada', date: nowStr, icon: 'FilePlus' }
-    ];
-    localStorage.setItem('comunicaciones_seis_ot_logs', JSON.stringify(currentLogs));
-    
-    const pendingStatus = mockOrderStatusData.find(s => s.name === 'Programación');
-    if (pendingStatus) pendingStatus.cantidad += 1;
+      if (insertError) throw insertError;
 
-    setShowAlertModal({ show: true, message: `La cotización ha sido convertida exitosamente a la Orden de Trabajo ${newOtId}.` });
+      const nowStr = new Date().toISOString();
+      const messagePayload = JSON.stringify({
+        text: 'Orden Creada',
+        icon: 'FilePlus',
+        estado: 'Programación'
+      });
+
+      const { error: logError } = await supabase
+        .from('work_order_logs')
+        .insert([{
+          work_order_id: newOtId,
+          user_id: user?.id || null,
+          type: 'creation',
+          message: messagePayload,
+          created_at: nowStr
+        }]);
+
+      if (logError) throw logError;
+
+      setShowAlertModal({ show: true, message: `La cotización ha sido convertida exitosamente a la Orden de Trabajo ${newOtId}.` });
+    } catch (err) {
+      console.error('Error al convertir cotización a OT:', err);
+      alert(`Error al convertir a OT: ${err.message || 'Error desconocido'}`);
+    }
   };
 
   const handleSaveClick = () => {
@@ -497,7 +513,7 @@ export default function CotizacionForm({ initialData, onCancel, onSave, onDelete
     if (formData.estado !== 'Aprobada') {
       setShowConfirmModal(true);
     } else {
-      executeConvertirOT();
+      setShowConvertConfirmModal(true);
     }
   };
 
@@ -1259,16 +1275,27 @@ export default function CotizacionForm({ initialData, onCancel, onSave, onDelete
                   <Layers size={22} color="var(--primary-color)" />
                   <h2 style={{ margin: 0, color: 'var(--text-main)', fontSize: '1.25rem', fontWeight: '700' }}>Catálogo de Clientes</h2>
                 </div>
-                <button 
-                  type="button" 
-                  onClick={() => {
-                    setShowCarouselModal(false);
-                    setCarouselSearch('');
-                  }}
-                  style={{ background: 'transparent', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '0.25rem' }}
-                >
-                  <X size={20} />
-                </button>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+                  <button 
+                    type="button" 
+                    onClick={() => setCatalogViewMode(prev => prev === 'carousel' ? 'list' : 'carousel')}
+                    title={catalogViewMode === 'carousel' ? "Ver Lista" : "Ver Tarjetas"}
+                    style={{ background: 'transparent', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '0.4rem', borderRadius: 'var(--radius-md)', backgroundColor: 'rgba(255,255,255,0.05)' }}
+                  >
+                    {catalogViewMode === 'carousel' ? <List size={20} /> : <Layers size={20} />}
+                  </button>
+                  <button 
+                    type="button" 
+                    onClick={() => {
+                      setShowCarouselModal(false);
+                      setCarouselSearch('');
+                      setCatalogViewMode('carousel');
+                    }}
+                    style={{ background: 'transparent', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '0.25rem' }}
+                  >
+                    <X size={20} />
+                  </button>
+                </div>
               </div>
 
               {/* Search input field */}
@@ -1287,8 +1314,43 @@ export default function CotizacionForm({ initialData, onCancel, onSave, onDelete
                 />
               </div>
 
-              {/* Stack Container */}
-              <div style={{ position: 'relative', height: '330px', margin: '0 24px 0 0', display: 'flex', justifyContent: 'center', alignItems: 'center' }}>
+              {/* Content Container */}
+              {catalogViewMode === 'list' ? (
+                <div style={{ height: '330px', overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '0.5rem', paddingRight: '0.5rem' }}>
+                  {filteredClients.length === 0 ? (
+                    <div style={{ textAlign: 'center', color: 'var(--text-muted)', fontSize: '0.9rem', padding: '2rem 0' }}>
+                      No se encontraron clientes para tu búsqueda.
+                    </div>
+                  ) : (
+                    filteredClients.map((client, idx) => (
+                      <div 
+                        key={client.rif || idx}
+                        style={{
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'space-between',
+                          padding: '0.75rem 1rem',
+                          backgroundColor: carouselIndex === idx ? 'rgba(var(--primary-color-rgb), 0.1)' : 'var(--surface-color)',
+                          border: carouselIndex === idx ? '1px solid var(--primary-color)' : '1px solid var(--border-color)',
+                          borderRadius: 'var(--radius-md)',
+                          cursor: 'pointer',
+                          transition: 'all 0.2s ease'
+                        }}
+                        onClick={() => setCarouselIndex(idx)}
+                      >
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.25rem' }}>
+                          <span style={{ fontWeight: '600', color: 'var(--text-main)', fontSize: '0.95rem' }}>{client.empresa}</span>
+                          <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>{client.ciudad}{client.estado ? `, ${client.estado}` : ''}</span>
+                        </div>
+                        {carouselIndex === idx && (
+                          <div style={{ width: '8px', height: '8px', borderRadius: '50%', backgroundColor: 'var(--primary-color)' }}></div>
+                        )}
+                      </div>
+                    ))
+                  )}
+                </div>
+              ) : (
+                <div style={{ position: 'relative', height: '330px', margin: '0 24px 0 0', display: 'flex', justifyContent: 'center', alignItems: 'center' }}>
                 {filteredClients.length === 0 ? (
                   <div style={{ textAlign: 'center', color: 'var(--text-muted)', fontSize: '0.9rem' }}>
                     No se encontraron clientes para tu búsqueda.
@@ -1407,8 +1469,10 @@ export default function CotizacionForm({ initialData, onCancel, onSave, onDelete
                 )}
               </div>
 
+              )} {/* End of Content Container */}
+
               {/* Pagination Controls */}
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '0.5rem' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '0.5rem', opacity: catalogViewMode === 'list' ? 0.5 : 1, pointerEvents: catalogViewMode === 'list' ? 'none' : 'auto' }}>
                 <span style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>
                   {filteredClients.length > 0 ? (
                     <>Cliente <strong>{carouselIndex + 1}</strong> de {filteredClients.length}</>
@@ -1939,6 +2003,22 @@ export default function CotizacionForm({ initialData, onCancel, onSave, onDelete
             <button className="btn btn-primary" style={{ width: '100%', padding: '0.75rem' }} onClick={() => setShowConfirmModal(false)}>
               Entendido
             </button>
+          </div>
+        </div>
+      )}
+
+      {showConvertConfirmModal && (
+        <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.5)', display: 'flex', justifyContent: 'center', alignItems: 'center', zIndex: 1100, padding: '1rem' }}>
+          <div className="card glass-panel" style={{ width: '100%', maxWidth: '400px', margin: 0, textAlign: 'center' }}>
+            <h2 style={{ marginBottom: '1rem', color: 'var(--text-main)' }}>¿Convertir a Orden de Trabajo?</h2>
+            <p style={{ marginBottom: '1.5rem', color: 'var(--text-muted)' }}>¿Estás seguro de que deseas convertir esta cotización en una Orden de Trabajo? Se creará un nuevo registro en el panel de producción.</p>
+            <div style={{ display: 'flex', gap: '0.5rem' }}>
+              <button className="btn btn-secondary" style={{ flex: 1, padding: '0.75rem' }} onClick={() => setShowConvertConfirmModal(false)}>Cancelar</button>
+              <button className="btn btn-primary" style={{ flex: 1, padding: '0.75rem' }} onClick={() => {
+                setShowConvertConfirmModal(false);
+                executeConvertirOT();
+              }}>Convertir</button>
+            </div>
           </div>
         </div>
       )}
