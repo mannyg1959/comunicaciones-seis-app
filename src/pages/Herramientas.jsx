@@ -15,7 +15,9 @@ import {
   Sparkles,
   FileSpreadsheet,
   Download,
-  X
+  X,
+  Activity,
+  MessageCircle
 } from 'lucide-react';
 import { 
   mockRejectionReasonData
@@ -32,6 +34,10 @@ export default function Herramientas({ user }) {
   const [cotizaciones, setCotizaciones] = useState([]);
   const [ordenesTrabajo, setOrdenesTrabajo] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [globalSettings, setGlobalSettings] = useState({ 
+    alert_days_quotes: 7, alert_days_ots: 7,
+    tte_enabled: true, tce_enabled: true, dre_enabled: true, alert_quotes_enabled: true, alert_ots_enabled: true 
+  });
 
   // Alert modals state
   const [selectedAlertCotizacion, setSelectedAlertCotizacion] = useState(null);
@@ -70,6 +76,7 @@ export default function Herramientas({ user }) {
             estado: q.status,
             fecha: q.created_at.split('T')[0],
             fechaEntrega: q.estimated_delivery_date,
+            fechaAprobacion: q.approved_at || q.updated_at || q.created_at,
             ejecutivo: q.seller?.name || 'Desconocido',
             sellerId: q.seller_id,
             description: q.description || '',
@@ -94,26 +101,48 @@ export default function Herramientas({ user }) {
           .select(`
             *,
             client:clients (name),
-            quote:quotes (title)
+            quote:quotes (title),
+            logs:work_order_status_logs (new_status, changed_at)
           `);
 
         if (otsError) throw otsError;
 
-        const mappedOts = otsData.map(ot => ({
-          id: ot.id,
-          cotizacionId: ot.quote_id,
-          cliente: ot.client?.name || 'Sin Cliente',
-          tipo: ot.quote?.title || 'Varios',
-          estado: ot.status,
-          progreso: ot.progress,
-          fechaEntrega: ot.estimated_closure ? ot.estimated_closure.split('T')[0] : 'Sin fecha',
-          realStart: ot.real_start,
-          realClosure: ot.real_closure,
-          createdAt: ot.created_at,
-          updatedAt: ot.updated_at
-        }));
+        const mappedOts = otsData.map(ot => {
+          let statusChangedAt = ot.updated_at;
+          if (ot.logs && ot.logs.length > 0) {
+            const sortedLogs = [...ot.logs].sort((a,b) => new Date(b.changed_at) - new Date(a.changed_at));
+            statusChangedAt = sortedLogs[0].changed_at;
+          }
+          
+          return {
+            id: ot.id,
+            cotizacionId: ot.quote_id,
+            cliente: ot.client?.name || 'Sin Cliente',
+            tipo: ot.quote?.title || 'Varios',
+            estado: ot.status,
+            progreso: ot.progress,
+            fechaEntrega: ot.estimated_closure ? ot.estimated_closure.split('T')[0] : 'Sin fecha',
+            realStart: ot.real_start,
+            realClosure: ot.real_closure,
+            createdAt: ot.created_at,
+            updatedAt: ot.updated_at,
+            statusChangedAt,
+            logs: ot.logs || []
+          };
+        });
 
         setOrdenesTrabajo(mappedOts);
+
+        // Fetch Settings from Supabase
+        const { data: settingsData, error: settingsError } = await supabase
+          .from('system_settings')
+          .select('setting_value')
+          .eq('setting_key', 'global_kpis_and_alerts')
+          .single();
+          
+        if (!settingsError && settingsData && settingsData.setting_value) {
+          setGlobalSettings(prev => ({ ...prev, ...settingsData.setting_value }));
+        }
       } catch (err) {
         console.error('Error fetching dashboard tools data:', err);
       } finally {
@@ -260,6 +289,40 @@ export default function Herramientas({ user }) {
     { name: 'Con Retraso', value: pctDelayed, color: 'var(--error-color)' }
   ];
 
+  const getAverageTimePerStage = (ots) => {
+    let programacionSum = 0, programacionCount = 0;
+    let produccionSum = 0, produccionCount = 0;
+    let revisionSum = 0, revisionCount = 0;
+
+    ots.forEach(ot => {
+      if (!ot.logs || ot.logs.length === 0) return;
+      
+      const sortedLogs = [...ot.logs].sort((a,b) => new Date(a.changed_at) - new Date(b.changed_at));
+      // calculate duration for each stage by finding when they entered the stage and when they entered the next
+      for (let i = 0; i < sortedLogs.length; i++) {
+        const log = sortedLogs[i];
+        const nextLog = sortedLogs[i + 1];
+        if (nextLog) {
+          const start = new Date(log.changed_at);
+          const end = new Date(nextLog.changed_at);
+          const diffDays = Math.max(0, (end - start) / (1000 * 60 * 60 * 24));
+          
+          if (log.new_status === 'Programación') { programacionSum += diffDays; programacionCount++; }
+          else if (log.new_status === 'Producción') { produccionSum += diffDays; produccionCount++; }
+          else if (log.new_status === 'Revisión') { revisionSum += diffDays; revisionCount++; }
+        }
+      }
+    });
+
+    return [
+      { name: 'Programación', dias: programacionCount > 0 ? Math.round((programacionSum / programacionCount) * 10) / 10 : 0, color: '#64748b' },
+      { name: 'Producción', dias: produccionCount > 0 ? Math.round((produccionSum / produccionCount) * 10) / 10 : 0, color: 'var(--primary-color)' },
+      { name: 'Revisión', dias: revisionCount > 0 ? Math.round((revisionSum / revisionCount) * 10) / 10 : 0, color: 'var(--warning-color)' }
+    ];
+  };
+
+  const bottleneckData = getAverageTimePerStage(ordenesTrabajo);
+
   const getDynamicCycleTimeData = (ots) => {
     const data = [];
     const todayVal = new Date();
@@ -309,28 +372,62 @@ export default function Herramientas({ user }) {
     typeCounts[t] = (typeCounts[t] || 0) + 1;
   });
   const colorsList = ['#3b82f6', '#10b981', '#f59e0b', '#a855f7', '#ec4899'];
-  const workloadByTypeData = Object.keys(typeCounts).map((name, index) => ({
-    name,
-    value: typeCounts[name],
-    color: colorsList[index % colorsList.length]
-  }));
+  const workloadByTypeData = Object.keys(typeCounts).map((name, index) => {
+    const count = typeCounts[name];
+    const percentage = totalOTs > 0 ? Math.round((count / totalOTs) * 100) : 0;
+    return {
+      name,
+      value: percentage, // Ahora el valor es sobre el 100%
+      color: colorsList[index % colorsList.length]
+    };
+  });
 
-  // Process Alerts dynamically (upcoming within 7 days or overdue)
+  // Process Alerts dynamically (upcoming within X days or overdue)
   const today = new Date();
   today.setHours(0,0,0,0);
-  const limitDate = new Date(today);
-  limitDate.setDate(limitDate.getDate() + 7);
+  
+  const quotesLimitDate = new Date(today);
+  quotesLimitDate.setDate(quotesLimitDate.getDate() + (globalSettings.alert_days_quotes || 7));
 
-  const cotizacionesAlertas = cotizaciones.filter(c => 
-    (c.estado === 'Pendiente' || c.estado === 'Enviada' || c.estado === 'En Negociación') && 
-    c.fechaEntrega && 
-    new Date(c.fechaEntrega) <= limitDate
-  );
+  const otsLimitDate = new Date(today);
+  otsLimitDate.setDate(otsLimitDate.getDate() + (globalSettings.alert_days_ots || 7));
 
-  const otAlertas = ordenesTrabajo.filter(ot => 
+  const cotizacionesAlertas = globalSettings.alert_quotes_enabled === false ? [] : cotizaciones.filter(c => {
+    const hasOT = ordenesTrabajo.some(ot => ot.cotizacionId === c.id);
+    
+    // Regla 1: Activas (Pendiente, Enviada, En Negociación) próximas a vencer
+    const isActiveCommercial = (c.estado === 'Pendiente' || c.estado === 'Enviada' || c.estado === 'En Negociación');
+    const isCriticalDate = c.fechaEntrega && new Date(c.fechaEntrega) <= quotesLimitDate;
+    
+    // Regla 2: Aprobadas hace más de un día sin OT asignada
+    const isApproved = c.estado === 'Aprobada';
+    let isDelayedAfterApproval = false;
+    if (isApproved && c.fechaAprobacion) {
+      const approvalDate = new Date(c.fechaAprobacion);
+      const diffMs = today - approvalDate;
+      const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
+      if (diffDays >= 1) {
+        isDelayedAfterApproval = true;
+      }
+    }
+    
+    // Si cumple la regla 1, la mostramos
+    if (isActiveCommercial && isCriticalDate) {
+      return true;
+    }
+    
+    // Si cumple la regla 2 y no tiene OT, la mostramos
+    if (isApproved && isDelayedAfterApproval && !hasOT) {
+      return true;
+    }
+
+    return false;
+  });
+
+  const otAlertas = globalSettings.alert_ots_enabled === false ? [] : ordenesTrabajo.filter(ot => 
     ot.estado !== 'Entregado' && ot.estado !== 'Finalizado' && 
     ot.fechaEntrega && 
-    new Date(ot.fechaEntrega) <= limitDate
+    new Date(ot.fechaEntrega) <= otsLimitDate
   );
 
   if (loading) {
@@ -566,6 +663,9 @@ export default function Herramientas({ user }) {
                     </BarChart>
                   </ResponsiveContainer>
                 </div>
+                <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)', marginTop: '1rem', marginBottom: 0, lineHeight: '1.3' }}>
+                  Muestra los clientes con mayor facturación basada exclusivamente en cotizaciones aprobadas y ejecutadas.
+                </p>
               </div>
             </div>
           ) : (
@@ -650,6 +750,10 @@ export default function Herramientas({ user }) {
                         </div>
                       </div>
                     </div>
+                    
+                    <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)', margin: 0, marginTop: '0.5rem', lineHeight: '1.3' }}>
+                      Evalúa el cumplimiento de las fechas de entrega prometidas (SLA) y la distribución actual de la carga de trabajo por tipo de servicio.
+                    </p>
                   </div>
 
                   {/* Cycle Time Line chart */}
@@ -668,6 +772,35 @@ export default function Herramientas({ user }) {
                         </LineChart>
                       </ResponsiveContainer>
                     </div>
+                    <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)', marginTop: '1rem', marginBottom: 0, lineHeight: '1.3' }}>
+                      Visualiza la tendencia histórica del tiempo total promedio que toma completar una Orden desde su inicio hasta la entrega final, agrupado por semanas.
+                    </p>
+                  </div>
+                  
+                  {/* Bottleneck Bar chart */}
+                  <div className="card">
+                    <h3 style={{ fontSize: '1.05rem', marginBottom: '0.75rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                      <BarChart2 size={18} color="var(--primary-color)" /> Análisis de Cuellos de Botella (Días por Etapa)
+                    </h3>
+                    <div style={{ height: '180px' }}>
+                      <ResponsiveContainer width="100%" height="100%">
+                        <BarChart data={bottleneckData} layout="vertical" margin={{ left: 10, right: 10, top: 5, bottom: 5 }}>
+                          <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="var(--border-color)" />
+                          <XAxis type="number" stroke="var(--text-muted)" fontSize={10} />
+                          <YAxis dataKey="name" type="category" stroke="var(--text-muted)" fontSize={10} width={80} />
+                          <Tooltip formatter={(value) => `${value} días`} />
+                          <Bar dataKey="dias" fill="var(--primary-color)" radius={[0, 4, 4, 0]}>
+                            {bottleneckData.map((entry, index) => (
+                              <Cell key={`cell-${index}`} fill={entry.color} />
+                            ))}
+                          </Bar>
+                        </BarChart>
+                      </ResponsiveContainer>
+                    </div>
+                    <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)', marginTop: '1rem', marginBottom: 0, lineHeight: '1.3' }}>
+                      Identifica de forma histórica en qué etapa específica del proceso productivo se están demorando más las órdenes en promedio.<br/>
+                      <span style={{ fontSize: '0.75rem', opacity: 0.85, fontStyle: 'italic' }}>*Nota: Los tiempos menores a un día (cambios de prueba rápidos) se redondean a 0 días.</span>
+                    </p>
                   </div>
                 </>
               )}
@@ -828,10 +961,16 @@ export default function Herramientas({ user }) {
               <ClipboardList size={18} color="var(--warning-color)" /> Cotizaciones Pendientes Críticas ({cotizacionesAlertas.length})
             </h3>
             <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)', marginBottom: '1rem', lineHeight: '1.3' }}>
-              Muestra cotizaciones aún sin aprobar que tienen una fecha límite de entrega cercana o vencida, requiriendo seguimiento comercial inmediato.
+              Se mostrarán en Alertas cuando falten los días establecidos en la configuración o menos para la Fecha Estimada de Entrega y tienen estado "Pendiente", "Enviada" o "En Negociación". También incluye cotizaciones "Aprobadas" hace más de un día que aún no tienen Orden de Trabajo.
             </p>
             
-            {cotizacionesAlertas.length === 0 ? (
+            {globalSettings.alert_quotes_enabled === false ? (
+              <div style={{ padding: '2rem', textAlign: 'center', background: 'var(--surface-hover)', borderRadius: '8px', border: '1px dashed var(--border-color)' }}>
+                <Activity size={32} color="var(--text-muted)" style={{ marginBottom: '0.5rem', opacity: 0.5 }} />
+                <p style={{ fontSize: '0.9rem', color: 'var(--text-muted)', margin: 0, fontWeight: 500 }}>Monitoreo desactivado</p>
+                <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)', margin: '0.5rem 0 0 0' }}>Las alertas para Cotizaciones están apagadas en Ajustes.</p>
+              </div>
+            ) : cotizacionesAlertas.length === 0 ? (
               <p style={{ fontSize: '0.85rem', color: 'var(--text-muted)', margin: 0 }}>No hay cotizaciones pendientes con fecha crítica de vencimiento.</p>
             ) : (
               <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
@@ -860,6 +999,10 @@ export default function Herramientas({ user }) {
                       <div style={{ fontSize: '0.75rem', color: 'var(--ejecutivo-color)', fontWeight: 500, marginTop: '0.2rem' }}>
                         Ejecutivo: {cot.ejecutivo || 'No Asignado'}
                       </div>
+                      <div style={{ fontSize: '0.75rem', color: 'var(--error-color)', fontWeight: 'bold', marginTop: '0.4rem', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                        <AlertTriangle size={12} />
+                        {cot.estado === 'Aprobada' ? 'Aprobada sin OT asignada' : 'Fecha de entrega crítica'}
+                      </div>
                     </div>
                     <span style={{ fontSize: '0.75rem', padding: '0.2rem 0.5rem', background: 'rgba(245, 158, 11, 0.1)', color: 'var(--warning-color)', borderRadius: '4px', fontWeight: 'bold' }}>
                       Acción Requerida
@@ -879,8 +1022,14 @@ export default function Herramientas({ user }) {
               Muestra órdenes activas (en programación, producción o revisión) que tienen su fecha de entrega vencida o muy próxima, permitiendo detectar retrasos en el taller.
             </p>
             
-            {otAlertas.length === 0 ? (
-              <p style={{ fontSize: '0.85rem', color: 'var(--text-muted)', margin: 0 }}>No hay órdenes de trabajo activas con fecha crítica de entrega.</p>
+            {globalSettings.alert_ots_enabled === false ? (
+              <div style={{ padding: '2rem', textAlign: 'center', background: 'var(--surface-hover)', borderRadius: '8px', border: '1px dashed var(--border-color)' }}>
+                <Activity size={32} color="var(--text-muted)" style={{ marginBottom: '0.5rem', opacity: 0.5 }} />
+                <p style={{ fontSize: '0.9rem', color: 'var(--text-muted)', margin: 0, fontWeight: 500 }}>Monitoreo desactivado</p>
+                <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)', margin: '0.5rem 0 0 0' }}>Las alertas para Órdenes de Trabajo están apagadas en Ajustes.</p>
+              </div>
+            ) : otAlertas.length === 0 ? (
+              <p style={{ fontSize: '0.85rem', color: 'var(--text-muted)', margin: 0 }}>No hay órdenes de trabajo operativas con fecha crítica de vencimiento.</p>
             ) : (
               <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
                 {otAlertas.map((ot, idx) => {
@@ -911,6 +1060,17 @@ export default function Herramientas({ user }) {
                         <div style={{ fontSize: '0.75rem', color: 'var(--ejecutivo-color)', fontWeight: 500, marginTop: '0.2rem' }}>
                           Ejecutivo: {ejecutivoName}
                         </div>
+                        <div style={{ fontSize: '0.75rem', color: 'var(--error-color)', fontWeight: 'bold', marginTop: '0.4rem', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                          <AlertTriangle size={12} />
+                          {(() => {
+                            const todayDate = new Date();
+                            todayDate.setHours(0,0,0,0);
+                            const targetDate = new Date(ot.fechaEntrega + 'T12:00:00');
+                            targetDate.setHours(0,0,0,0);
+                            const diff = Math.ceil((targetDate - todayDate) / (1000 * 60 * 60 * 24));
+                            return diff < 0 ? `Vencida hace ${Math.abs(diff)} días` : (diff === 0 ? 'Vence hoy' : `Vence en ${diff} días`);
+                          })()}
+                        </div>
                       </div>
                       <span style={{ fontSize: '0.75rem', padding: '0.2rem 0.5rem', background: 'rgba(239, 68, 110, 0.1)', color: 'var(--error-color)', borderRadius: '4px', fontWeight: 'bold' }}>
                         Urgente
@@ -925,7 +1085,16 @@ export default function Herramientas({ user }) {
       )}
 
       {/* Modal para Cotización */}
-      {selectedAlertCotizacion && (
+      {selectedAlertCotizacion && (() => {
+        let daysRemainingCot = 'N/D';
+        if (selectedAlertCotizacion.fechaEntrega) {
+          const targetDateCot = new Date(selectedAlertCotizacion.fechaEntrega + 'T12:00:00');
+          const todayDateCot = new Date();
+          const diffCot = Math.ceil((targetDateCot - todayDateCot) / (1000 * 60 * 60 * 24));
+          daysRemainingCot = diffCot >= 0 ? diffCot : `${Math.abs(diffCot)} (Vencido)`;
+        }
+
+        return (
         <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(3px)', display: 'flex', justifyContent: 'center', alignItems: 'center', zIndex: 1100, padding: '1rem' }} onClick={() => setSelectedAlertCotizacion(null)}>
           <div className="card glass-panel" style={{ width: '100%', maxWidth: '500px', margin: 0 }} onClick={e => e.stopPropagation()}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem', borderBottom: '1px solid var(--border-color)', paddingBottom: '0.75rem' }}>
@@ -936,6 +1105,13 @@ export default function Herramientas({ user }) {
               <button type="button" onClick={() => setSelectedAlertCotizacion(null)} style={{ background: 'transparent', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', display: 'flex' }}>
                 <X size={20} />
               </button>
+            </div>
+            
+            <div style={{ marginBottom: '1.2rem', padding: '0.6rem 1rem', backgroundColor: 'rgba(245, 158, 11, 0.1)', borderRadius: '6px', borderLeft: '3px solid var(--warning-color)', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+              <AlertTriangle size={16} color="var(--warning-color)" />
+              <span style={{ fontSize: '0.9rem', color: 'var(--text-main)' }}>
+                <strong>Motivo de alerta:</strong> {selectedAlertCotizacion.estado === 'Aprobada' ? 'Aprobada sin OT asignada' : 'Fecha de entrega crítica'}
+              </span>
             </div>
             
             <div style={{ display: 'flex', flexDirection: 'column', gap: '0.8rem' }}>
@@ -960,19 +1136,41 @@ export default function Herramientas({ user }) {
                   <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)', display: 'block' }}>Ejecutivo:</span>
                   <strong style={{ color: 'var(--ejecutivo-color)', fontSize: '0.95rem' }}>{selectedAlertCotizacion.ejecutivo || 'No Asignado'}</strong>
                 </div>
-                <div style={{ gridColumn: 'span 2' }}>
+                <div>
                   <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)', display: 'block' }}>Fecha Crítica:</span>
                   <strong style={{ color: 'var(--error-color)', fontSize: '0.95rem' }}>{selectedAlertCotizacion.fechaEntrega || 'N/D'}</strong>
                 </div>
+                {globalSettings.dre_enabled !== false && (
+                  <div>
+                    <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)', display: 'block' }}>GAP (Días Restantes):</span>
+                    <strong style={{ 
+                      color: typeof daysRemainingCot === 'number' && daysRemainingCot <= (globalSettings.dre || 2) ? 'var(--warning-color)' : (typeof daysRemainingCot === 'string' && daysRemainingCot.includes('Vencido') ? 'var(--error-color)' : 'var(--text-main)'), 
+                      fontSize: '0.95rem' 
+                    }}>
+                      {daysRemainingCot !== 'N/D' && typeof daysRemainingCot === 'number' ? `${daysRemainingCot} días` : daysRemainingCot}
+                    </strong>
+                  </div>
+                )}
               </div>
             </div>
             
-            <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: '1.5rem' }}>
+            <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: '1.5rem', gap: '0.75rem' }}>
+              <button 
+                className="btn btn-solid" 
+                style={{ backgroundColor: '#25D366', color: 'white', display: 'flex', alignItems: 'center', gap: '0.5rem' }}
+                onClick={() => {
+                  const msg = `🚨 *ALERTA DE COTIZACIÓN*\n*ID:* ${selectedAlertCotizacion.id}\n*Cliente:* ${selectedAlertCotizacion.cliente}\n*Estado:* ${selectedAlertCotizacion.estado}\n*Monto:* $${selectedAlertCotizacion.monto.toLocaleString()}\n*Ejecutivo:* ${selectedAlertCotizacion.ejecutivo || 'No Asignado'}\n*Vencimiento:* ${selectedAlertCotizacion.fechaEntrega || 'N/D'}\n\nPor favor revisar el estado de esta cotización.`;
+                  window.open(`https://wa.me/?text=${encodeURIComponent(msg)}`, '_blank');
+                }}
+              >
+                <MessageCircle size={18} /> Enviar por WhatsApp
+              </button>
               <button className="btn btn-secondary" onClick={() => setSelectedAlertCotizacion(null)}>Cerrar</button>
             </div>
           </div>
         </div>
-      )}
+        );
+      })()}
 
       {/* Modal para OT */}
       {selectedAlertOT && (() => {
@@ -981,9 +1179,9 @@ export default function Herramientas({ user }) {
         
         const today = new Date();
         
-        // 1. Días en la etapa actual
-        const daysInStage = selectedAlertOT.updatedAt 
-          ? Math.max(0, Math.floor((today - new Date(selectedAlertOT.updatedAt)) / (1000 * 60 * 60 * 24)))
+        // 1. Días en la etapa actual (Usando el historial preciso)
+        const daysInStage = selectedAlertOT.statusChangedAt 
+          ? Math.max(0, Math.floor((today - new Date(selectedAlertOT.statusChangedAt)) / (1000 * 60 * 60 * 24)))
           : 0;
           
         // 2. Días restantes
@@ -1012,6 +1210,20 @@ export default function Herramientas({ user }) {
                 <button type="button" onClick={() => setSelectedAlertOT(null)} style={{ background: 'transparent', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', display: 'flex' }}>
                   <X size={20} />
                 </button>
+              </div>
+              
+              <div style={{ marginBottom: '1.2rem', padding: '0.6rem 1rem', backgroundColor: 'rgba(239, 68, 68, 0.1)', borderRadius: '6px', borderLeft: '3px solid var(--error-color)', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                <AlertTriangle size={16} color="var(--error-color)" />
+                <span style={{ fontSize: '0.9rem', color: 'var(--text-main)' }}>
+                  <strong>Motivo de alerta:</strong> {(() => {
+                    const todayDate = new Date();
+                    todayDate.setHours(0,0,0,0);
+                    const targetDate = new Date(selectedAlertOT.fechaEntrega + 'T12:00:00');
+                    targetDate.setHours(0,0,0,0);
+                    const diff = Math.ceil((targetDate - todayDate) / (1000 * 60 * 60 * 24));
+                    return diff < 0 ? `Vencida hace ${Math.abs(diff)} días` : (diff === 0 ? 'Vence hoy' : `Vence en ${diff} días`);
+                  })()}
+                </span>
               </div>
               
               <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
@@ -1051,25 +1263,41 @@ export default function Herramientas({ user }) {
                       <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)', display: 'block' }}>Fecha Estimada Entrega:</span>
                       <strong style={{ color: 'var(--text-main)', fontSize: '0.95rem' }}>{selectedAlertOT.fechaEntrega || 'N/D'}</strong>
                     </div>
-                    <div>
-                      <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)', display: 'block' }}>Días Restantes:</span>
-                      <strong style={{ color: typeof daysRemaining === 'number' && daysRemaining <= 3 ? 'var(--warning-color)' : (typeof daysRemaining === 'string' && daysRemaining.includes('Vencido') ? 'var(--error-color)' : 'var(--text-main)'), fontSize: '0.95rem' }}>
-                        {daysRemaining}
-                      </strong>
-                    </div>
-                    <div>
-                      <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)', display: 'block' }}>Días en Etapa Actual:</span>
-                      <strong style={{ color: 'var(--text-main)', fontSize: '0.95rem' }}>{daysInStage} {daysInStage === 1 ? 'día' : 'días'}</strong>
-                    </div>
-                    <div>
-                      <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)', display: 'block' }}>Total Días Producción:</span>
-                      <strong style={{ color: 'var(--text-main)', fontSize: '0.95rem' }}>{daysSinceStart !== 'No iniciada' ? `${daysSinceStart} ${daysSinceStart === 1 ? 'día' : 'días'}` : daysSinceStart}</strong>
-                    </div>
+                    {globalSettings.dre_enabled !== false && (
+                      <div>
+                        <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)', display: 'block' }}>Días Restantes:</span>
+                        <strong style={{ color: typeof daysRemaining === 'number' && daysRemaining <= (globalSettings.dre || 2) ? 'var(--warning-color)' : (typeof daysRemaining === 'string' && daysRemaining.includes('Vencido') ? 'var(--error-color)' : 'var(--text-main)'), fontSize: '0.95rem' }}>
+                          {daysRemaining}
+                        </strong>
+                      </div>
+                    )}
+                    {globalSettings.tte_enabled !== false && (
+                      <div>
+                        <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)', display: 'block' }}>Días en Etapa Actual:</span>
+                        <strong style={{ color: 'var(--text-main)', fontSize: '0.95rem' }}>{daysInStage} {daysInStage === 1 ? 'día' : 'días'}</strong>
+                      </div>
+                    )}
+                    {globalSettings.tce_enabled !== false && (
+                      <div>
+                        <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)', display: 'block' }}>Total Días Producción:</span>
+                        <strong style={{ color: 'var(--text-main)', fontSize: '0.95rem' }}>{daysSinceStart !== 'No iniciada' ? `${daysSinceStart} ${daysSinceStart === 1 ? 'día' : 'días'}` : daysSinceStart}</strong>
+                      </div>
+                    )}
                   </div>
                 </div>
               </div>
               
-              <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: '1.5rem' }}>
+              <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: '1.5rem', gap: '0.75rem' }}>
+                <button 
+                  className="btn btn-solid" 
+                  style={{ backgroundColor: '#25D366', color: 'white', display: 'flex', alignItems: 'center', gap: '0.5rem' }}
+                  onClick={() => {
+                    const msg = `⚠️ *ALERTA DE ORDEN DE TRABAJO*\n*OT ID:* ${selectedAlertOT.id}\n*Cliente:* ${selectedAlertOT.cliente}\n*Estado:* ${selectedAlertOT.estado}\n*Progreso:* ${selectedAlertOT.progreso}%\n*Vencimiento:* ${selectedAlertOT.fechaEntrega || 'N/D'}\n*Días en etapa actual:* ${daysInStage} ${daysInStage === 1 ? 'día' : 'días'}\n\nSe requiere atención para evitar retrasos en la entrega.`;
+                    window.open(`https://wa.me/?text=${encodeURIComponent(msg)}`, '_blank');
+                  }}
+                >
+                  <MessageCircle size={18} /> Enviar por WhatsApp
+                </button>
                 <button className="btn btn-secondary" onClick={() => setSelectedAlertOT(null)}>Cerrar</button>
               </div>
             </div>

@@ -117,6 +117,17 @@ CREATE TABLE IF NOT EXISTS public.work_order_logs (
     created_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL
 );
 
+-- Tabla: work_order_status_logs (Historial de tiempos en cada estatus de la OT)
+CREATE TABLE IF NOT EXISTS public.work_order_status_logs (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    work_order_id TEXT NOT NULL REFERENCES public.work_orders(id) ON DELETE CASCADE,
+    previous_status TEXT,
+    new_status TEXT NOT NULL,
+    changed_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL,
+    changed_by UUID REFERENCES public.profiles(id) ON DELETE SET NULL
+);
+CREATE INDEX IF NOT EXISTS idx_work_order_status_logs_wo_id ON public.work_order_status_logs(work_order_id);
+
 -- 3. TRIGGERS Y FUNCIONES DE NEGOCIO
 
 -- A. Auto-generación de ID de Cotizaciones (COT-YYYY-XXXX)
@@ -215,3 +226,53 @@ BEFORE INSERT ON public.quotes
 FOR EACH ROW
 EXECUTE FUNCTION public.fn_check_quote_insert_status();
 
+
+-- F. Registro automático de cambios de estatus en Órdenes de Trabajo
+CREATE OR REPLACE FUNCTION public.fn_log_work_order_status_change()
+RETURNS TRIGGER AS $$
+BEGIN
+    IF OLD.status IS DISTINCT FROM NEW.status THEN
+        INSERT INTO public.work_order_status_logs (
+            work_order_id,
+            previous_status,
+            new_status,
+            changed_by
+        ) VALUES (
+            NEW.id,
+            OLD.status,
+            NEW.status,
+            auth.uid() -- Automáticamente obtiene el ID del usuario en sesión (si aplica)
+        );
+    END IF;
+    RETURN NEW;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
+
+CREATE OR REPLACE TRIGGER trg_work_order_status_change
+AFTER UPDATE ON public.work_orders
+FOR EACH ROW
+EXECUTE FUNCTION public.fn_log_work_order_status_change();
+
+
+-- 4. CONFIGURACIÓN DEL SISTEMA (KPIs y Alertas)
+CREATE TABLE IF NOT EXISTS public.system_settings (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    setting_key TEXT UNIQUE NOT NULL,
+    setting_value JSONB NOT NULL,
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL,
+    updated_by UUID REFERENCES public.profiles(id) ON DELETE SET NULL
+);
+
+-- Trigger para actualizar updated_at en system_settings
+CREATE OR REPLACE TRIGGER trg_update_system_settings_modified
+BEFORE UPDATE ON public.system_settings
+FOR EACH ROW
+EXECUTE FUNCTION public.fn_update_modified_column();
+
+-- Insertar configuración por defecto si no existe
+INSERT INTO public.system_settings (setting_key, setting_value)
+VALUES (
+    'global_kpis_and_alerts', 
+    '{"tte": 3, "tce": 7, "dre": 2, "alert_days_quotes": 7, "alert_days_ots": 7}'::jsonb
+)
+ON CONFLICT (setting_key) DO NOTHING;

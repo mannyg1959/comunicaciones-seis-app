@@ -6,6 +6,7 @@ import {
 } from 'lucide-react';
 import { defaultPermissions } from '../utils/permissions';
 import { logEvent } from '../utils/logs';
+import { supabase } from '../utils/supabaseClient';
 
 export default function Ajustes({ user, onLogout }) {
   const navigate = useNavigate();
@@ -26,11 +27,13 @@ export default function Ajustes({ user, onLogout }) {
     return saved ? JSON.parse(saved) : defaultPermissions;
   });
 
-  // State for KPIs
-  const [kpis, setKpis] = useState(() => {
-    const saved = localStorage.getItem('comunicaciones_seis_kpi_targets');
-    return saved ? JSON.parse(saved) : { tte: 3, tce: 4, dre: 2 };
+  // State for KPIs and Alerts
+  const [kpiTab, setKpiTab] = useState('metas'); // 'metas' or 'alertas'
+  const [kpis, setKpis] = useState({ 
+    tte: 3, tce: 7, dre: 2, alert_days_quotes: 7, alert_days_ots: 7,
+    tte_enabled: true, tce_enabled: true, dre_enabled: true, alert_quotes_enabled: true, alert_ots_enabled: true 
   });
+  const [isLoadingKpis, setIsLoadingKpis] = useState(true);
 
   // State for Logs
   const [logs, setLogs] = useState([]);
@@ -98,7 +101,31 @@ export default function Ajustes({ user, onLogout }) {
   useEffect(() => {
     setIsLightMode(document.body.classList.contains('light-mode'));
     loadLogs();
+    loadKpisFromSupabase();
   }, []);
+
+  const loadKpisFromSupabase = async () => {
+    try {
+      setIsLoadingKpis(true);
+      const { data, error } = await supabase
+        .from('system_settings')
+        .select('setting_value')
+        .eq('setting_key', 'global_kpis_and_alerts')
+        .single();
+        
+      if (error && error.code !== 'PGRST116') {
+        throw error;
+      }
+      
+      if (data && data.setting_value) {
+        setKpis(prev => ({ ...prev, ...data.setting_value }));
+      }
+    } catch (err) {
+      console.error('Error loading KPIs from Supabase:', err);
+    } finally {
+      setIsLoadingKpis(false);
+    }
+  };
 
   const loadLogs = () => {
     const savedLogs = localStorage.getItem('comunicaciones_seis_logs');
@@ -123,10 +150,24 @@ export default function Ajustes({ user, onLogout }) {
     showNotification('Permisos guardados correctamente');
   };
 
-  const saveKPIs = () => {
-    localStorage.setItem('comunicaciones_seis_kpi_targets', JSON.stringify(kpis));
-    logEvent(currentUser, 'Configuración de KPIs', `Se actualizaron las metas (TTE: ${kpis.tte}d, TCE: ${kpis.tce}d, DRE: ${kpis.dre}d)`);
-    showNotification('Configuración de KPIs guardada');
+  const saveKPIs = async () => {
+    try {
+      const { error } = await supabase
+        .from('system_settings')
+        .upsert({
+          setting_key: 'global_kpis_and_alerts',
+          setting_value: kpis,
+          updated_at: new Date().toISOString()
+        }, { onConflict: 'setting_key' });
+
+      if (error) throw error;
+      
+      logEvent(currentUser, 'Configuración de KPIs y Alertas', `Se actualizaron las metas globales.`);
+      showNotification('Configuración guardada en la base de datos');
+    } catch (err) {
+      console.error('Error saving KPIs to Supabase:', err);
+      showNotification('Error al guardar la configuración');
+    }
   };
 
   const clearLogs = () => {
@@ -156,7 +197,7 @@ export default function Ajustes({ user, onLogout }) {
   const handleKPIChange = (key, value) => {
     setKpis(prev => ({
       ...prev,
-      [key]: parseFloat(value) || 0
+      [key]: value === '' ? '' : (typeof value === 'boolean' ? value : (parseFloat(value) || 0))
     }));
   };
 
@@ -709,56 +750,191 @@ export default function Ajustes({ user, onLogout }) {
 
       {/* Global KPIs configuration screen */}
       {activeTab === 'kpis' && (
-        <div className="card">
-          <h3 style={{ marginBottom: '1rem', color: 'var(--primary-color)' }}>Metas de Trazabilidad</h3>
-          <p style={{ marginBottom: '1.5rem', fontSize: '0.9rem' }}>
-            Ajusta los días y tiempos objetivos globales para monitorear el desempeño del ciclo comercial y operativo.
-          </p>
-
-          <div className="input-group">
-            <label htmlFor="kpi-tte">Tiempo Total en Etapa (TTE) Objetivo (días)</label>
-            <input 
-              id="kpi-tte"
-              type="number" 
-              className="input-control"
-              value={kpis.tte} 
-              onChange={e => handleKPIChange('tte', e.target.value)}
-              min="1"
-            />
+        <div className="card" style={{ animation: 'fadeIn 0.3s ease-out' }}>
+          <div style={{ display: 'flex', gap: '1rem', marginBottom: '1.25rem' }}>
+            <span 
+              onClick={() => setKpiTab('metas')}
+              style={{ 
+                cursor: 'pointer', 
+                fontSize: '0.95rem', 
+                fontWeight: kpiTab === 'metas' ? 'bold' : 'normal',
+                color: kpiTab === 'metas' ? 'var(--primary-color)' : 'var(--text-muted)',
+                borderBottom: kpiTab === 'metas' ? '2px solid var(--primary-color)' : '2px solid transparent',
+                paddingBottom: '0.25rem'
+              }}
+            >
+              Metas de Trazabilidad
+            </span>
+            <span 
+              onClick={() => setKpiTab('alertas')}
+              style={{ 
+                cursor: 'pointer', 
+                fontSize: '0.95rem', 
+                fontWeight: kpiTab === 'alertas' ? 'bold' : 'normal',
+                color: kpiTab === 'alertas' ? 'var(--primary-color)' : 'var(--text-muted)',
+                borderBottom: kpiTab === 'alertas' ? '2px solid var(--primary-color)' : '2px solid transparent',
+                paddingBottom: '0.25rem'
+              }}
+            >
+              Configuración de Alertas
+            </span>
           </div>
 
-          <div className="input-group">
-            <label htmlFor="kpi-tce">Tiempo de Ciclo por Etapa (TCE) Objetivo (días)</label>
-            <input 
-              id="kpi-tce"
-              type="number" 
-              className="input-control"
-              value={kpis.tce} 
-              onChange={e => handleKPIChange('tce', e.target.value)}
-              min="1"
-            />
-          </div>
+          {isLoadingKpis ? (
+            <div style={{ padding: '2rem', textAlign: 'center', color: 'var(--text-muted)' }}>Cargando configuración...</div>
+          ) : kpiTab === 'metas' ? (
+            <div style={{ animation: 'fadeIn 0.3s ease-out' }}>
+              <p style={{ marginBottom: '1.5rem', fontSize: '0.9rem', lineHeight: '1.4', color: 'var(--text-muted)' }}>
+                <strong>Objetivo de estas métricas:</strong> Estos parámetros funcionan como Indicadores Clave de Rendimiento (KPIs). Sirven para medir la eficiencia del equipo, detectar cuellos de botella por departamento y aplicar advertencias visuales sobre retrasos en las Órdenes de Trabajo.
+              </p>
 
-          <div className="input-group" style={{ marginBottom: '2rem' }}>
-            <label htmlFor="kpi-dre">Días Restantes para Entrega (DRE) Alerta (días)</label>
-            <input 
-              id="kpi-dre"
-              type="number" 
-              className="input-control"
-              value={kpis.dre} 
-              onChange={e => handleKPIChange('dre', e.target.value)}
-              min="1"
-            />
-            <p style={{ fontSize: '0.75rem', marginTop: '0.25rem', color: 'var(--text-muted)' }}>
-              Alerta en rojo cuando falten menos de este número de días para la entrega.
-            </p>
-          </div>
+              <div className="input-group" style={{ display: 'grid', gridTemplateColumns: '1fr 120px', gap: '1rem', alignItems: 'center', marginBottom: '1.5rem', opacity: kpis.tte_enabled === false ? 0.6 : 1, transition: 'opacity 0.3s' }}>
+                <div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+                    <label htmlFor="kpi-tte" style={{ margin: 0, fontWeight: 600 }}>Tiempo Total en Etapa (TTE) Objetivo (días)</label>
+                    <label style={{ display: 'flex', alignItems: 'center', cursor: 'pointer', margin: 0 }}>
+                      <input type="checkbox" checked={kpis.tte_enabled !== false} onChange={e => handleKPIChange('tte_enabled', e.target.checked)} style={{ position: 'absolute', opacity: 0, width: 0, height: 0 }} />
+                      <div style={{ width: '36px', height: '20px', backgroundColor: kpis.tte_enabled !== false ? 'var(--primary-color)' : '#ccc', borderRadius: '10px', position: 'relative', transition: 'background-color 0.2s' }}>
+                        <div style={{ width: '16px', height: '16px', backgroundColor: '#fff', borderRadius: '50%', position: 'absolute', top: '2px', left: kpis.tte_enabled !== false ? '18px' : '2px', transition: 'left 0.2s' }}></div>
+                      </div>
+                    </label>
+                  </div>
+                  <p style={{ fontSize: '0.8rem', marginTop: '0.25rem', marginBottom: 0, color: 'var(--text-muted)' }}>
+                    Tiempo máximo ideal que una OT debería pasar en un mismo estado (ej. "En Producción") antes de avanzar.
+                  </p>
+                </div>
+                <input 
+                  id="kpi-tte"
+                  type="number" 
+                  className="input-control"
+                  value={kpis.tte !== undefined ? kpis.tte : 3} 
+                  onChange={e => handleKPIChange('tte', e.target.value)}
+                  disabled={kpis.tte_enabled === false}
+                  min="1"
+                  style={{ margin: 0, cursor: kpis.tte_enabled === false ? 'not-allowed' : 'text' }}
+                />
+              </div>
+
+              <div className="input-group" style={{ display: 'grid', gridTemplateColumns: '1fr 120px', gap: '1rem', alignItems: 'center', marginBottom: '1.5rem', opacity: kpis.tce_enabled === false ? 0.6 : 1, transition: 'opacity 0.3s' }}>
+                <div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+                    <label htmlFor="kpi-tce" style={{ margin: 0, fontWeight: 600 }}>Tiempo de Ciclo por Etapa (TCE) Objetivo (días)</label>
+                    <label style={{ display: 'flex', alignItems: 'center', cursor: 'pointer', margin: 0 }}>
+                      <input type="checkbox" checked={kpis.tce_enabled !== false} onChange={e => handleKPIChange('tce_enabled', e.target.checked)} style={{ position: 'absolute', opacity: 0, width: 0, height: 0 }} />
+                      <div style={{ width: '36px', height: '20px', backgroundColor: kpis.tce_enabled !== false ? 'var(--primary-color)' : '#ccc', borderRadius: '10px', position: 'relative', transition: 'background-color 0.2s' }}>
+                        <div style={{ width: '16px', height: '16px', backgroundColor: '#fff', borderRadius: '50%', position: 'absolute', top: '2px', left: kpis.tce_enabled !== false ? '18px' : '2px', transition: 'left 0.2s' }}></div>
+                      </div>
+                    </label>
+                  </div>
+                  <p style={{ fontSize: '0.8rem', marginTop: '0.25rem', marginBottom: 0, color: 'var(--text-muted)' }}>
+                    Tiempo total máximo esperado desde que se crea la OT hasta que se marca como entregada.
+                  </p>
+                </div>
+                <input 
+                  id="kpi-tce"
+                  type="number" 
+                  className="input-control"
+                  value={kpis.tce !== undefined ? kpis.tce : 7} 
+                  onChange={e => handleKPIChange('tce', e.target.value)}
+                  disabled={kpis.tce_enabled === false}
+                  min="1"
+                  style={{ margin: 0, cursor: kpis.tce_enabled === false ? 'not-allowed' : 'text' }}
+                />
+              </div>
+
+              <div className="input-group" style={{ display: 'grid', gridTemplateColumns: '1fr 120px', gap: '1rem', alignItems: 'center', marginBottom: '2.5rem', opacity: kpis.dre_enabled === false ? 0.6 : 1, transition: 'opacity 0.3s' }}>
+                <div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+                    <label htmlFor="kpi-dre" style={{ margin: 0, fontWeight: 600 }}>Días Restantes para Entrega (DRE) Alerta (días)</label>
+                    <label style={{ display: 'flex', alignItems: 'center', cursor: 'pointer', margin: 0 }}>
+                      <input type="checkbox" checked={kpis.dre_enabled !== false} onChange={e => handleKPIChange('dre_enabled', e.target.checked)} style={{ position: 'absolute', opacity: 0, width: 0, height: 0 }} />
+                      <div style={{ width: '36px', height: '20px', backgroundColor: kpis.dre_enabled !== false ? 'var(--primary-color)' : '#ccc', borderRadius: '10px', position: 'relative', transition: 'background-color 0.2s' }}>
+                        <div style={{ width: '16px', height: '16px', backgroundColor: '#fff', borderRadius: '50%', position: 'absolute', top: '2px', left: kpis.dre_enabled !== false ? '18px' : '2px', transition: 'left 0.2s' }}></div>
+                      </div>
+                    </label>
+                  </div>
+                  <p style={{ fontSize: '0.8rem', marginTop: '0.25rem', marginBottom: 0, color: 'var(--text-muted)' }}>
+                    Alerta en rojo cuando falten menos de este número de días para la entrega.
+                  </p>
+                </div>
+                <input 
+                  id="kpi-dre"
+                  type="number" 
+                  className="input-control"
+                  value={kpis.dre !== undefined ? kpis.dre : 2} 
+                  onChange={e => handleKPIChange('dre', e.target.value)}
+                  disabled={kpis.dre_enabled === false}
+                  min="1"
+                  style={{ margin: 0, cursor: kpis.dre_enabled === false ? 'not-allowed' : 'text' }}
+                />
+              </div>
+            </div>
+          ) : (
+            <div style={{ animation: 'fadeIn 0.3s ease-out' }}>
+              <p style={{ marginBottom: '1.5rem', fontSize: '0.9rem' }}>
+                Define la anticipación (en días) con la que deseas que las Cotizaciones y Órdenes de Trabajo aparezcan en el panel de Alertas críticas, antes de su fecha límite.
+              </p>
+
+              <div className="input-group" style={{ display: 'grid', gridTemplateColumns: '1fr 120px', gap: '1rem', alignItems: 'center', marginBottom: '1.5rem', opacity: kpis.alert_quotes_enabled === false ? 0.6 : 1, transition: 'opacity 0.3s' }}>
+                <div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+                    <label htmlFor="kpi-alert-quotes" style={{ margin: 0, fontWeight: 600 }}>Días críticos para alerta de Cotizaciones</label>
+                    <label style={{ display: 'flex', alignItems: 'center', cursor: 'pointer', margin: 0 }}>
+                      <input type="checkbox" checked={kpis.alert_quotes_enabled !== false} onChange={e => handleKPIChange('alert_quotes_enabled', e.target.checked)} style={{ position: 'absolute', opacity: 0, width: 0, height: 0 }} />
+                      <div style={{ width: '36px', height: '20px', backgroundColor: kpis.alert_quotes_enabled !== false ? 'var(--primary-color)' : '#ccc', borderRadius: '10px', position: 'relative', transition: 'background-color 0.2s' }}>
+                        <div style={{ width: '16px', height: '16px', backgroundColor: '#fff', borderRadius: '50%', position: 'absolute', top: '2px', left: kpis.alert_quotes_enabled !== false ? '18px' : '2px', transition: 'left 0.2s' }}></div>
+                      </div>
+                    </label>
+                  </div>
+                  <p style={{ fontSize: '0.8rem', marginTop: '0.25rem', marginBottom: 0, color: 'var(--text-muted)' }}>
+                    Se mostrarán en Alertas cuando falten {kpis.alert_days_quotes !== undefined && kpis.alert_days_quotes !== '' ? kpis.alert_days_quotes : 7} días o menos para la Fecha Estimada de Entrega y tienen estado "Pendiente", "Enviada" o "En Negociación".
+                  </p>
+                </div>
+                <input 
+                  id="kpi-alert-quotes"
+                  type="number" 
+                  className="input-control"
+                  value={kpis.alert_days_quotes !== undefined ? kpis.alert_days_quotes : 7} 
+                  onChange={e => handleKPIChange('alert_days_quotes', e.target.value)}
+                  disabled={kpis.alert_quotes_enabled === false}
+                  min="1"
+                  style={{ margin: 0, cursor: kpis.alert_quotes_enabled === false ? 'not-allowed' : 'text' }}
+                />
+                <div className="input-group" style={{ display: 'grid', gridTemplateColumns: '1fr 120px', gap: '1rem', alignItems: 'center', marginBottom: '2.5rem', opacity: kpis.alert_ots_enabled === false ? 0.6 : 1, transition: 'opacity 0.3s' }}>
+                <div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+                    <label htmlFor="kpi-alert-ots" style={{ margin: 0, fontWeight: 600 }}>Días críticos para alerta de Órdenes (OT)</label>
+                    <label style={{ display: 'flex', alignItems: 'center', cursor: 'pointer', margin: 0 }}>
+                      <input type="checkbox" checked={kpis.alert_ots_enabled !== false} onChange={e => handleKPIChange('alert_ots_enabled', e.target.checked)} style={{ position: 'absolute', opacity: 0, width: 0, height: 0 }} />
+                      <div style={{ width: '36px', height: '20px', backgroundColor: kpis.alert_ots_enabled !== false ? 'var(--primary-color)' : '#ccc', borderRadius: '10px', position: 'relative', transition: 'background-color 0.2s' }}>
+                        <div style={{ width: '16px', height: '16px', backgroundColor: '#fff', borderRadius: '50%', position: 'absolute', top: '2px', left: kpis.alert_ots_enabled !== false ? '18px' : '2px', transition: 'left 0.2s' }}></div>
+                      </div>
+                    </label>
+                  </div>
+                  <p style={{ fontSize: '0.8rem', marginTop: '0.25rem', marginBottom: 0, color: 'var(--text-muted)' }}>
+                    Las OT se mostrarán en Alertas cuando falten {kpis.alert_days_ots !== undefined && kpis.alert_days_ots !== '' ? kpis.alert_days_ots : 7} días o menos.
+                  </p>
+                </div>
+                <input 
+                  id="kpi-alert-ots"
+                  type="number" 
+                  className="input-control"
+                  value={kpis.alert_days_ots !== undefined ? kpis.alert_days_ots : 7} 
+                  onChange={e => handleKPIChange('alert_days_ots', e.target.value)}
+                  disabled={kpis.alert_ots_enabled === false}
+                  min="1"
+                  style={{ margin: 0, cursor: kpis.alert_ots_enabled === false ? 'not-allowed' : 'text' }}
+                />
+              </div>
+            </div>
+          )}
 
           <div style={buttonContainerStyle}>
             <button 
               onClick={saveKPIs} 
               className="btn btn-solid" 
               style={{ flex: 1 }}
+              disabled={isLoadingKpis}
             >
               <Save size={18} /> Guardar Parámetros
             </button>
