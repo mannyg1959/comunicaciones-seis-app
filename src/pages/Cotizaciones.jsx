@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useSearchParams } from 'react-router-dom';
-import { Plus, Search, FileText, SlidersHorizontal, X, CheckCircle, AlertTriangle } from 'lucide-react';
+import { Plus, Search, FileText, SlidersHorizontal, X, CheckCircle, AlertTriangle, HelpCircle } from 'lucide-react';
 import CotizacionForm from '../components/CotizacionForm';
 import DatePicker from 'react-datepicker';
 import 'react-datepicker/dist/react-datepicker.css';
@@ -91,6 +91,7 @@ export default function Cotizaciones({ user }) {
   }, []);
 
   const [isFilterDrawerOpen, setIsFilterDrawerOpen] = useState(false);
+  const [isHelpOpen, setIsHelpOpen] = useState(false);
 
   const calculateGap = (fechaEntrega) => {
     if (!fechaEntrega) return { text: 'Sin fecha', color: 'var(--text-muted)' };
@@ -381,6 +382,15 @@ export default function Cotizaciones({ user }) {
               <SlidersHorizontal size={18} />
               Filtros {isAnyFilterActive ? '(Activo)' : ''}
             </button>
+            <button 
+              className="btn btn-secondary" 
+              style={{ padding: '0.65rem 1.25rem', width: 'auto', display: 'flex', alignItems: 'center', gap: '0.5rem', fontSize: '0.95rem' }} 
+              onClick={() => setIsHelpOpen(true)}
+              title="Ayuda del módulo"
+            >
+              <HelpCircle size={18} />
+              Ayuda
+            </button>
           </div>
         </div>
 
@@ -531,6 +541,53 @@ export default function Cotizaciones({ user }) {
             </div>
           </div>
         </>
+      )}
+
+      {isHelpOpen && (
+        <div className="modal-overlay" onClick={() => setIsHelpOpen(false)}>
+          <div className="modal-container" style={{ maxWidth: '600px' }} onClick={e => e.stopPropagation()}>
+            <div className="modal-header">
+              <h3 style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', margin: 0 }}>
+                <HelpCircle size={20} color="var(--primary-color)" />
+                <span>Ayuda - Módulo de Cotizaciones</span>
+              </h3>
+              <button className="modal-close-btn" onClick={() => setIsHelpOpen(false)}>
+                <X size={20} />
+              </button>
+            </div>
+            <div className="modal-body" style={{ maxHeight: '70vh', overflowY: 'auto', lineHeight: '1.6' }}>
+              <h4 style={{ color: 'var(--text-main)', marginTop: 0 }}>1. Visualización Rápida</h4>
+              <p style={{ color: 'var(--text-muted)', fontSize: '0.9rem', marginBottom: '1rem' }}>
+                Cada tarjeta representa una cotización. Podrás ver el cliente, monto total, estado y el <strong>GAP de entrega</strong>. El GAP te indica en colores si la fecha estimada de entrega está a tiempo, próxima a vencerse, o ya venció.
+              </p>
+              
+              <div style={{ background: 'var(--bg-color)', padding: '1rem', borderRadius: 'var(--radius)', border: '1px solid var(--border-color)', marginBottom: '1rem' }}>
+                <p style={{ margin: '0 0 0.5rem 0', fontWeight: 'bold' }}>💡 RECOMENDACIÓN</p>
+                <p style={{ margin: 0, fontSize: '0.85rem', color: 'var(--text-muted)' }}>Utiliza el botón de <strong>Filtros</strong> para buscar cotizaciones por cliente, rango de fechas o estatus específico. Esto facilita el seguimiento comercial mensual.</p>
+              </div>
+
+              <h4 style={{ color: 'var(--text-main)' }}>2. Creación y Edición</h4>
+              <p style={{ color: 'var(--text-muted)', fontSize: '0.9rem', marginBottom: '1rem' }}>
+                Haz clic en el botón <strong>"Nueva"</strong> para crear una cotización, o en cualquier tarjeta para ver/editar su detalle.
+              </p>
+
+              <div style={{ background: 'rgba(239, 68, 68, 0.1)', padding: '1rem', borderRadius: 'var(--radius)', border: '1px solid rgba(239, 68, 68, 0.2)', marginBottom: '1rem' }}>
+                <p style={{ margin: '0 0 0.5rem 0', fontWeight: 'bold', color: 'var(--error-color)' }}>⚠️ ADVERTENCIA: Eliminación</p>
+                <p style={{ margin: 0, fontSize: '0.85rem', color: 'var(--text-muted)' }}>Por reglas de integridad del sistema, <strong>solo se pueden eliminar cotizaciones en estado "Borrador" o "Anulada"</strong>. Para eliminar cotizaciones en otro estado, primero deberás cambiar su estatus a Anulada.</p>
+              </div>
+
+              <div style={{ background: 'rgba(59, 130, 246, 0.1)', padding: '1rem', borderRadius: 'var(--radius)', border: '1px solid rgba(59, 130, 246, 0.2)', marginBottom: '1rem' }}>
+                <p style={{ margin: '0 0 0.5rem 0', fontWeight: 'bold', color: 'var(--primary-color)' }}>📌 NOTA: Gráficos y Estadísticas</p>
+                <p style={{ margin: 0, fontSize: '0.85rem', color: 'var(--text-muted)' }}>Recuerda que solo las cotizaciones en estado <strong>"Aprobada"</strong> sumarán a las estadísticas de volumen de ventas y ranking de clientes en el Dashboard.</p>
+              </div>
+            </div>
+            <div className="modal-footer">
+              <button className="btn btn-primary" style={{ width: '100%', justifyContent: 'center' }} onClick={() => setIsHelpOpen(false)}>
+                Entendido
+              </button>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );

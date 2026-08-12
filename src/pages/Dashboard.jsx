@@ -434,7 +434,7 @@ export default function Dashboard({ user, onLogout }) {
                   <FileText size={20} color="var(--primary-color)" /> Cotizaciones
                 </div>
                 <span style={{ fontSize: '0.8rem', backgroundColor: 'var(--surface-color)', padding: '0.2rem 0.6rem', borderRadius: '12px', color: 'var(--text-muted)' }}>
-                  Total: {cotizaciones.length}
+                  Total: {activeQuotesForStats.length}
                 </span>
               </h2>
               <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>

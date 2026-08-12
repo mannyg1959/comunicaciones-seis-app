@@ -97,7 +97,7 @@ export default function OrdenesTrabajo({ user }) {
         pauseMotivo: ot.pause_reason || '',
         finishedAt: ot.finished_at || null,
         rechazoMotivo: ot.rejected_reason || null,
-        fechaFinTrabajo: ot.production_deadline || null,
+        fechaFinTrabajo: ot.production_deadline ? ot.production_deadline.split('T')[0] : null,
       }));
       setOrdenesTrabajo(mappedOts);
 
@@ -194,11 +194,11 @@ export default function OrdenesTrabajo({ user }) {
     }
   };
 
-  const calculateGap = (fechaEntrega) => {
-    if (!fechaEntrega) return { text: 'Sin fecha', color: 'var(--text-muted)' };
+  const calculateGap = (fechaBase) => {
+    if (!fechaBase) return { text: 'Sin asignar', color: 'var(--error-color)' };
     const today = new Date();
     today.setHours(0,0,0,0);
-    const [year, month, day] = fechaEntrega.split('-');
+    const [year, month, day] = fechaBase.split('-');
     const deliveryDate = new Date(year, month - 1, day);
     
     const diffTime = deliveryDate.getTime() - today.getTime();
@@ -888,7 +888,7 @@ export default function OrdenesTrabajo({ user }) {
                   fontWeight: 'bold',
                   fontSize: '0.75rem'
                 }}>
-                  GAP: {calculateGap(ot.fechaEntrega).text}
+                  GAP: {calculateGap(ot.fechaFinTrabajo).text}
                 </span>
               </div>
               
@@ -1321,7 +1321,7 @@ export default function OrdenesTrabajo({ user }) {
                     Atrás
                   </button>
                   <button 
-                    className="btn btn-primary" 
+                    className="btn btn-primary btn-confirm-bloqueo" 
                     style={{ flex: 1, height: '48px', fontSize: '0.95rem', minWidth: '120px', backgroundColor: '#f97316', borderColor: '#f97316', opacity: !bloqueoMotivo ? 0.5 : 1 }} 
                     disabled={!bloqueoMotivo}
                     onClick={() => handleTogglePause(true, bloqueoMotivo)}

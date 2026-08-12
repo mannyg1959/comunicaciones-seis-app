@@ -27,3 +27,7 @@
 ## Experiencia de Usuario (UX)
 
 - **Confirmación de Guardado**: Después de cualquier operación de GUARDAR o de actualizar datos en la base de datos, se debe mostrar un diálogo, notificación o modal que informe al usuario de manera clara que los cambios se actualizaron exitosamente.
+
+## Documentación y Manuales
+
+- **Idioma de Títulos y Alertas**: Siempre que se generen manuales de usuario, documentación o artefactos en Markdown, los títulos de las alertas de GitHub (como TIP, NOTE, WARNING, IMPORTANT) o de cualquier cuadro de información deben traducirse explícitamente al español (ej. RECOMENDACIÓN, NOTA, ADVERTENCIA, IMPORTANTE).

@@ -123,6 +123,7 @@ export default function Herramientas({ user }) {
             estado: ot.status,
             progreso: ot.progress,
             fechaEntrega: ot.estimated_closure ? ot.estimated_closure.split('T')[0] : 'Sin fecha',
+            fechaFinTrabajo: ot.production_deadline ? ot.production_deadline.split('T')[0] : null,
             realStart: ot.real_start,
             realClosure: ot.real_closure,
             createdAt: ot.created_at,
@@ -425,11 +426,11 @@ export default function Herramientas({ user }) {
     return false;
   });
 
-  const otAlertas = globalSettings.alert_ots_enabled === false ? [] : ordenesTrabajo.filter(ot => 
-    ot.estado !== 'Entregado' && ot.estado !== 'Finalizado' && 
-    ot.fechaEntrega && 
-    new Date(ot.fechaEntrega) <= otsLimitDate
-  );
+  const otAlertas = globalSettings.alert_ots_enabled === false ? [] : ordenesTrabajo.filter(ot => {
+    if (ot.estado === 'Entregado' || ot.estado === 'Finalizado') return false;
+    if (!ot.fechaFinTrabajo) return true;
+    return new Date(ot.fechaFinTrabajo) <= otsLimitDate;
+  });
 
   const otPreventivas = globalSettings.alert_ots_enabled === false ? [] : ordenesTrabajo.filter(ot => {
     if (ot.estado === 'Producción' && ot.fechaFinTrabajo) {
@@ -1107,7 +1108,7 @@ export default function Herramientas({ user }) {
               <AlertTriangle size={18} color="var(--error-color)" /> Órdenes de Trabajo Críticas ({otAlertas.length})
             </h3>
             <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)', marginBottom: '1rem', lineHeight: '1.3' }}>
-              Muestra órdenes activas (en programación, producción o revisión) que tienen su fecha de entrega vencida o muy próxima, permitiendo detectar retrasos en el taller.
+              Muestra órdenes activas (en programación, producción o revisión) que tienen su fecha de fin de trabajo vencida o muy próxima, o que aún no tienen una fecha asignada, permitiendo detectar retrasos en el taller.
             </p>
             
             {globalSettings.alert_ots_enabled === false ? (
@@ -1143,7 +1144,7 @@ export default function Herramientas({ user }) {
                       <div>
                         <div style={{ fontWeight: 'bold', color: 'var(--text-main)' }}>{ot.cliente} ({ot.id})</div>
                         <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>
-                          Estado: {ot.estado} • Progreso: {ot.progreso}% • Entrega: {formatDate(ot.fechaEntrega)}
+                          Estado: {ot.estado} • Progreso: {ot.progreso}% • Fin de Trabajo: {ot.fechaFinTrabajo ? formatDate(ot.fechaFinTrabajo) : 'No asignada'}
                         </div>
                         <div style={{ fontSize: '0.75rem', color: 'var(--ejecutivo-color)', fontWeight: 500, marginTop: '0.2rem' }}>
                           Ejecutivo: {ejecutivoName}
@@ -1151,9 +1152,10 @@ export default function Herramientas({ user }) {
                         <div style={{ fontSize: '0.75rem', color: 'var(--error-color)', fontWeight: 'bold', marginTop: '0.4rem', display: 'flex', alignItems: 'center', gap: '4px' }}>
                           <AlertTriangle size={12} />
                           {(() => {
+                            if (!ot.fechaFinTrabajo) return '⚠️ Falta asignar fecha de fin';
                             const todayDate = new Date();
                             todayDate.setHours(0,0,0,0);
-                            const targetDate = new Date(ot.fechaEntrega + 'T12:00:00');
+                            const targetDate = new Date(ot.fechaFinTrabajo + 'T12:00:00');
                             targetDate.setHours(0,0,0,0);
                             const diff = Math.ceil((targetDate - todayDate) / (1000 * 60 * 60 * 24));
                             return diff < 0 ? `Vencida hace ${Math.abs(diff)} días` : (diff === 0 ? 'Vence hoy' : `Vence en ${diff} días`);
@@ -1386,9 +1388,10 @@ export default function Herramientas({ user }) {
                 <AlertTriangle size={16} color="var(--error-color)" />
                 <span style={{ fontSize: '0.9rem', color: 'var(--text-main)' }}>
                   <strong>Motivo de alerta:</strong> {(() => {
+                    if (!selectedAlertOT.fechaFinTrabajo) return '⚠️ Falta asignar fecha de fin';
                     const todayDate = new Date();
                     todayDate.setHours(0,0,0,0);
-                    const targetDate = new Date(selectedAlertOT.fechaEntrega + 'T12:00:00');
+                    const targetDate = new Date(selectedAlertOT.fechaFinTrabajo + 'T12:00:00');
                     targetDate.setHours(0,0,0,0);
                     const diff = Math.ceil((targetDate - todayDate) / (1000 * 60 * 60 * 24));
                     return diff < 0 ? `Vencida hace ${Math.abs(diff)} días` : (diff === 0 ? 'Vence hoy' : `Vence en ${diff} días`);
@@ -1430,8 +1433,8 @@ export default function Herramientas({ user }) {
                   </h4>
                   <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
                     <div>
-                      <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)', display: 'block' }}>Fecha Estimada Entrega:</span>
-                      <strong style={{ color: 'var(--text-main)', fontSize: '0.95rem' }}>{selectedAlertOT.fechaEntrega || 'N/D'}</strong>
+                      <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)', display: 'block' }}>Fecha de Fin de Trabajo:</span>
+                      <strong style={{ color: 'var(--text-main)', fontSize: '0.95rem' }}>{selectedAlertOT.fechaFinTrabajo || 'No asignada'}</strong>
                     </div>
 
                   </div>
@@ -1443,7 +1446,7 @@ export default function Herramientas({ user }) {
                   className="btn btn-solid" 
                   style={{ backgroundColor: '#25D366', color: 'white', display: 'flex', alignItems: 'center', gap: '0.5rem' }}
                   onClick={() => {
-                    const msg = `⚠️ *ALERTA DE ORDEN DE TRABAJO*\n*OT ID:* ${selectedAlertOT.id}\n*Cliente:* ${selectedAlertOT.cliente}\n*Estado:* ${selectedAlertOT.estado}\n*Progreso:* ${selectedAlertOT.progreso}%\n*Vencimiento:* ${selectedAlertOT.fechaEntrega || 'N/D'}\n\nSe requiere atención para evitar retrasos en la entrega.`;
+                    const msg = `⚠️ *ALERTA DE ORDEN DE TRABAJO*\n*OT ID:* ${selectedAlertOT.id}\n*Cliente:* ${selectedAlertOT.cliente}\n*Estado:* ${selectedAlertOT.estado}\n*Progreso:* ${selectedAlertOT.progreso}%\n*Fin de Trabajo:* ${selectedAlertOT.fechaFinTrabajo || 'No asignada'}\n\nSe requiere atención para evitar retrasos en la entrega.`;
                     window.open(`https://wa.me/?text=${encodeURIComponent(msg)}`, '_blank');
                   }}
                 >

@@ -189,6 +189,13 @@ p { color: var(--text-muted); }
 }
 
 /* Solid Button (Label style from design) */
+.btn-confirm-bloqueo {
+  color: #ffffff !important;
+}
+body.light-mode .btn-confirm-bloqueo {
+  color: var(--primary-color) !important;
+}
+
 .btn-solid {
   background-color: var(--primary-color);
   color: #ffffff;
