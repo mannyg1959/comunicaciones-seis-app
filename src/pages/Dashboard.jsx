@@ -13,6 +13,7 @@ import {
   PieChart, Pie, LineChart, Line, Legend
 } from 'recharts';
 import { supabase } from '../utils/supabaseClient';
+import { formatDate } from '../utils/formatters';
 
 export default function Dashboard({ user, onLogout }) {
   const [activeKpiTab, setActiveKpiTab] = useState('cotizaciones');
@@ -276,8 +277,8 @@ export default function Dashboard({ user, onLogout }) {
         avgDays = Math.round((sumDays / otsInWeek.length) * 10) / 10;
       }
 
-      const startStr = weekStart.toLocaleDateString('es-ES', { day: 'numeric', month: 'short' });
-      const endStr = weekEnd.toLocaleDateString('es-ES', { day: 'numeric', month: 'short' });
+      const startStr = formatDate(weekStart);
+      const endStr = formatDate(weekEnd);
       data.push({
         name: `${startStr} - ${endStr}`,
         dias: avgDays
@@ -325,8 +326,8 @@ export default function Dashboard({ user, onLogout }) {
       avgDays = parseFloat((sumDays / quotesInWeek.length).toFixed(1));
     }
     
-    const startStr = weekStart.toLocaleDateString('es-ES', { day: 'numeric', month: 'short' });
-    const endStr = weekEnd.toLocaleDateString('es-ES', { day: 'numeric', month: 'short' });
+    const startStr = formatDate(weekStart);
+    const endStr = formatDate(weekEnd);
     timeToCloseData.push({
       name: `${startStr} - ${endStr}`,
       dias: avgDays
@@ -428,8 +429,13 @@ export default function Dashboard({ user, onLogout }) {
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem', marginBottom: '1.5rem' }}>
             {/* COTIZACIONES */}
             <div className="card glass-panel" style={{ padding: '1rem', margin: 0 }}>
-              <h2 style={{ fontSize: '1.125rem', marginBottom: '1rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                <FileText size={20} color="var(--primary-color)" /> Cotizaciones
+              <h2 style={{ fontSize: '1.125rem', marginBottom: '1rem', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                  <FileText size={20} color="var(--primary-color)" /> Cotizaciones
+                </div>
+                <span style={{ fontSize: '0.8rem', backgroundColor: 'var(--surface-color)', padding: '0.2rem 0.6rem', borderRadius: '12px', color: 'var(--text-muted)' }}>
+                  Total: {cotizaciones.length}
+                </span>
               </h2>
               <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
                 {cotizacionesList.map(item => (
@@ -446,8 +452,13 @@ export default function Dashboard({ user, onLogout }) {
             
             {/* ORDENES DE TRABAJO */}
             <div className="card glass-panel" style={{ padding: '1rem', margin: 0 }}>
-              <h2 style={{ fontSize: '1.125rem', marginBottom: '1rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                <Package size={20} color="var(--primary-color)" /> Órdenes (OT)
+              <h2 style={{ fontSize: '1.125rem', marginBottom: '1rem', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                  <Package size={20} color="var(--primary-color)" /> Órdenes (OT)
+                </div>
+                <span style={{ fontSize: '0.8rem', backgroundColor: 'var(--surface-color)', padding: '0.2rem 0.6rem', borderRadius: '12px', color: 'var(--text-muted)' }}>
+                  Total: {totalOTs}
+                </span>
               </h2>
               <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
                 {ordenesList.map(item => (

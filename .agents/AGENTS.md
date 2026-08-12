@@ -24,3 +24,6 @@
   1. Todos los gráficos, listas, paneles y cálculos estadísticos de la aplicación deben utilizar exclusivamente la información real registrada en Supabase.
   2. Se prohíbe el uso de datos simulados (mock data) para rellenar visualizaciones o informes. Si la base de datos no cuenta con registros o datos suficientes, se debe mostrar un estado vacío informativo y amigable al usuario (empty state) en su lugar.
 
+## Experiencia de Usuario (UX)
+
+- **Confirmación de Guardado**: Después de cualquier operación de GUARDAR o de actualizar datos en la base de datos, se debe mostrar un diálogo, notificación o modal que informe al usuario de manera clara que los cambios se actualizaron exitosamente.

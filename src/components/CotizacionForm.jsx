@@ -319,7 +319,8 @@ export default function CotizacionForm({ initialData, onCancel, onSave, onDelete
         setFormData({
           ...formData,
           cliente: '',
-          contacto: ''
+          contacto: '',
+          clientId: null
         });
       }
 
@@ -1564,7 +1565,8 @@ export default function CotizacionForm({ initialData, onCancel, onSave, onDelete
                     setFormData({
                       ...formData,
                       cliente: selectedClient.empresa,
-                      contacto: selectedClient.contacto
+                      contacto: selectedClient.contacto,
+                      clientId: selectedClient.id
                     });
                     setShowCarouselModal(false);
                     setCarouselSearch('');

@@ -1,12 +1,13 @@
 import { useState, useEffect } from 'react';
 import { useSearchParams } from 'react-router-dom';
-import { Plus, Search, FileText, SlidersHorizontal, X } from 'lucide-react';
+import { Plus, Search, FileText, SlidersHorizontal, X, CheckCircle, AlertTriangle } from 'lucide-react';
 import CotizacionForm from '../components/CotizacionForm';
 import DatePicker from 'react-datepicker';
 import 'react-datepicker/dist/react-datepicker.css';
 import { logEvent } from '../utils/logs';
 import { checkPermission } from '../utils/permissions';
 import { supabase } from '../utils/supabaseClient';
+import { formatDate } from '../utils/formatters';
 
 export default function Cotizaciones({ user }) {
   const canCreate = checkPermission(user, 'crear_cotizaciones');
@@ -23,6 +24,11 @@ export default function Cotizaciones({ user }) {
   const [editingCotizacion, setEditingCotizacion] = useState(searchParams.get('new') === 'true' ? { id: 'NEW' } : null);
   const [cotizaciones, setCotizaciones] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [notification, setNotification] = useState({ show: false, message: '', type: 'success' });
+
+  const showNotification = (msg, type = 'success') => {
+    setNotification({ show: true, message: msg, type });
+  };
 
   const fetchCotizaciones = async () => {
     setLoading(true);
@@ -241,7 +247,14 @@ export default function Cotizaciones({ user }) {
           .eq('quote_id', finalId);
 
         if (deleteItemsError) throw deleteItemsError;
-        logEvent(user, 'Modificación de Cotización', `Se modificó la cotización ${finalId} (Monto: $${nuevaCotizacion.total.toFixed(2)})`);
+        const changes = [];
+        if (editingCotizacion.cliente && editingCotizacion.cliente !== nuevaCotizacion.cliente) changes.push(`Cliente`);
+        if (editingCotizacion.estado && editingCotizacion.estado !== (nuevaCotizacion.status || nuevaCotizacion.estado)) changes.push(`Estado`);
+        if (editingCotizacion.monto !== undefined && editingCotizacion.monto !== nuevaCotizacion.total) changes.push(`Monto`);
+        if (editingCotizacion.fechaEntrega !== nuevaCotizacion.fechaEntrega) changes.push(`Fecha de Entrega`);
+        
+        let changesStr = changes.length > 0 ? ` Campos actualizados: ${changes.join(', ')}.` : '';
+        logEvent(user, 'Modificación de Cotización', `Se modificó la cotización ${finalId}${changesStr}`);
       }
 
       const itemsToInsert = nuevaCotizacion.items.map(item => {
@@ -265,10 +278,11 @@ export default function Cotizaciones({ user }) {
       }
 
       fetchCotizaciones();
+      showNotification('Cotización guardada exitosamente.');
       setEditingCotizacion(null);
     } catch (err) {
       console.error('Error saving quote:', err);
-      alert(`Error al guardar la cotización: ${err.message || 'Error desconocido'}`);
+      showNotification(`Error al guardar la cotización: ${err.message || 'Error desconocido'}`, 'error');
     }
   };
 
@@ -283,10 +297,11 @@ export default function Cotizaciones({ user }) {
 
       logEvent(user, 'Eliminación de Cotización', `Se eliminó la cotización ${id}`);
       fetchCotizaciones();
+      showNotification('Cotización eliminada exitosamente.');
       setEditingCotizacion(null);
     } catch (err) {
       console.error('Error deleting quote:', err);
-      alert(`No se pudo eliminar la cotización: ${err.message || 'Error de permisos/estado'}`);
+      showNotification(`No se pudo eliminar la cotización: ${err.message || 'Error de permisos/estado'}`, 'error');
     }
   };
 
@@ -313,6 +328,36 @@ export default function Cotizaciones({ user }) {
         padding: '1.5rem 1.5rem 0.5rem 1.5rem',
         borderBottom: '1px solid var(--border-color)'
       }}>
+
+      {notification.show && (
+        <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(3px)', display: 'flex', justifyContent: 'center', alignItems: 'center', zIndex: 1100, padding: '1rem' }}>
+          <div className="card glass-panel" style={{ width: '100%', maxWidth: '400px', margin: 0, textAlign: 'center' }}>
+            <div style={{ display: 'flex', justifyContent: 'center', marginBottom: '1rem' }}>
+              {notification.type === 'success' 
+                ? <CheckCircle size={48} color="var(--success-color)" />
+                : <AlertTriangle size={48} color="var(--error-color)" />
+              }
+            </div>
+            <h3 style={{ margin: '0 0 1rem 0', color: 'var(--text-main)', fontSize: '1.25rem' }}>
+              {notification.type === 'success' ? '¡Operación Exitosa!' : '¡Error!'}
+            </h3>
+            <p style={{ margin: '0 0 1.5rem 0', color: 'var(--text-muted)' }}>{notification.message}</p>
+            <button 
+              className="btn btn-primary" 
+              style={{ 
+                width: '100%', 
+                justifyContent: 'center',
+                color: '#ffffff',
+                backgroundColor: notification.type === 'error' ? 'var(--error-color)' : 'var(--primary-color)'
+              }}
+              onClick={() => setNotification({ show: false, message: '', type: 'success' })}
+            >
+              Aceptar
+            </button>
+          </div>
+        </div>
+      )}
+
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '1rem', flexWrap: 'wrap', marginBottom: '1rem' }}>
           <h1 style={{ margin: 0, display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
             <FileText size={28} color="var(--primary-color)" /> Cotizaciones
@@ -369,12 +414,12 @@ export default function Cotizaciones({ user }) {
             <p style={{ margin: 0, fontWeight: 'bold', fontSize: '1.05rem', color: 'var(--text-main)', lineHeight: '1.2' }}>{cotizacion.cliente}</p>
             <p style={{ margin: '0 0 0.5rem 0', fontSize: '0.8rem', color: 'var(--text-muted)', lineHeight: '1.2' }}>{cotizacion.tipo}</p>
             <div className="flex-row-between" style={{ fontSize: '0.875rem', marginBottom: '0.25rem' }}>
-              <span style={{ color: 'var(--text-muted)' }}>Emisión: {cotizacion.fecha}</span>
+              <span style={{ color: 'var(--text-muted)' }}>Emisión: {formatDate(cotizacion.fecha)}</span>
               <strong style={{ color: 'var(--primary-color)' }}>${cotizacion.monto.toFixed(2)}</strong>
             </div>
             <div className="flex-row-between" style={{ fontSize: '0.8rem', alignItems: 'center' }}>
               <span style={{ color: 'var(--secondary-color)' }}>
-                Entrega est.: {cotizacion.fechaEntrega || 'N/A'}
+                Entrega est.: {formatDate(cotizacion.fechaEntrega)}
               </span>
               <span style={{ 
                 background: `color-mix(in srgb, ${calculateGap(cotizacion.fechaEntrega).color} 15%, transparent)`, 

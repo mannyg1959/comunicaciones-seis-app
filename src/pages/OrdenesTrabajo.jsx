@@ -1,10 +1,11 @@
 import { useState, useEffect } from 'react';
-import { Package, Search, SlidersHorizontal, X } from 'lucide-react';
+import { Package, Search, SlidersHorizontal, X, CheckCircle, AlertTriangle } from 'lucide-react';
 import DatePicker from 'react-datepicker';
 import 'react-datepicker/dist/react-datepicker.css';
 import { logEvent } from '../utils/logs';
 import { checkPermission } from '../utils/permissions';
 import { supabase } from '../utils/supabaseClient';
+import { formatDate, formatDateTime } from '../utils/formatters';
 
 export default function OrdenesTrabajo({ user }) {
   const [searchTerm, setSearchTerm] = useState('');
@@ -34,7 +35,17 @@ export default function OrdenesTrabajo({ user }) {
   // Initial mockup history logs
   const [otLogs, setOtLogs] = useState({});
 
+  const [kpis, setKpis] = useState({
+    ot_alert_hours_unassigned: 2, ot_alert_progress_warning: 80, ot_alert_hours_logistics: 24,
+    ot_alert_hours_unassigned_enabled: true, ot_alert_progress_warning_enabled: true, ot_alert_hours_logistics_enabled: true
+  });
+
   const [loading, setLoading] = useState(true);
+  const [notification, setNotification] = useState({ show: false, message: '', type: 'success' });
+
+  const showNotification = (msg, type = 'success') => {
+    setNotification({ show: true, message: msg, type });
+  };
 
   const fetchAllData = async () => {
     try {
@@ -55,6 +66,16 @@ export default function OrdenesTrabajo({ user }) {
       }));
       setCotizaciones(mappedQuotes);
 
+      const { data: kpiData, error: kpiError } = await supabase
+        .from('system_settings')
+        .select('setting_value')
+        .eq('setting_key', 'global_kpis_and_alerts')
+        .single();
+        
+      if (!kpiError && kpiData && kpiData.setting_value) {
+        setKpis(prev => ({ ...prev, ...kpiData.setting_value }));
+      }
+
       const { data: otsData, error: otsError } = await supabase
         .from('work_orders')
         .select('*, client:clients(name), quote:quotes(title)');
@@ -67,7 +88,16 @@ export default function OrdenesTrabajo({ user }) {
         tipo: ot.quote?.title || 'Varios',
         estado: ot.status,
         progreso: ot.progress,
-        fechaEntrega: ot.estimated_closure ? ot.estimated_closure.split('T')[0] : 'Sin fecha'
+        fechaEntrega: ot.estimated_closure ? ot.estimated_closure.split('T')[0] : 'Sin fecha',
+        createdAt: ot.created_at,
+        tiempoEstimado: ot.estimated_time_minutes || null,
+        tiempoTranscurrido: ot.time_elapsed_minutes || 0,
+        operarioAsignado: ot.assigned_operative || null,
+        isPaused: !!ot.pause_reason,
+        pauseMotivo: ot.pause_reason || '',
+        finishedAt: ot.finished_at || null,
+        rechazoMotivo: ot.rejected_reason || null,
+        fechaFinTrabajo: ot.production_deadline || null,
       }));
       setOrdenesTrabajo(mappedOts);
 
@@ -222,6 +252,17 @@ export default function OrdenesTrabajo({ user }) {
   const [newIncidentText, setNewIncidentText] = useState('');
   const [newIncidentSeverity, setNewIncidentSeverity] = useState('Media');
 
+  // State for Pause/Block
+  const [bloqueoMotivo, setBloqueoMotivo] = useState('');
+  
+  // State for Quality Rejection (Revisión -> Producción)
+  const [rechazoMotivoInput, setRechazoMotivoInput] = useState('');
+
+  // State for Assignment
+  const [asignacionFechaFin, setAsignacionFechaFin] = useState('');
+  const [asignacionOperario, setAsignacionOperario] = useState('');
+  const [asignacionError, setAsignacionError] = useState('');
+
   // State for editing incidents
   const [editingIncidentId, setEditingIncidentId] = useState(null);
   const [editingText, setEditingText] = useState('');
@@ -232,16 +273,86 @@ export default function OrdenesTrabajo({ user }) {
   const [adminPasswordInput, setAdminPasswordInput] = useState('');
   const [authError, setAuthError] = useState('');
 
+  const getAlertStatus = (ot) => {
+    if (ot.estado === 'Entregado') return 'normal';
+    
+    // 5. Alerta de Rechazo de Calidad
+    if (ot.rechazoMotivo) {
+        return 'retrabajo'; // Magenta
+    }
+
+    // 4. Alerta de Bloqueo
+    if (ot.isPaused) {
+        return 'bloqueo'; // Naranja
+    }
+
+    // 1. Alerta de Carga sin Estimación
+    if (ot.estado === 'Programación' && kpis.ot_alert_hours_unassigned_enabled) {
+        const createdAt = new Date(ot.createdAt).getTime();
+        const now = new Date().getTime();
+        const hoursElapsed = Math.max(0, (now - createdAt) / (1000 * 60 * 60));
+        if (hoursElapsed >= kpis.ot_alert_hours_unassigned && !ot.fechaFinTrabajo) {
+            return 'carga'; // Amarillo (Jefe)
+        }
+    }
+
+    // 2 y 3. Alertas Preventiva y Vencimiento
+    if (ot.estado === 'Producción' && ot.fechaFinTrabajo) {
+        const created = new Date(ot.createdAt).getTime();
+        const deadline = new Date(ot.fechaFinTrabajo).getTime();
+        const deadlineEndOfDay = deadline + (24 * 60 * 60 * 1000) - 1; // Ajustar a medianoche del día límite
+        const now = new Date().getTime();
+        
+        const totalDuration = deadlineEndOfDay - created;
+        const elapsed = now - created;
+
+        if (totalDuration > 0) {
+            const ratio = elapsed / totalDuration;
+            if (ratio >= 1.0) {
+                return 'vencimiento'; // Rojo
+            } else if (kpis.ot_alert_progress_warning_enabled && ratio >= (kpis.ot_alert_progress_warning / 100)) {
+                return 'preventiva'; // Amarillo
+            }
+        }
+    }
+
+    // 6. Alerta de Estancamiento
+    if (ot.estado === 'Finalizado' && kpis.ot_alert_hours_logistics_enabled && ot.finishedAt) {
+        const finished = new Date(ot.finishedAt).getTime();
+        const now = new Date().getTime();
+        const hoursElapsed = (now - finished) / (1000 * 60 * 60);
+        if (hoursElapsed > kpis.ot_alert_hours_logistics) {
+            return 'estancamiento'; // Azul
+        }
+    }
+
+    return 'normal';
+  };
+
+  const alertPriority = {
+      'vencimiento': 1, // Rojo Intenso (Top Priority)
+      'retrabajo': 2,   // Magenta
+      'bloqueo': 3,     // Naranja
+      'estancamiento': 4, // Azul
+      'carga': 5,       // Amarillo
+      'preventiva': 6,  // Amarillo suave
+      'normal': 7
+  };
+
+  const sortedFiltered = [...filtered].sort((a, b) => alertPriority[getAlertStatus(a)] - alertPriority[getAlertStatus(b)]);
+
   const handleOpenOT = (ot) => {
     setSelectedOT(ot);
     setTempEstado(ot.estado);
-    setActiveModalView('menu');
-    setNewIncidentText('');
-    setNewIncidentSeverity('Media');
-    setEditingIncidentId(null);
     setAuthStep('none');
     setAdminPasswordInput('');
     setAuthError('');
+    setNewIncidentText('');
+    setActiveModalView('menu');
+    setAsignacionFechaFin(ot.fechaFinTrabajo || '');
+    setAsignacionOperario(ot.operarioAsignado || '');
+    setAsignacionError('');
+    setEditingIncidentId(null);
   };
 
   const handleUpdateIncident = async (incidentId) => {
@@ -279,6 +390,7 @@ export default function OrdenesTrabajo({ user }) {
       if (logError) throw logError;
 
       await fetchAllData();
+      showNotification('Incidencia actualizada correctamente.');
       setEditingIncidentId(null);
       setEditingText('');
     } catch (err) {
@@ -359,6 +471,7 @@ export default function OrdenesTrabajo({ user }) {
         }
 
         await fetchAllData();
+        showNotification('Estatus de la orden actualizado exitosamente.');
       } catch (err) {
         console.error('Error saving state change in Supabase:', err);
       }
@@ -367,10 +480,22 @@ export default function OrdenesTrabajo({ user }) {
     setAuthStep('none');
   };
 
+
+
   const handleSaveEstado = () => {
     if (!selectedOT) return;
     const currentIndex = stages.indexOf(selectedOT.estado);
     const tempIndex = stages.indexOf(tempEstado);
+
+    if (selectedOT.estado === 'Revisión' && tempEstado === 'Producción') {
+        setActiveModalView('rechazo');
+        return;
+    }
+
+    if (tempIndex >= 1 && !selectedOT.fechaFinTrabajo) {
+        setAuthError('Debe ingresar la Fecha Estimada Fin del Trabajo en el Panel de Asignación antes de avanzar a Producción.');
+        return;
+    }
 
     if (tempIndex < currentIndex) {
       setAuthStep('password');
@@ -392,6 +517,140 @@ export default function OrdenesTrabajo({ user }) {
 
   const executeSaveEstadoRetroceder = () => {
     executeSaveEstado(tempEstado, true);
+  };
+
+  const executeSaveEstadoRechazo = async () => {
+    if (!selectedOT || !rechazoMotivoInput.trim()) return;
+    
+    try {
+        const { error: updateError } = await supabase
+          .from('work_orders')
+          .update({
+            rejected_reason: rechazoMotivoInput,
+            status: 'Producción',
+            progress: 30
+          })
+          .eq('id', selectedOT.id);
+
+        if (updateError) throw updateError;
+        
+        const nowStr = new Date().toISOString();
+        const messagePayload = JSON.stringify({
+            text: `RECHAZO DE CALIDAD: ${rechazoMotivoInput}`,
+            icon: 'AlertTriangle',
+            estado: 'Producción'
+        });
+
+        const { error: insertLogError } = await supabase
+            .from('work_order_logs')
+            .insert([{
+                id: crypto.randomUUID(),
+                work_order_id: selectedOT.id,
+                user_id: user?.id || null,
+                type: 'status',
+                message: messagePayload,
+                created_at: nowStr
+            }]);
+
+        if (insertLogError) throw insertLogError;
+
+        logEvent(user, 'Rechazo de Calidad OT', `La orden ${selectedOT.id} fue devuelta a Producción por: ${rechazoMotivoInput}`);
+        await fetchAllData();
+        showNotification('Rechazo de calidad registrado exitosamente.');
+        setSelectedOT(null);
+    } catch (err) {
+        console.error('Error saving rejection in Supabase:', err);
+    }
+  };
+
+  const handleTogglePause = async (pauseValue, reason = '') => {
+      if (!selectedOT) return;
+      try {
+          const { error: updateError } = await supabase
+              .from('work_orders')
+              .update({
+                  pause_reason: pauseValue ? reason : null
+              })
+              .eq('id', selectedOT.id);
+          
+          if (updateError) throw updateError;
+
+          const logMessage = pauseValue ? `OT Bloqueada: ${reason}` : 'OT Reanudada';
+          const nowStr = new Date().toISOString();
+          const messagePayload = JSON.stringify({
+              text: logMessage,
+              icon: pauseValue ? 'Pause' : 'Play',
+              estado: selectedOT.estado
+          });
+
+          await supabase.from('work_order_logs').insert([{
+              id: crypto.randomUUID(),
+              work_order_id: selectedOT.id,
+              user_id: user?.id || null,
+              type: 'incident',
+              message: messagePayload,
+              created_at: nowStr
+          }]);
+
+          logEvent(user, pauseValue ? 'OT Bloqueada' : 'OT Reanudada', `${logMessage} (${selectedOT.id})`);
+          await fetchAllData();
+          setActiveModalView('menu');
+          
+          showNotification(`La Orden de Trabajo ha sido ${pauseValue ? 'bloqueada' : 'reanudada'} exitosamente.`);
+
+          if (!pauseValue) {
+             setSelectedOT(null); // Close modal on resume
+          }
+      } catch (err) {
+          console.error('Error toggling pause in Supabase:', err);
+      }
+  };
+
+  const handleSaveAsignacion = async () => {
+    if (!selectedOT) return;
+    setAsignacionError('');
+
+    if (asignacionFechaFin) {
+      const targetDateStr = asignacionFechaFin;
+      
+      const today = new Date();
+      const year = today.getFullYear();
+      const month = String(today.getMonth() + 1).padStart(2, '0');
+      const day = String(today.getDate()).padStart(2, '0');
+      const todayStr = `${year}-${month}-${day}`;
+
+      if (targetDateStr < todayStr) {
+        setAsignacionError('La fecha de finalización debe ser igual o mayor a la fecha actual.');
+        return;
+      }
+    }
+
+    try {
+      const { error: updateError } = await supabase
+        .from('work_orders')
+        .update({
+          production_deadline: asignacionFechaFin || null,
+          assigned_operative: asignacionOperario || null
+        })
+        .eq('id', selectedOT.id);
+        
+      if (updateError) throw updateError;
+      
+      logEvent(user, 'OT Asignación Actualizada', `Se estimó fecha de fin ${asignacionFechaFin} en la OT ${selectedOT.id}`);
+      await fetchAllData();
+      
+      setSelectedOT(prev => ({
+          ...prev, 
+          fechaFinTrabajo: asignacionFechaFin,
+          operarioAsignado: asignacionOperario
+      }));
+      showNotification('Fecha de fin de trabajo asignada correctamente.');
+      setSelectedOT(null);
+      setAuthStep('none');
+    } catch (err) {
+      console.error('Error saving assignment:', err);
+      showNotification('Error al guardar: ' + (err.message || JSON.stringify(err)), 'error');
+    }
   };
 
   const handleSaveIncident = async () => {
@@ -440,6 +699,7 @@ export default function OrdenesTrabajo({ user }) {
       logEvent(user, 'Incidencia OT Registrada', `Se registró una incidencia (${newIncidentSeverity}) en la orden ${selectedOT.id}: ${newIncidentText}`);
 
       await fetchAllData();
+      showNotification('Incidencia registrada exitosamente.');
       setNewIncidentText('');
       setNewIncidentSeverity('Media');
       setActiveModalView('menu');
@@ -545,15 +805,57 @@ export default function OrdenesTrabajo({ user }) {
       </div>
 
       <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-        {filtered.map(ot => {
+        {sortedFiltered.map(ot => {
           const incidents = otIncidents[ot.id] || [];
           const hasIncidents = incidents.length > 0;
+          const alertStatus = getAlertStatus(ot);
+          
+          let cardStyle = { margin: 0, cursor: 'pointer', transition: 'all 0.3s' };
+          let badgeStyle = { display: 'none' };
+          let badgeText = '';
+          
+          if (alertStatus === 'vencimiento') {
+            cardStyle.animation = 'pulse-red 2s infinite';
+            cardStyle.border = '2px solid var(--error-color)';
+            cardStyle.backgroundColor = 'rgba(239, 68, 68, 0.05)';
+            badgeStyle = { display: 'inline-block', backgroundColor: 'var(--error-color)', color: '#fff', padding: '0.2rem 0.5rem', borderRadius: '4px', fontSize: '0.75rem', fontWeight: 'bold', animation: 'blink 1s infinite' };
+            badgeText = 'VENCIDO (>100%)';
+          } else if (alertStatus === 'retrabajo') {
+            cardStyle.border = '2px solid #d946ef';
+            cardStyle.backgroundColor = 'rgba(217, 70, 239, 0.05)';
+            badgeStyle = { display: 'inline-block', backgroundColor: '#d946ef', color: '#fff', padding: '0.2rem 0.5rem', borderRadius: '4px', fontSize: '0.75rem', fontWeight: 'bold' };
+            badgeText = 'RETRABAJO';
+          } else if (alertStatus === 'bloqueo') {
+            cardStyle.border = '2px solid #f97316';
+            cardStyle.backgroundColor = 'rgba(249, 115, 22, 0.05)';
+            badgeStyle = { display: 'inline-block', backgroundColor: '#f97316', color: '#fff', padding: '0.2rem 0.5rem', borderRadius: '4px', fontSize: '0.75rem', fontWeight: 'bold' };
+            badgeText = 'BLOQUEADA';
+          } else if (alertStatus === 'estancamiento') {
+            cardStyle.border = '2px solid #3b82f6';
+            badgeStyle = { display: 'inline-block', backgroundColor: '#3b82f6', color: '#fff', padding: '0.2rem 0.5rem', borderRadius: '4px', fontSize: '0.75rem', fontWeight: 'bold' };
+            badgeText = 'ESTANCADA (>24H)';
+          } else if (alertStatus === 'carga') {
+            cardStyle.border = '2px solid #eab308';
+            badgeStyle = { display: 'inline-block', backgroundColor: '#eab308', color: '#000', padding: '0.2rem 0.5rem', borderRadius: '4px', fontSize: '0.75rem', fontWeight: 'bold' };
+            badgeText = 'FALTA ESTIMACIÓN';
+          } else if (alertStatus === 'preventiva') {
+            cardStyle.animation = 'pulse-yellow 3s infinite';
+            cardStyle.border = '1px solid #eab308';
+            badgeStyle = { display: 'inline-block', backgroundColor: 'rgba(234, 179, 8, 0.2)', color: '#a16207', padding: '0.2rem 0.5rem', borderRadius: '4px', fontSize: '0.75rem', fontWeight: 'bold' };
+            badgeText = `PREVENTIVA (>${kpis.ot_alert_progress_warning}%)`;
+          }
+
+          if (hasIncidents && alertStatus === 'normal') {
+             cardStyle.borderLeft = '4px solid var(--error-color)';
+          }
+
           return (
-            <div key={ot.id} className="card hoverable" style={{ margin: 0, cursor: 'pointer', borderLeft: hasIncidents ? '4px solid var(--error-color)' : 'none' }} onClick={() => handleOpenOT(ot)}>
+            <div key={ot.id} className="card hoverable" style={cardStyle} onClick={() => handleOpenOT(ot)}>
               <div className="flex-row-between" style={{ marginBottom: '0.5rem', alignItems: 'center' }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flexWrap: 'wrap' }}>
                   <strong>{ot.id}</strong>
                   <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>Ref: {ot.cotizacionId}</span>
+                  <span style={badgeStyle}>{badgeText}</span>
                   {hasIncidents && (
                     <span title="Esta orden contiene incidencias activas" style={{ display: 'flex', alignItems: 'center', color: 'var(--error-color)' }}>
                       <span style={{ display: 'inline-flex', padding: '0.2rem', backgroundColor: 'rgba(239, 68, 68, 0.15)', borderRadius: '4px' }}>
@@ -575,8 +877,9 @@ export default function OrdenesTrabajo({ user }) {
               </div>
               
               <p style={{ margin: 0, fontWeight: '500', color: 'var(--text-main)' }}>{ot.cliente} - {ot.tipo}</p>
-              <div className="flex-row-between" style={{ fontSize: '0.875rem', marginBottom: '1rem', alignItems: 'center' }}>
-                <span>Entrega: {ot.fechaEntrega}</span>
+              
+              <div className="flex-row-between" style={{ fontSize: '0.875rem', marginBottom: '0.5rem', marginTop: '0.5rem', alignItems: 'center' }}>
+                <span>Entrega: {formatDate(ot.fechaEntrega)}</span>
                 <span style={{ 
                   background: `color-mix(in srgb, ${calculateGap(ot.fechaEntrega).color} 15%, transparent)`, 
                   color: calculateGap(ot.fechaEntrega).color,
@@ -587,6 +890,14 @@ export default function OrdenesTrabajo({ user }) {
                 }}>
                   GAP: {calculateGap(ot.fechaEntrega).text}
                 </span>
+              </div>
+              
+              <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginBottom: '0.5rem' }}>
+                Ingreso a Prog.: {formatDateTime(ot.createdAt)}
+              </div>
+
+              <div className="flex-row-between" style={{ fontSize: '0.75rem', marginBottom: '0.5rem', color: 'var(--text-muted)' }}>
+                <span>Fin de Trabajo (Target): <strong style={{ color: ot.fechaFinTrabajo ? 'var(--text-main)' : 'var(--warning-color)' }}>{ot.fechaFinTrabajo ? formatDate(ot.fechaFinTrabajo) : 'Sin Asignar'}</strong></span>
               </div>
               
               <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
@@ -629,12 +940,41 @@ export default function OrdenesTrabajo({ user }) {
         })}
       </div>
 
+      {notification.show && (
+        <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(3px)', display: 'flex', justifyContent: 'center', alignItems: 'center', zIndex: 1100, padding: '1rem' }}>
+          <div className="card glass-panel" style={{ width: '100%', maxWidth: '400px', margin: 0, textAlign: 'center' }}>
+            <div style={{ display: 'flex', justifyContent: 'center', marginBottom: '1rem' }}>
+              {notification.type === 'success' 
+                ? <CheckCircle size={48} color="var(--success-color)" />
+                : <AlertTriangle size={48} color="var(--error-color)" />
+              }
+            </div>
+            <h3 style={{ margin: '0 0 1rem 0', color: 'var(--text-main)', fontSize: '1.25rem' }}>
+              {notification.type === 'success' ? '¡Operación Exitosa!' : '¡Error!'}
+            </h3>
+            <p style={{ margin: '0 0 1.5rem 0', color: 'var(--text-muted)' }}>{notification.message}</p>
+            <button 
+              className="btn btn-primary" 
+              style={{ 
+                width: '100%', 
+                justifyContent: 'center',
+                color: '#ffffff',
+                backgroundColor: notification.type === 'error' ? 'var(--error-color)' : 'var(--primary-color)'
+              }}
+              onClick={() => setNotification({ show: false, message: '', type: 'success' })}
+            >
+              Aceptar
+            </button>
+          </div>
+        </div>
+      )}
+
       {selectedOT && (
         <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(3px)', display: 'flex', justifyContent: 'center', alignItems: 'center', zIndex: 1100, padding: '1rem' }}>
           <div className="card glass-panel" style={{ width: '100%', maxWidth: '500px', margin: 0, maxHeight: '90vh', overflowY: 'auto' }}>
             
             {/* Header del Modal */}
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '1rem' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '1rem', flexWrap: 'wrap', marginBottom: '1rem', borderBottom: '1px solid var(--border-color)' }}>
               <div>
                 <h2 style={{ margin: 0, fontSize: '1.25rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
                   <span>
@@ -692,6 +1032,53 @@ export default function OrdenesTrabajo({ user }) {
             {/* Vista 1: Menú Principal de Acciones */}
             {activeModalView === 'menu' && (
               <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem', margin: '1.5rem 0' }}>
+                
+                {(selectedOT.estado === 'Programación' || selectedOT.estado === 'Producción' || selectedOT.estado === 'Revisión') && (
+                  <div style={{ backgroundColor: 'rgba(59, 130, 246, 0.05)', padding: '1rem', borderRadius: 'var(--radius-md)', border: '1px solid rgba(59, 130, 246, 0.2)', marginBottom: '1rem' }}>
+                    <h3 style={{ fontSize: '0.95rem', margin: '0 0 1rem 0', color: 'var(--primary-color)' }}>Panel de Asignación</h3>
+                    
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+                      {/* El campo Operario está oculto temporalmente a petición del usuario */}
+                      <div className="input-group" style={{ margin: 0, display: 'none' }}>
+                        <label style={{ fontSize: '0.85rem' }}>Operario Responsable:</label>
+                        <select className="input-control" style={{ fontSize: '0.9rem' }} value={asignacionOperario} onChange={e => setAsignacionOperario(e.target.value)}>
+                          <option value="">Seleccione operario...</option>
+                          <option value="Juan Pérez">Juan Pérez</option>
+                          <option value="Carlos Gómez">Carlos Gómez</option>
+                          <option value="Luis Martínez">Luis Martínez</option>
+                          <option value="Ana Torres">Ana Torres</option>
+                        </select>
+                      </div>
+                      
+                      <div className="input-group" style={{ margin: 0 }}>
+                        <label style={{ fontSize: '0.85rem' }}>Fecha Estimada Fin del Trabajo:</label>
+                        <input 
+                          type="date" 
+                          className="input-control" 
+                          style={{ fontSize: '0.9rem' }}
+                          value={asignacionFechaFin} 
+                          onChange={e => setAsignacionFechaFin(e.target.value)}
+                        />
+                      </div>
+
+                      {asignacionError && (
+                        <div style={{ color: 'var(--error-color)', fontSize: '0.8rem', padding: '0.5rem', backgroundColor: 'rgba(239,68,68,0.1)', borderRadius: '4px' }}>
+                          {asignacionError}
+                        </div>
+                      )}
+
+                      <button 
+                        className="btn btn-primary" 
+                        style={{ width: '100%', marginTop: '0.5rem' }}
+                        onClick={handleSaveAsignacion}
+                        disabled={!asignacionFechaFin}
+                      >
+                        Guardar Asignación
+                      </button>
+                    </div>
+                  </div>
+                )}
+
                 <button 
                   className="btn btn-secondary" 
                   style={{ height: '48px', fontSize: '0.95rem', width: '100%', justifyContent: 'center', display: 'flex', alignItems: 'center', gap: '0.5rem' }}
@@ -715,6 +1102,21 @@ export default function OrdenesTrabajo({ user }) {
                   onClick={() => setActiveModalView('historial')}
                 >
                   ⏳ Ver Historial / Trazabilidad
+                </button>
+                
+                <button 
+                  className={`btn ${selectedOT.isPaused ? 'btn-primary' : 'btn-secondary'}`}
+                  style={{ height: '48px', fontSize: '0.95rem', width: '100%', justifyContent: 'center', display: 'flex', alignItems: 'center', gap: '0.5rem', backgroundColor: selectedOT.isPaused ? 'var(--success-color)' : '', borderColor: selectedOT.isPaused ? 'var(--success-color)' : '' }}
+                  onClick={() => {
+                    if (selectedOT.isPaused) {
+                      handleTogglePause(false);
+                    } else {
+                      setBloqueoMotivo('');
+                      setActiveModalView('bloqueo');
+                    }
+                  }}
+                >
+                  {selectedOT.isPaused ? '▶️ Reanudar Producción' : '⏸️ Pausar / Bloquear OT'}
                 </button>
                 
                 <div style={{ marginTop: '1rem', borderTop: '1px solid var(--border-color)', paddingTop: '1rem' }}>
@@ -890,6 +1292,79 @@ export default function OrdenesTrabajo({ user }) {
                     onClick={handleSaveIncident}
                   >
                     Registrar Incidencia
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {/* Vista Bloqueo */}
+            {activeModalView === 'bloqueo' && (
+              <div>
+                <div className="input-group" style={{ marginTop: '1rem' }}>
+                  <label>Causa Raíz del Bloqueo:</label>
+                  <select className="input-control" value={bloqueoMotivo} onChange={e => setBloqueoMotivo(e.target.value)}>
+                    <option value="">Seleccione el motivo principal...</option>
+                    <option value="Falta de insumos / materiales">Falta de insumos / materiales</option>
+                    <option value="Avería o Mantenimiento de Máquina">Avería o Mantenimiento de Máquina</option>
+                    <option value="Duda en planos o especificaciones">Duda en planos o especificaciones</option>
+                    <option value="Falta de personal">Falta de personal</option>
+                    <option value="Otro">Otro</option>
+                  </select>
+                </div>
+
+                <div style={{ display: 'flex', gap: '0.75rem', marginTop: '2rem', flexWrap: 'wrap' }}>
+                  <button 
+                    className="btn btn-secondary" 
+                    style={{ flex: 1, height: '48px', fontSize: '0.95rem', minWidth: '120px' }} 
+                    onClick={() => setActiveModalView('menu')}
+                  >
+                    Atrás
+                  </button>
+                  <button 
+                    className="btn btn-primary" 
+                    style={{ flex: 1, height: '48px', fontSize: '0.95rem', minWidth: '120px', backgroundColor: '#f97316', borderColor: '#f97316', opacity: !bloqueoMotivo ? 0.5 : 1 }} 
+                    disabled={!bloqueoMotivo}
+                    onClick={() => handleTogglePause(true, bloqueoMotivo)}
+                  >
+                    Confirmar Bloqueo
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {/* Vista Rechazo de Calidad */}
+            {activeModalView === 'rechazo' && (
+              <div>
+                <h3 style={{ color: '#d946ef', marginTop: 0 }}>Rechazo de Calidad (Retrabajo)</h3>
+                <p style={{ fontSize: '0.9rem', color: 'var(--text-main)', marginBottom: '1.25rem' }}>
+                  Está devolviendo la orden de Revisión a Producción. Debe justificar la causa del rechazo.
+                </p>
+                <div className="input-group">
+                  <label>Motivo del Rechazo:</label>
+                  <textarea 
+                    className="input-control" 
+                    rows="3"
+                    placeholder="Especifique el defecto de calidad encontrado..."
+                    value={rechazoMotivoInput}
+                    onChange={e => setRechazoMotivoInput(e.target.value)}
+                  />
+                </div>
+
+                <div style={{ display: 'flex', gap: '0.75rem', marginTop: '2rem', flexWrap: 'wrap' }}>
+                  <button 
+                    className="btn btn-secondary" 
+                    style={{ flex: 1, height: '48px', fontSize: '0.95rem', minWidth: '120px' }} 
+                    onClick={() => setActiveModalView('estatus')}
+                  >
+                    Atrás
+                  </button>
+                  <button 
+                    className="btn btn-primary" 
+                    style={{ flex: 1, height: '48px', fontSize: '0.95rem', minWidth: '120px', backgroundColor: '#d946ef', borderColor: '#d946ef', opacity: !rechazoMotivoInput.trim() ? 0.5 : 1 }} 
+                    disabled={!rechazoMotivoInput.trim()}
+                    onClick={executeSaveEstadoRechazo}
+                  >
+                    Registrar Retrabajo
                   </button>
                 </div>
               </div>
@@ -1180,7 +1655,7 @@ export default function OrdenesTrabajo({ user }) {
         return (
           <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(3px)', display: 'flex', justifyContent: 'center', alignItems: 'center', zIndex: 1100, padding: '1rem' }} onClick={() => setSelectedOTForSummary(null)}>
             <div className="card glass-panel" style={{ width: '100%', maxWidth: '500px', margin: 0, maxHeight: '90vh', overflowY: 'auto' }} onClick={e => e.stopPropagation()}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem', borderBottom: '1px solid var(--border-color)', paddingBottom: '0.75rem' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem', borderBottom: '1px solid var(--border-color)', paddingBottom: '0.5rem' }}>
                 <h2 style={{ margin: 0, fontSize: '1.25rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
                   <span>📄 Resumen de OT</span>
                   <span style={{ 
@@ -1200,9 +1675,9 @@ export default function OrdenesTrabajo({ user }) {
                 </button>
               </div>
 
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
                 
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.35rem', padding: '0.75rem', backgroundColor: 'rgba(var(--primary-color-rgb, 124, 58, 237), 0.03)', borderRadius: 'var(--radius-md)', borderLeft: '3px solid var(--primary-color)' }}>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.35rem', padding: '0.5rem 0.75rem', backgroundColor: 'rgba(var(--primary-color-rgb, 124, 58, 237), 0.03)', borderRadius: 'var(--radius-md)', borderLeft: '3px solid var(--primary-color)' }}>
                   <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)', fontWeight: '600', textTransform: 'uppercase' }}>Información de Origen (Cotización)</span>
                   <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.5rem', marginTop: '0.25rem' }}>
                     <div>
@@ -1220,7 +1695,7 @@ export default function OrdenesTrabajo({ user }) {
                   </div>
                 </div>
 
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.8rem', padding: '0.25rem' }}>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', padding: '0.25rem' }}>
                   
                   <div>
                     <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)', display: 'block', marginBottom: '0.15rem' }}>Nombre del Cliente:</span>
@@ -1232,7 +1707,7 @@ export default function OrdenesTrabajo({ user }) {
                     <span style={{ fontWeight: '500', color: 'var(--text-main)', fontSize: '0.95rem' }}>{selectedOTForSummary.tipo}</span>
                   </div>
 
-                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '1rem' }}>
                     <div>
                       <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)', display: 'block', marginBottom: '0.25rem' }}>Estado de OT:</span>
                       <span style={{ 
@@ -1247,11 +1722,22 @@ export default function OrdenesTrabajo({ user }) {
                     </div>
                     <div>
                       <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)', display: 'block', marginBottom: '0.25rem' }}>Fecha de Entrega:</span>
-                      <span style={{ fontWeight: '600', color: 'var(--text-main)', fontSize: '0.9rem' }}>{selectedOTForSummary.fechaEntrega}</span>
+                      <span style={{ fontWeight: '600', color: 'var(--text-main)', fontSize: '0.9rem' }}>{formatDate(selectedOTForSummary.fechaEntrega)}</span>
+                    </div>
+                    <div>
+                      <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)', display: 'block', marginBottom: '0.25rem' }}>Fin de Trabajo (Target):</span>
+                      <span style={{ fontWeight: '600', color: selectedOTForSummary.fechaFinTrabajo ? 'var(--text-main)' : 'var(--warning-color)', fontSize: '0.9rem' }}>{selectedOTForSummary.fechaFinTrabajo ? formatDate(selectedOTForSummary.fechaFinTrabajo) : 'Sin Asignar'}</span>
                     </div>
                   </div>
 
-                  <div style={{ margin: '0.75rem 0', borderTop: '1px solid var(--border-color)', borderBottom: '1px solid var(--border-color)', padding: '0.75rem 0' }}>
+                  {selectedOTForSummary.isPaused && (
+                    <div style={{ margin: '0.25rem 0', backgroundColor: 'rgba(249, 115, 22, 0.1)', padding: '0.5rem 0.75rem', borderRadius: 'var(--radius-md)', borderLeft: '3px solid #f97316' }}>
+                      <span style={{ fontSize: '0.75rem', color: '#f97316', display: 'block', marginBottom: '0.25rem', fontWeight: 'bold' }}>ORDEN BLOQUEADA</span>
+                      <span style={{ color: 'var(--text-main)', fontSize: '0.9rem' }}>Causa: <strong>{selectedOTForSummary.pauseMotivo}</strong></span>
+                    </div>
+                  )}
+
+                  <div style={{ margin: '0.5rem 0', borderTop: '1px solid var(--border-color)', borderBottom: '1px solid var(--border-color)', padding: '0.5rem 0' }}>
                     <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)', display: 'block', marginBottom: '0.5rem', fontWeight: '600', textTransform: 'uppercase' }}>Avance de la Orden (Línea de Tiempo)</span>
                     {renderTimeline(selectedOTForSummary.estado)}
                   </div>
@@ -1275,7 +1761,7 @@ export default function OrdenesTrabajo({ user }) {
 
               </div>
 
-              <div style={{ display: 'flex', justifyContent: 'flex-end', borderTop: '1px solid var(--border-color)', paddingTop: '1rem', marginTop: '1.5rem' }}>
+              <div style={{ display: 'flex', justifyContent: 'flex-end', borderTop: '1px solid var(--border-color)', paddingTop: '0.75rem', marginTop: '1rem' }}>
                 <button 
                   type="button" 
                   className="btn btn-secondary" 
