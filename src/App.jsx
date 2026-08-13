@@ -8,17 +8,23 @@ import OrdenesTrabajo from './pages/OrdenesTrabajo';
 import Perfiles from './pages/Perfiles';
 import Ajustes from './pages/Ajustes';
 import Herramientas from './pages/Herramientas';
+import RequirePasswordChange from './components/RequirePasswordChange';
+import { PermissionsProvider, usePermissions } from './contexts/PermissionsContext';
 
-// Bottom Navigation Component
-function BottomNav() {
+function BottomNav({ user }) {
   const location = useLocation();
+  const isAdmin = user?.role === 'Admin';
+  const isVentas = user?.role === 'Ventas';
+  const isProduccion = user?.role === 'Produccion';
   
   const navItems = [
     { path: '/dashboard', icon: <Home size={24} />, label: 'Inicio' },
-    { path: '/cotizaciones', icon: <FileText size={24} />, label: 'Cotizaciones' },
+    // Producción NO ve Cotizaciones
+    ...(isAdmin || isVentas ? [{ path: '/cotizaciones', icon: <FileText size={24} />, label: 'Cotizaciones' }] : []),
     { path: '/ordenes', icon: <Briefcase size={24} />, label: 'Órdenes' },
     { path: '/herramientas', icon: <Wrench size={24} />, label: 'Herramientas' },
-    { path: '/ajustes', icon: <Settings size={24} />, label: 'Ajustes' },
+    // Solo Admin ve Ajustes
+    ...(isAdmin ? [{ path: '/ajustes', icon: <Settings size={24} />, label: 'Ajustes' }] : []),
   ];
 
   return (
@@ -38,16 +44,33 @@ function BottomNav() {
 }
 
 // Layout wrapper for authenticated pages
-function AppLayout({ children, user }) {
+function AppLayout({ children, user, setUser }) {
+  const location = useLocation();
+  
   if (!user) {
     return <Navigate to="/" replace />;
   }
+
+  if (user.requires_password_change) {
+    return <RequirePasswordChange user={user} onComplete={setUser} />;
+  }
   
+  // Ruteo Protegido (Expulsar si entra por URL a donde no debe)
+  const path = location.pathname;
+  if (user.role === 'Produccion' && path.startsWith('/cotizaciones')) {
+    return <Navigate to="/dashboard" replace />;
+  }
+  if (user.role !== 'Admin' && path.startsWith('/ajustes')) {
+    return <Navigate to="/dashboard" replace />;
+  }
+
   return (
-    <div className="app-container">
-      {children}
-      <BottomNav />
-    </div>
+    <PermissionsProvider user={user}>
+      <div className="app-container">
+        {children}
+        <BottomNav user={user} />
+      </div>
+    </PermissionsProvider>
   );
 }
 
@@ -72,12 +95,12 @@ function App() {
       <Routes>
         <Route path="/" element={!user ? <Login onLogin={setUser} /> : <Navigate to="/dashboard" replace />} />
         
-        <Route path="/dashboard" element={<AppLayout user={user}><Dashboard user={user} onLogout={handleLogout} /></AppLayout>} />
-        <Route path="/cotizaciones" element={<AppLayout user={user}><Cotizaciones user={user} /></AppLayout>} />
-        <Route path="/ordenes" element={<AppLayout user={user}><OrdenesTrabajo user={user} /></AppLayout>} />
-        <Route path="/perfil" element={<AppLayout user={user}><Perfiles user={user} /></AppLayout>} />
-        <Route path="/herramientas" element={<AppLayout user={user}><Herramientas /></AppLayout>} />
-        <Route path="/ajustes" element={<AppLayout user={user}><Ajustes user={user} onLogout={handleLogout} /></AppLayout>} />
+        <Route path="/dashboard" element={<AppLayout user={user} setUser={setUser}><Dashboard user={user} onLogout={handleLogout} /></AppLayout>} />
+        <Route path="/cotizaciones" element={<AppLayout user={user} setUser={setUser}><Cotizaciones user={user} /></AppLayout>} />
+        <Route path="/ordenes" element={<AppLayout user={user} setUser={setUser}><OrdenesTrabajo user={user} /></AppLayout>} />
+        <Route path="/perfil" element={<AppLayout user={user} setUser={setUser}><Perfiles user={user} setUser={setUser} /></AppLayout>} />
+        <Route path="/herramientas" element={<AppLayout user={user} setUser={setUser}><Herramientas /></AppLayout>} />
+        <Route path="/ajustes" element={<AppLayout user={user} setUser={setUser}><Ajustes user={user} onLogout={handleLogout} /></AppLayout>} />
         
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>

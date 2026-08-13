@@ -3,11 +3,12 @@ import { Package, Search, SlidersHorizontal, X, CheckCircle, AlertTriangle } fro
 import DatePicker from 'react-datepicker';
 import 'react-datepicker/dist/react-datepicker.css';
 import { logEvent } from '../utils/logs';
-import { checkPermission } from '../utils/permissions';
+import { usePermissions } from '../contexts/PermissionsContext';
 import { supabase } from '../utils/supabaseClient';
 import { formatDate, formatDateTime } from '../utils/formatters';
 
 export default function OrdenesTrabajo({ user }) {
+  const { hasPermission } = usePermissions();
   const [searchTerm, setSearchTerm] = useState('');
   const [filterCliente, setFilterCliente] = useState('');
   const [filterFechaInicio, setFilterFechaInicio] = useState(null);

@@ -1,10 +1,12 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '../utils/supabaseClient';
+import { Eye, EyeOff } from 'lucide-react';
 
 export default function Login({ onLogin }) {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const navigate = useNavigate();
@@ -15,8 +17,11 @@ export default function Login({ onLogin }) {
     setError('');
     
     try {
+      // Logic for hybrid login: if no @ is present, it's a username, append @seis.com
+      const loginEmail = email.includes('@') ? email.trim() : `${email.trim()}@seis.com`;
+
       const { data, error: authError } = await supabase.auth.signInWithPassword({
-        email,
+        email: loginEmail,
         password
       });
 
@@ -78,32 +83,42 @@ export default function Login({ onLogin }) {
           {error && <div style={{ color: 'var(--error-color)', marginBottom: '1rem', fontSize: '0.875rem', textAlign: 'center' }}>{error}</div>}
           
           <div className="input-group">
-            <label htmlFor="email">Correo Electrónico</label>
+            <label htmlFor="email">Usuario o Correo Electrónico</label>
             <input 
               id="email"
-              type="email" 
+              type="text" 
               className="input-control" 
               value={email} 
               onChange={e => setEmail(e.target.value)}
-              placeholder="correo@empresa.com"
-              autoComplete="email"
+              placeholder="Ej: jperez o correo@seis.com"
+              autoComplete="username"
               required
               disabled={loading}
             />
           </div>
           <div className="input-group">
             <label htmlFor="password">Contraseña</label>
-            <input 
-              id="password"
-              type="password" 
-              className="input-control" 
-              value={password} 
-              onChange={e => setPassword(e.target.value)}
-              placeholder="Contraseña"
-              autoComplete="current-password"
-              required
-              disabled={loading}
-            />
+            <div style={{ position: 'relative' }}>
+              <input 
+                id="password"
+                type={showPassword ? "text" : "password"}
+                className="input-control" 
+                value={password} 
+                onChange={e => setPassword(e.target.value)}
+                placeholder="Contraseña"
+                autoComplete="current-password"
+                required
+                disabled={loading}
+                style={{ paddingRight: '2.5rem' }}
+              />
+              <button 
+                type="button" 
+                onClick={() => setShowPassword(!showPassword)}
+                style={{ position: 'absolute', right: '12px', top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', padding: 0, display: 'flex' }}
+              >
+                {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+              </button>
+            </div>
           </div>
         </div>
         

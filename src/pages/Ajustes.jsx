@@ -1,13 +1,37 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { 
   Settings, User, Bell, Shield, Moon, Sun, ChevronRight, ChevronLeft, LogOut, 
-  Users, Clock, History, Save, Trash2, Search, CheckCircle, AlertTriangle, ArrowLeft, UserPlus, X, SlidersHorizontal 
+  Users, Clock, History, Save, Trash2, Search, CheckCircle, AlertTriangle, ArrowLeft, UserPlus, X, SlidersHorizontal, Key, Edit2
 } from 'lucide-react';
 import { defaultPermissions } from '../utils/permissions';
 import { logEvent } from '../utils/logs';
 import { supabase } from '../utils/supabaseClient';
 import { formatDateTime } from '../utils/formatters';
+
+// Mapeo amigable de módulos y acciones para la UI
+const moduleMap = {
+  cotizaciones: {
+    title: 'Cotizaciones',
+    actions: { ver: 'Ver Listado', crear: 'Crear', editar: 'Editar', cambiar_estatus: 'Cambiar Estatus', anular: 'Anular', eliminar: 'Eliminar', imprimir: 'Imprimir/Exportar', gestionar_clientes: 'Gestionar Clientes' }
+  },
+  ordenes_trabajo: {
+    title: 'Órdenes de Trabajo (OT)',
+    actions: { ver: 'Ver Listado', crear: 'Crear', editar: 'Editar', asignar_tecnicos: 'Asignar Técnicos', cambiar_estatus: 'Cambiar Estatus', imprimir: 'Imprimir/Exportar', eliminar: 'Eliminar' }
+  },
+  dashboard: {
+    title: 'Dashboard (Métricas)',
+    actions: { ver_general: 'Acceso General', ver_financieros: 'Ver KPIs Financieros', ver_operativos: 'Ver Métricas Operativas' }
+  },
+  herramientas_analiticas: {
+    title: 'Herramientas y Analíticas',
+    actions: { ver_reportes: 'Ver Reportes Avanzados', exportar_datos: 'Exportar a CSV', ver_alertas: 'Ver Panel de Alertas' }
+  },
+  ajustes: {
+    title: 'Ajustes de Sistema',
+    actions: { acceso: 'Acceso a Configuración', gestionar_usuarios: 'Gestionar Usuarios', gestionar_roles: 'Configurar Roles y Permisos', configurar_kpis: 'Configurar KPIs y Metas', ver_logs: 'Ver Log de Auditoría' }
+  }
+};
 
 export default function Ajustes({ user, onLogout }) {
   const navigate = useNavigate();
@@ -23,10 +47,31 @@ export default function Ajustes({ user, onLogout }) {
   });
 
   // State for Permissions
-  const [permissions, setPermissions] = useState(() => {
-    const saved = localStorage.getItem('comunicaciones_seis_permissions');
-    return saved ? JSON.parse(saved) : defaultPermissions;
-  });
+  const [permissions, setPermissions] = useState(defaultPermissions);
+  const [isLoadingPermissions, setIsLoadingPermissions] = useState(true);
+
+  // Fetch permissions from Supabase
+  useEffect(() => {
+    const fetchAllPermissions = async () => {
+      try {
+        const { data, error } = await supabase.from('roles_permissions').select('*');
+        if (error) throw error;
+        
+        if (data && data.length > 0) {
+          const permMap = {};
+          data.forEach(row => {
+            permMap[row.role_name] = row.permissions;
+          });
+          setPermissions(permMap);
+        }
+      } catch (err) {
+        console.error('Error fetching all permissions:', err);
+      } finally {
+        setIsLoadingPermissions(false);
+      }
+    };
+    fetchAllPermissions();
+  }, []);
 
   // State for KPIs and Alerts
   const [kpiTab, setKpiTab] = useState('cotizaciones'); // 'cotizaciones' or 'ots'
@@ -48,57 +93,179 @@ export default function Ajustes({ user, onLogout }) {
   const [isLogFilterOpen, setIsLogFilterOpen] = useState(false);
 
   // State for System Users
-  const [usuarios, setUsuarios] = useState(() => {
-    const saved = localStorage.getItem('comunicaciones_seis_usuarios');
-    if (saved) return JSON.parse(saved);
-    return [
-      { id: 1, role: 'Admin', username: 'admin', name: 'Administrador' },
-      { id: 2, role: 'Ventas', username: 'ventas', name: 'Ejecutivo de Ventas' },
-      { id: 3, role: 'Produccion', username: 'prod', name: 'Jefe de Producción' }
-    ];
-  });
+  const [usuarios, setUsuarios] = useState([]);
+  const [isLoadingUsuarios, setIsLoadingUsuarios] = useState(true);
+
+  // Cargar usuarios desde la base de datos (profiles)
+  useEffect(() => {
+    const fetchUsuarios = async () => {
+      try {
+        const { data, error } = await supabase
+          .from('profiles')
+          .select('id, name, username, role, cargo, avatar_url, contact_phone');
+        
+        if (error) throw error;
+        if (data) {
+          setUsuarios(data);
+        }
+      } catch (err) {
+        console.error('Error al cargar usuarios:', err);
+      } finally {
+        setIsLoadingUsuarios(false);
+      }
+    };
+    
+    if (activeTab === 'usuarios') {
+      fetchUsuarios();
+    }
+  }, [activeTab]);
 
   const [showAddUserModal, setShowAddUserModal] = useState(false);
   const [newUserName, setNewUserName] = useState('');
   const [newUserUsername, setNewUserUsername] = useState('');
   const [newUserRole, setNewUserRole] = useState('Ventas');
+  const [newUserCargo, setNewUserCargo] = useState('Ejecutivo');
+  const [newUserPhone, setNewUserPhone] = useState('+58 ');
   const [showConfirmDeleteUser, setShowConfirmDeleteUser] = useState(null);
 
-  useEffect(() => {
-    localStorage.setItem('comunicaciones_seis_usuarios', JSON.stringify(usuarios));
-  }, [usuarios]);
+  // Edit User State
+  const [editingUserId, setEditingUserId] = useState(null);
+  const [editingUserName, setEditingUserName] = useState('');
+  const [editingUserUsername, setEditingUserUsername] = useState('');
+  const [editingUserRole, setEditingUserRole] = useState('Ventas');
+  const [editingUserCargo, setEditingUserCargo] = useState('');
+  const [editingUserPhone, setEditingUserPhone] = useState('');
+  const [editAvatarUrl, setEditAvatarUrl] = useState(null);
+  const [editAvatarFile, setEditAvatarFile] = useState(null);
+  const [isSavingEdit, setIsSavingEdit] = useState(false);
+  const editAvatarInputRef = useRef(null);
 
-  const handleAddUser = (e) => {
+  const openEditUserModal = (userItem) => {
+    setEditingUserId(userItem.id);
+    setEditingUserName(userItem.name || '');
+    setEditingUserUsername(userItem.username || '');
+    setEditingUserRole(userItem.role || 'Ventas');
+    setEditingUserCargo(userItem.cargo || '');
+    setEditingUserPhone(userItem.contact_phone || '');
+    setEditAvatarUrl(userItem.avatar_url || '/FotoPerfilPlantilla.jpg');
+    setEditAvatarFile(null);
+  };
+
+  const handleSaveEditUser = async (e) => {
+    e.preventDefault();
+    setIsSavingEdit(true);
+    try {
+      let finalAvatarUrl = editAvatarUrl;
+
+      if (editAvatarFile) {
+        const fileExt = editAvatarFile.name.split('.').pop();
+        const fileName = `${editingUserId}-${Date.now()}.${fileExt}`;
+        const filePath = `${fileName}`;
+
+        const { error: uploadError } = await supabase.storage
+          .from('avatars')
+          .upload(filePath, editAvatarFile, { upsert: true });
+
+        if (uploadError) throw new Error('No se pudo subir la foto.');
+
+        const { data } = supabase.storage
+          .from('avatars')
+          .getPublicUrl(filePath);
+          
+        finalAvatarUrl = data?.publicUrl;
+      }
+
+      const { error } = await supabase
+        .from('profiles')
+        .update({
+          name: editingUserName.trim(),
+          role: editingUserRole,
+          cargo: editingUserCargo.trim(),
+          contact_phone: editingUserPhone.trim(),
+          avatar_url: finalAvatarUrl
+        })
+        .eq('id', editingUserId);
+
+      if (error) throw error;
+
+      setUsuarios(prev => prev.map(u => 
+        u.id === editingUserId ? { ...u, name: editingUserName.trim(), role: editingUserRole, cargo: editingUserCargo.trim(), contact_phone: editingUserPhone.trim(), avatar_url: finalAvatarUrl } : u
+      ));
+      
+      logEvent(currentUser, 'Edición de Usuario', `Se actualizó el perfil de @${editingUserUsername}`);
+      showNotification('Usuario actualizado exitosamente');
+      setEditingUserId(null);
+    } catch (err) {
+      console.error('Error al editar usuario:', err);
+      showNotification(err.message || 'Error al guardar los cambios. Asegúrate de tener permisos.', 'error');
+    } finally {
+      setIsSavingEdit(false);
+    }
+  };
+  const handleAddUser = async (e) => {
     e.preventDefault();
     if (!newUserName.trim() || !newUserUsername.trim()) return;
 
-    const newUser = {
-      id: Date.now(),
-      name: newUserName.trim(),
-      username: newUserUsername.trim().toLowerCase(),
-      role: newUserRole
-    };
+    try {
+      // Llamada a la Edge Function segura para crear el usuario en Supabase Auth
+      const { data, error } = await supabase.functions.invoke('create-user', {
+        body: {
+          email: `${newUserUsername.trim().toLowerCase()}@seis.com`, // Email autogenerado para el login
+          password: 'Password123!', // Contraseña por defecto
+          name: newUserName.trim(),
+          username: newUserUsername.trim().toLowerCase(),
+          role: newUserRole,
+          cargo: newUserCargo.trim(),
+          contact_phone: newUserPhone.trim()
+        }
+      });
 
-    setUsuarios(prev => [...prev, newUser]);
-    logEvent(currentUser, 'Creación de Usuario', `Se creó el usuario @${newUser.username} (${newUser.name}) con el rol de ${newUser.role}`);
-    
-    setNewUserName('');
-    setNewUserUsername('');
-    setNewUserRole('Ventas');
-    setShowAddUserModal(false);
-    showNotification('Usuario creado exitosamente');
+      if (error) throw new Error(error.message || 'Error invocando la función');
+
+      // Agregar visualmente a la lista sin recargar
+      const newUser = {
+        id: data?.user?.id || Date.now().toString(),
+        name: newUserName.trim(),
+        username: newUserUsername.trim().toLowerCase(),
+        role: newUserRole
+      };
+
+      setUsuarios(prev => [...prev, newUser]);
+      logEvent(currentUser, 'Creación de Usuario', `Se creó el usuario @${newUser.username} (${newUser.name}) con el rol de ${newUser.role}`);
+      
+      setNewUserName('');
+      setNewUserUsername('');
+      setNewUserRole('Ventas');
+      setNewUserCargo('Ejecutivo');
+      setNewUserPhone('+58 ');
+      setShowAddUserModal(false);
+      showNotification('Usuario creado exitosamente (Contraseña por defecto: Password123!)');
+    } catch (err) {
+      console.error('Error creando usuario:', err);
+      showNotification('Hubo un error al crear el usuario. Asegúrate de haber desplegado la Edge Function.', 'error');
+    }
   };
 
   const handleDeleteUser = () => {
     if (!showConfirmDeleteUser) return;
-    const userToDelete = usuarios.find(u => u.id === showConfirmDeleteUser);
-    if (!userToDelete) return;
-
     setUsuarios(prev => prev.filter(u => u.id !== showConfirmDeleteUser));
-    logEvent(currentUser, 'Eliminación de Usuario', `Se eliminó al usuario @${userToDelete.username} (${userToDelete.name})`);
-    
+    logEvent(currentUser, 'Eliminación de Usuario', `Se eliminó un usuario del sistema`);
     setShowConfirmDeleteUser(null);
-    showNotification('Usuario eliminado del sistema');
+    showNotification('Usuario eliminado exitosamente');
+  };
+
+  const handleResetPassword = async (userId) => {
+    try {
+      const { error } = await supabase.functions.invoke('reset-password', {
+        body: { userId }
+      });
+      if (error) throw error;
+      showNotification('Contraseña reseteada a: Password123!');
+      logEvent(currentUser, 'Reset de Contraseña', `Se reseteó la contraseña del usuario ${userId}`);
+    } catch (err) {
+      console.error('Error reseteando clave:', err);
+      showNotification('Error al resetear la clave', 'error');
+    }
   };
 
   useEffect(() => {
@@ -160,10 +327,24 @@ export default function Ajustes({ user, onLogout }) {
     logEvent(currentUser, 'Cambio de Tema', `Se cambió a modo ${isLight ? 'Claro' : 'Oscuro'}`);
   };
 
-  const savePermissions = () => {
-    localStorage.setItem('comunicaciones_seis_permissions', JSON.stringify(permissions));
-    logEvent(currentUser, 'Modificación de Permisos', 'Se actualizaron las reglas de roles y accesos');
-    showNotification('Permisos guardados correctamente');
+  const savePermissions = async () => {
+    try {
+      // Loop over the keys (Admin, Ventas, Produccion) and update
+      const promises = Object.keys(permissions).map(role => {
+        return supabase.from('roles_permissions')
+          .update({ permissions: permissions[role] })
+          .eq('role_name', role);
+      });
+      const results = await Promise.all(promises);
+      results.forEach(res => {
+        if (res.error) throw res.error;
+      });
+      logEvent(currentUser, 'Modificación de Permisos', 'Se actualizaron las reglas de roles y accesos');
+      showNotification('Permisos guardados correctamente');
+    } catch (err) {
+      console.error('Error saving permissions:', err);
+      showNotification('Error al guardar permisos');
+    }
   };
 
   const saveKPIs = async () => {
@@ -205,14 +386,38 @@ export default function Ajustes({ user, onLogout }) {
     setMessage(text);
   };
 
-  const handlePermissionChange = (role, permissionKey) => {
-    setPermissions(prev => ({
-      ...prev,
-      [role]: {
-        ...prev[role],
-        [permissionKey]: !prev[role][permissionKey]
-      }
-    }));
+  const handlePermissionChange = (role, module, action) => {
+    setPermissions(prev => {
+      const currentModule = prev[role]?.[module] || {};
+      const currentValue = currentModule[action] || false;
+      return {
+        ...prev,
+        [role]: {
+          ...prev[role],
+          [module]: {
+            ...currentModule,
+            [action]: !currentValue
+          }
+        }
+      };
+    });
+  };
+
+  const handleSelectAllModule = (role, module, value) => {
+    setPermissions(prev => {
+      const updatedModule = { ...prev[role]?.[module] };
+      const actions = Object.keys(moduleMap[module].actions);
+      actions.forEach(action => {
+        updatedModule[action] = value;
+      });
+      return {
+        ...prev,
+        [role]: {
+          ...prev[role],
+          [module]: updatedModule
+        }
+      };
+    });
   };
 
   const handleKPIChange = (key, value) => {
@@ -288,7 +493,7 @@ export default function Ajustes({ user, onLogout }) {
             <p style={{ margin: '0 0 1.5rem 0', color: 'var(--text-muted)' }}>{message}</p>
             <button 
               className="btn btn-primary" 
-              style={{ width: '100%', justifyContent: 'center', color: '#ffffff' }}
+              style={{ width: '100%', justifyContent: 'center', color: isLightMode ? '#ffffff' : '#000000' }}
               onClick={() => setMessage('')}
             >
               Aceptar
@@ -361,167 +566,87 @@ export default function Ajustes({ user, onLogout }) {
       {/* Visual Roles & Permissions configuration screen */}
       {activeTab === 'roles' && (() => {
         const rolesKeys = Object.keys(permissions);
+        const currentRole = rolesKeys[currentRoleIndex];
+
         return (
-          <div>
-            <p style={{ marginBottom: '1.5rem', fontSize: '0.9rem' }}>
-              Configura visualmente los permisos asignados a cada uno de los roles principales del sistema de gestión.
-            </p>
+          <div style={{ display: 'flex', flexDirection: 'column', height: '100%', gap: '1.5rem' }}>
+            <div>
+              <p style={{ margin: '0 0 1rem 0', fontSize: '0.9rem', color: 'var(--text-muted)' }}>
+                Configura detalladamente los permisos de acceso y acciones permitidas para cada módulo del sistema.
+              </p>
 
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '0.5rem', margin: '0 -0.5rem' }}>
-              <button 
-                className="carousel-nav-btn" 
-                onClick={() => setCurrentRoleIndex(prev => (prev - 1 + rolesKeys.length) % rolesKeys.length)}
-                aria-label="Anterior"
-                style={{ flexShrink: 0 }}
-              >
-                <ChevronLeft size={24} />
-              </button>
-
-              <div style={{ position: 'relative', height: '360px', flex: 1, margin: '0 40px 0 10px', display: 'flex', justifyContent: 'center', alignItems: 'center' }}>
-                {rolesKeys.map((role, idx) => {
-                  const offset = (idx - currentRoleIndex + rolesKeys.length) % rolesKeys.length;
-                  
-                  // Rotation & Scaling for Stack effect (Matching CotizacionForm exactly!)
-                  let transformStyle = 'translateX(54px) translateY(24px) scale(0.88) rotate(4.5deg)';
-                  let zIndexVal = 0;
-                  let opacityVal = 0;
-                  let pointerVal = 'none';
-
-                  if (offset === 0) {
-                    transformStyle = 'translateX(0) scale(1) rotate(0deg)';
-                    zIndexVal = 3;
-                    opacityVal = 1;
-                    pointerVal = 'auto';
-                  } else if (offset === 1) {
-                    transformStyle = 'translateX(18px) translateY(8px) scale(0.96) rotate(1.5deg)';
-                    zIndexVal = 2;
-                    opacityVal = 0.85;
-                    pointerVal = 'none';
-                  } else if (offset === 2) {
-                    transformStyle = 'translateX(36px) translateY(16px) scale(0.92) rotate(3deg)';
-                    zIndexVal = 1;
-                    opacityVal = 0.6;
-                    pointerVal = 'none';
-                  }
-
-                  return (
-                    <div 
-                      key={role} 
-                      style={{ 
-                        position: 'absolute',
-                        top: 0,
-                        left: 0,
-                        width: '100%',
-                        height: '100%',
-                        backgroundColor: 'var(--surface-color)',
-                        border: '1px solid var(--border-color)',
-                        borderRadius: 'var(--radius-lg)',
-                        padding: '1.5rem',
-                        display: 'flex', 
-                        flexDirection: 'column',
-                        transition: 'all 0.4s cubic-bezier(0.4, 0, 0.2, 1)',
-                        boxShadow: offset === 0 ? '0 10px 25px -5px rgba(0,0,0,0.3)' : 'none',
-                        transform: transformStyle,
-                        zIndex: zIndexVal,
-                        opacity: opacityVal,
-                        pointerEvents: pointerVal,
-                        cursor: offset > 0 ? 'pointer' : 'default'
-                      }}
-                      onClick={() => {
-                        if (offset > 0) {
-                          setCurrentRoleIndex(idx);
-                        }
-                      }}
-                    >
-                      <h3 style={{ 
-                        borderBottom: '1px solid var(--border-color)', 
-                        paddingBottom: '0.75rem', 
-                        marginBottom: '1rem',
-                        color: isLightMode ? 'var(--primary-color)' : 'rgb(46, 196, 210)'
-                      }}>
-                        Rol: {role === 'Admin' ? 'Administrador' : role === 'Ventas' ? 'Ejecutivo de Ventas' : 'Jefe de Producción'}
-                      </h3>
-
-                      <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem', flex: 1, justifyContent: 'center' }}>
-                        <div style={permissionRowStyle}>
-                          <label htmlFor={`perm-crear-${role}`} style={{ cursor: 'pointer', margin: 0, fontWeight: '500' }}>Crear y Editar Cotizaciones</label>
-                          <input 
-                            id={`perm-crear-${role}`}
-                            type="checkbox" 
-                            checked={permissions[role].crear_cotizaciones}
-                            onChange={() => handlePermissionChange(role, 'crear_cotizaciones')}
-                            style={checkboxStyle}
-                          />
-                        </div>
-
-                        <div style={permissionRowStyle}>
-                          <label htmlFor={`perm-eliminar-${role}`} style={{ cursor: 'pointer', margin: 0, fontWeight: '500' }}>Eliminar Cotizaciones</label>
-                          <input 
-                            id={`perm-eliminar-${role}`}
-                            type="checkbox" 
-                            checked={permissions[role].eliminar_cotizaciones}
-                            onChange={() => handlePermissionChange(role, 'eliminar_cotizaciones')}
-                            style={checkboxStyle}
-                          />
-                        </div>
-
-                        <div style={permissionRowStyle}>
-                          <label htmlFor={`perm-aprobar-${role}`} style={{ cursor: 'pointer', margin: 0, fontWeight: '500' }}>Aprobar y Anular Cotizaciones</label>
-                          <input 
-                            id={`perm-aprobar-${role}`}
-                            type="checkbox" 
-                            checked={permissions[role].aprobar_cotizaciones}
-                            onChange={() => handlePermissionChange(role, 'aprobar_cotizaciones')}
-                            style={checkboxStyle}
-                          />
-                        </div>
-
-                        <div style={permissionRowStyle}>
-                          <label htmlFor={`perm-ot-${role}`} style={{ cursor: 'pointer', margin: 0, fontWeight: '500' }}>Gestionar Órdenes de Trabajo</label>
-                          <input 
-                            id={`perm-ot-${role}`}
-                            type="checkbox" 
-                            checked={permissions[role].gestionar_ordenes}
-                            onChange={() => handlePermissionChange(role, 'gestionar_ordenes')}
-                            style={checkboxStyle}
-                          />
-                        </div>
-
-                        <div style={permissionRowStyle}>
-                          <label htmlFor={`perm-sys-${role}`} style={{ cursor: 'pointer', margin: 0, fontWeight: '500' }}>Configurar Ajustes y KPIs</label>
-                          <input 
-                            id={`perm-sys-${role}`}
-                            type="checkbox" 
-                            checked={permissions[role].configurar_sistema}
-                            onChange={() => handlePermissionChange(role, 'configurar_sistema')}
-                            style={checkboxStyle}
-                          />
-                        </div>
-                      </div>
-                    </div>
-                  );
-                })}
+              {/* Selector de Rol (Tabs) */}
+              <div style={{ display: 'flex', gap: '0.5rem', overflowX: 'auto', paddingBottom: '0.5rem' }}>
+                {rolesKeys.map((role, idx) => (
+                  <button
+                    key={role}
+                    onClick={() => setCurrentRoleIndex(idx)}
+                    className="btn"
+                    style={{
+                      flex: 1,
+                      minWidth: '120px',
+                      padding: '0.75rem 1rem',
+                      borderRadius: '8px',
+                      border: idx === currentRoleIndex ? '2px solid var(--primary-color)' : '1px solid var(--border-color)',
+                      backgroundColor: idx === currentRoleIndex ? 'color-mix(in srgb, var(--primary-color) 10%, transparent)' : 'var(--surface-color)',
+                      color: idx === currentRoleIndex ? 'var(--primary-color)' : 'var(--text-muted)',
+                      fontWeight: idx === currentRoleIndex ? 'bold' : 'normal',
+                      transition: 'all 0.2s ease'
+                    }}
+                  >
+                    {role === 'Admin' ? 'Administrador' : role === 'Ventas' ? 'Ventas' : 'Producción'}
+                  </button>
+                ))}
               </div>
-
-              <button 
-                className="carousel-nav-btn" 
-                onClick={() => setCurrentRoleIndex(prev => (prev + 1) % rolesKeys.length)}
-                aria-label="Siguiente"
-                style={{ flexShrink: 0 }}
-              >
-                <ChevronRight size={24} />
-              </button>
             </div>
 
-            <div className="carousel-dots">
-              {Object.keys(permissions).map((_, idx) => (
-                <button 
-                  key={idx}
-                  className={`carousel-dot ${idx === currentRoleIndex ? 'active' : ''}`}
-                  onClick={() => setCurrentRoleIndex(idx)}
-                  aria-label={`Ir al rol ${idx + 1}`}
-                />
-              ))}
+            {/* Grid de Paneles de Módulos */}
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '1rem', overflowY: 'auto', paddingRight: '4px' }}>
+              {Object.keys(moduleMap).map(moduleKey => {
+                const moduleDef = moduleMap[moduleKey];
+                return (
+                  <div key={moduleKey} className="card" style={{ padding: '1.25rem', display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', paddingBottom: '0.5rem', borderBottom: '1px solid var(--border-color)' }}>
+                      <h4 style={{ margin: 0, color: 'var(--text-main)', fontSize: '1rem' }}>
+                        {moduleDef.title}
+                      </h4>
+                      {(() => {
+                        const isAllChecked = Object.keys(moduleDef.actions).every(actionKey => permissions[currentRole]?.[moduleKey]?.[actionKey]);
+                        return (
+                          <label style={{ display: 'flex', alignItems: 'center', gap: '0.35rem', cursor: 'pointer', margin: 0, fontSize: '0.75rem', color: 'var(--text-muted)' }}>
+                            Todos
+                            <input 
+                              type="checkbox" 
+                              checked={isAllChecked}
+                              onChange={(e) => handleSelectAllModule(currentRole, moduleKey, e.target.checked)}
+                              style={{ margin: 0 }}
+                            />
+                          </label>
+                        );
+                      })()}
+                    </div>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', flex: 1 }}>
+                      {Object.keys(moduleDef.actions).map(actionKey => {
+                        const isChecked = permissions[currentRole]?.[moduleKey]?.[actionKey] || false;
+                        return (
+                          <div key={actionKey} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '0.35rem 0' }}>
+                            <label htmlFor={`perm-${currentRole}-${moduleKey}-${actionKey}`} style={{ cursor: 'pointer', margin: 0, fontSize: '0.85rem', color: isChecked ? 'var(--text-main)' : 'var(--text-muted)' }}>
+                              {moduleDef.actions[actionKey]}
+                            </label>
+                            <input
+                              id={`perm-${currentRole}-${moduleKey}-${actionKey}`}
+                              type="checkbox"
+                              checked={isChecked}
+                              onChange={() => handlePermissionChange(currentRole, moduleKey, actionKey)}
+                              style={{ ...checkboxStyle, transform: 'scale(0.9)', margin: 0 }}
+                            />
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                );
+              })}
             </div>
 
             <div style={buttonContainerStyle}>
@@ -574,21 +699,44 @@ export default function Ajustes({ user, onLogout }) {
               };
 
               return (
-                <div key={userItem.id} className="card" style={{ margin: 0, display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '1rem' }}>
+                <div 
+                  key={userItem.id} 
+                  className="card hoverable" 
+                  onClick={() => openEditUserModal(userItem)}
+                  style={{ margin: 0, display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '1rem', cursor: 'pointer', transition: 'transform 0.2s, background 0.2s' }}
+                >
                   <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
-                    <div style={{ 
-                      width: '44px', 
-                      height: '44px', 
-                      borderRadius: '50%', 
-                      background: 'linear-gradient(135deg, var(--primary-color) 0%, var(--border-color) 100%)',
-                      color: 'white', 
-                      display: 'flex', 
-                      alignItems: 'center', 
-                      justifyContent: 'center',
-                      fontWeight: 'bold',
-                      fontSize: '1rem'
-                    }}>
-                      {userInitials}
+                    <div style={{ position: 'relative', width: '44px', height: '44px', flexShrink: 0 }}>
+                      <img 
+                        src={userItem.avatar_url || '/FotoPerfilPlantilla.jpg'} 
+                        alt={userItem.name}
+                        style={{ 
+                          width: '44px', 
+                          height: '44px', 
+                          borderRadius: '50%', 
+                          objectFit: 'cover',
+                          backgroundColor: 'var(--border-color)',
+                          boxShadow: '0 2px 4px rgba(0,0,0,0.1)'
+                        }}
+                        onError={(e) => {
+                          e.target.style.display = 'none';
+                          e.target.nextSibling.style.display = 'flex';
+                        }}
+                      />
+                      <div style={{ 
+                        display: 'none',
+                        width: '44px', 
+                        height: '44px', 
+                        borderRadius: '50%', 
+                        background: 'linear-gradient(135deg, var(--primary-color) 0%, var(--border-color) 100%)',
+                        color: 'white', 
+                        alignItems: 'center', 
+                        justifyContent: 'center',
+                        fontWeight: 'bold',
+                        fontSize: '1rem'
+                      }}>
+                        {userInitials}
+                      </div>
                     </div>
                     <div>
                       <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flexWrap: 'wrap' }}>
@@ -609,21 +757,41 @@ export default function Ajustes({ user, onLogout }) {
                     </div>
                   </div>
 
-                  {userItem.username !== currentUser.username && userItem.username !== 'admin' && (
-                    <button 
-                      onClick={() => setShowConfirmDeleteUser(userItem.id)} 
-                      style={{ 
-                        background: 'none', 
-                        border: 'none', 
-                        cursor: 'pointer', 
-                        color: 'var(--error-color)',
-                        padding: '0.5rem'
-                      }}
-                      title="Eliminar usuario"
-                    >
-                      <Trash2 size={18} />
-                    </button>
-                  )}
+                  <div style={{ display: 'flex', gap: '0.5rem' }}>
+                    {/* Botón de Reset de Clave */}
+                    {userItem.username !== currentUser.username && (
+                      <button 
+                        onClick={(e) => { e.stopPropagation(); handleResetPassword(userItem.id); }} 
+                        style={{ 
+                          background: 'none', 
+                          border: 'none', 
+                          cursor: 'pointer', 
+                          color: 'var(--primary-color)',
+                          padding: '0.5rem'
+                        }}
+                        title="Resetear contraseña a Password123!"
+                      >
+                        <Key size={18} />
+                      </button>
+                    )}
+
+                    {/* Botón de Eliminar */}
+                    {userItem.username !== currentUser.username && userItem.username !== 'admin' && (
+                      <button 
+                        onClick={(e) => { e.stopPropagation(); setShowConfirmDeleteUser(userItem.id); }} 
+                        style={{ 
+                          background: 'none', 
+                          border: 'none', 
+                          cursor: 'pointer', 
+                          color: 'var(--error-color)',
+                          padding: '0.5rem'
+                        }}
+                        title="Eliminar usuario"
+                      >
+                        <Trash2 size={18} />
+                      </button>
+                    )}
+                  </div>
                 </div>
               );
             })}
@@ -657,73 +825,365 @@ export default function Ajustes({ user, onLogout }) {
           zIndex: 1000,
           padding: '1.5rem'
         }}>
-          <form onSubmit={handleAddUser} className="card glass-panel" style={{ width: '100%', maxWidth: '400px', padding: '1.5rem', margin: 0 }}>
-            <h3 style={{ marginBottom: '1.25rem', color: 'var(--primary-color)', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-              <UserPlus size={20} /> Añadir Nuevo Usuario
-            </h3>
+          <div className="card glass-panel" style={{ 
+            width: '100%', 
+            maxWidth: '600px', 
+            padding: '0', 
+            margin: 0, 
+            overflowY: 'auto', 
+            maxHeight: '90vh',
+            display: 'flex',
+            flexDirection: 'column'
+          }}>
+            
+            {/* Header / Foto por Defecto */}
+            <div style={{ 
+              display: 'flex', 
+              alignItems: 'center', 
+              flexWrap: 'wrap',
+              gap: '1.25rem', 
+              padding: '1.5rem', 
+              borderBottom: '1px solid var(--border-color)',
+              backgroundColor: 'rgba(0,0,0,0.1)'
+            }}>
+              <div style={{ position: 'relative', flexShrink: 0 }}>
+                <img 
+                  src="/FotoPerfilPlantilla.jpg" 
+                  alt="Perfil por Defecto" 
+                  style={{ 
+                    width: '90px', 
+                    height: '90px', 
+                    borderRadius: '14px', 
+                    objectFit: 'cover',
+                    boxShadow: '0 4px 12px rgba(0,0,0,0.15)',
+                    backgroundColor: 'var(--border-color)'
+                  }} 
+                  onError={(e) => {
+                    e.target.style.display = 'none';
+                    e.target.nextSibling.style.display = 'flex';
+                  }}
+                />
+                {/* Fallback si la imagen no se encuentra */}
+                <div style={{ 
+                  display: 'none',
+                  width: '90px', 
+                  height: '90px', 
+                  borderRadius: '14px', 
+                  background: 'linear-gradient(135deg, var(--primary-color) 0%, var(--primary-dark-color, #1e1b4b) 100%)', 
+                  color: 'white', 
+                  alignItems: 'center', 
+                  justifyContent: 'center',
+                  fontSize: '2.5rem',
+                  fontWeight: 'bold',
+                  boxShadow: '0 4px 12px rgba(0,0,0,0.15)'
+                }}>
+                  <User size={40} />
+                </div>
+              </div>
 
-            <div className="input-group">
-              <label htmlFor="new-user-name">Nombre Completo</label>
-              <input 
-                id="new-user-name"
-                type="text" 
-                className="input-control" 
-                value={newUserName}
-                onChange={e => setNewUserName(e.target.value)}
-                placeholder="Ej. Juan Pérez"
-                required
-              />
+              <div>
+                <h3 style={{ margin: '0 0 0.25rem 0', display: 'flex', alignItems: 'center', gap: '0.5rem', fontSize: '1.4rem', color: 'var(--text-main)' }}>
+                  Añadir Nuevo Usuario
+                </h3>
+                <p style={{ margin: 0, color: 'var(--text-muted)', fontSize: '0.9rem' }}>
+                  Complete los datos personales y de acceso del nuevo empleado.
+                </p>
+              </div>
             </div>
 
-            <div className="input-group">
-              <label htmlFor="new-user-username">Nombre de Usuario (Login)</label>
-              <input 
-                id="new-user-username"
-                type="text" 
-                className="input-control" 
-                value={newUserUsername}
-                onChange={e => setNewUserUsername(e.target.value.replace(/\s+/g, ''))}
-                placeholder="Ej. jperez"
-                required
-              />
-            </div>
+            <form onSubmit={handleAddUser} style={{ padding: '1.5rem' }}>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: '1rem', marginBottom: '1.5rem' }}>
+                
+                <div className="input-group" style={{ marginBottom: 0 }}>
+                  <label htmlFor="new-user-name" style={{ color: 'var(--text-muted)', fontWeight: '600', fontSize: '0.85rem', marginBottom: '0.4rem' }}>Nombre Completo</label>
+                  <input 
+                    id="new-user-name"
+                    type="text" 
+                    className="input-control" 
+                    value={newUserName}
+                    onChange={e => setNewUserName(e.target.value)}
+                    placeholder="Ej. Juan Pérez"
+                    required
+                  />
+                </div>
 
-            <div className="input-group" style={{ marginBottom: '1.75rem' }}>
-              <label htmlFor="new-user-role">Rol del Sistema</label>
-              <select 
-                id="new-user-role"
-                className="input-control" 
-                value={newUserRole}
-                onChange={e => setNewUserRole(e.target.value)}
+                <div className="input-group" style={{ marginBottom: 0 }}>
+                  <label htmlFor="new-user-cargo" style={{ color: 'var(--text-muted)', fontWeight: '600', fontSize: '0.85rem', marginBottom: '0.4rem' }}>Cargo</label>
+                  <input 
+                    id="new-user-cargo"
+                    type="text" 
+                    className="input-control" 
+                    value={newUserCargo}
+                    onChange={e => setNewUserCargo(e.target.value)}
+                    placeholder="Ej. Especialista en Ventas"
+                    required
+                  />
+                </div>
+
+                <div className="input-group" style={{ marginBottom: 0 }}>
+                  <label htmlFor="new-user-role" style={{ color: 'var(--text-muted)', fontWeight: '600', fontSize: '0.85rem', marginBottom: '0.4rem' }}>Área de Trabajo (Rol)</label>
+                  <select 
+                    id="new-user-role"
+                    className="input-control" 
+                    value={newUserRole}
+                    onChange={e => setNewUserRole(e.target.value)}
+                  >
+                    <option value="Ventas">Ventas</option>
+                    <option value="Produccion">Producción</option>
+                    <option value="Admin">Administración</option>
+                  </select>
+                </div>
+
+                <div className="input-group" style={{ marginBottom: 0 }}>
+                  <label htmlFor="new-user-username" style={{ color: 'var(--text-muted)', fontWeight: '600', fontSize: '0.85rem', marginBottom: '0.4rem' }}>Nombre de Usuario (Login)</label>
+                  <input 
+                    id="new-user-username"
+                    type="text" 
+                    className="input-control" 
+                    value={newUserUsername}
+                    onChange={e => setNewUserUsername(e.target.value.replace(/\s+/g, ''))}
+                    placeholder="Ej. jperez"
+                    required
+                  />
+                  <small style={{ color: 'var(--text-muted)', fontSize: '0.75rem', marginTop: '0.2rem', display: 'block' }}>
+                    Correo autogenerado: {newUserUsername ? `${newUserUsername.toLowerCase()}@seis.com` : '...@seis.com'}
+                  </small>
+                </div>
+
+                <div className="input-group" style={{ marginBottom: 0 }}>
+                  <label htmlFor="new-user-phone" style={{ color: 'var(--text-muted)', fontWeight: '600', fontSize: '0.85rem', marginBottom: '0.4rem' }}>Teléfono</label>
+                  <input 
+                    id="new-user-phone"
+                    type="tel" 
+                    className="input-control" 
+                    value={newUserPhone}
+                    onChange={e => setNewUserPhone(e.target.value)}
+                    placeholder="Ej. +58 414 1234567"
+                  />
+                </div>
+
+              </div>
+
+              <div style={{ display: 'flex', gap: '1rem', marginTop: '1.5rem', flexWrap: 'wrap' }}>
+                <button 
+                  type="button"
+                  onClick={() => {
+                    setShowAddUserModal(false);
+                    setNewUserName('');
+                    setNewUserUsername('');
+                    setNewUserCargo('Ejecutivo');
+                    setNewUserPhone('+58 ');
+                  }} 
+                  className="btn btn-secondary" 
+                  style={{ flex: '1 1 120px', justifyContent: 'center' }}
+                >
+                  Cancelar
+                </button>
+                <button 
+                  type="submit" 
+                  className="btn btn-primary" 
+                  style={{ flex: '1 1 120px', justifyContent: 'center' }}
+                >
+                  Crear Usuario
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Edit User Modal */}
+      {editingUserId && (
+        <div style={{
+          position: 'fixed',
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          background: 'rgba(0, 0, 0, 0.7)',
+          backdropFilter: 'blur(4px)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          zIndex: 1000,
+          padding: '1.5rem'
+        }}>
+          <div className="card glass-panel" style={{ 
+            width: '100%', 
+            maxWidth: '600px', 
+            padding: '0', 
+            margin: 0, 
+            overflowY: 'auto', 
+            maxHeight: '90vh',
+            display: 'flex',
+            flexDirection: 'column'
+          }}>
+            
+            <div style={{ 
+              display: 'flex', 
+              alignItems: 'center', 
+              flexWrap: 'wrap',
+              gap: '1.25rem', 
+              padding: '1.5rem', 
+              borderBottom: '1px solid var(--border-color)',
+              backgroundColor: 'rgba(0,0,0,0.1)'
+            }}>
+              <div 
+                style={{ position: 'relative', flexShrink: 0, cursor: 'pointer' }}
+                onClick={() => editAvatarInputRef.current?.click()}
               >
-                <option value="Ventas">Ejecutivo de Ventas</option>
-                <option value="Produccion">Jefe de Producción</option>
-                <option value="Admin">Administrador</option>
-              </select>
+                <img 
+                  src={editAvatarFile ? URL.createObjectURL(editAvatarFile) : editAvatarUrl} 
+                  alt="Perfil" 
+                  style={{ 
+                    width: '90px', 
+                    height: '90px', 
+                    borderRadius: '14px', 
+                    objectFit: 'cover',
+                    boxShadow: '0 4px 12px rgba(0,0,0,0.15)',
+                    backgroundColor: 'var(--border-color)'
+                  }} 
+                  onError={(e) => {
+                    e.target.style.display = 'none';
+                    e.target.nextSibling.style.display = 'flex';
+                  }}
+                />
+                <div style={{ 
+                  display: 'none',
+                  width: '90px', 
+                  height: '90px', 
+                  borderRadius: '14px', 
+                  background: 'linear-gradient(135deg, var(--primary-color) 0%, var(--primary-dark-color, #1e1b4b) 100%)', 
+                  color: 'white', 
+                  alignItems: 'center', 
+                  justifyContent: 'center',
+                  fontSize: '2.5rem',
+                  fontWeight: 'bold',
+                  boxShadow: '0 4px 12px rgba(0,0,0,0.15)'
+                }}>
+                  <User size={40} />
+                </div>
+                <div 
+                  style={{
+                    position: 'absolute', top: 0, left: 0, width: '100%', height: '100%',
+                    background: 'rgba(0,0,0,0.5)', borderRadius: '14px',
+                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    opacity: 0, transition: 'opacity 0.2s', cursor: 'pointer'
+                  }}
+                  onMouseEnter={e => e.currentTarget.style.opacity = 1}
+                  onMouseLeave={e => e.currentTarget.style.opacity = 0}
+                >
+                  <Edit2 color="white" size={24} />
+                </div>
+                <input 
+                  type="file" 
+                  ref={editAvatarInputRef} 
+                  style={{ display: 'none' }} 
+                  accept="image/*"
+                  onChange={(e) => {
+                    if (e.target.files && e.target.files[0]) {
+                      setEditAvatarFile(e.target.files[0]);
+                    }
+                  }}
+                />
+              </div>
+
+              <div>
+                <h3 style={{ margin: '0 0 0.25rem 0', display: 'flex', alignItems: 'center', gap: '0.5rem', fontSize: '1.4rem', color: 'var(--text-main)' }}>
+                  Editar Usuario
+                </h3>
+                <p style={{ margin: 0, color: 'var(--text-muted)', fontSize: '0.9rem' }}>
+                  Modifique los datos personales y foto del empleado.
+                </p>
+              </div>
             </div>
 
-            <div style={buttonContainerStyle}>
-              <button 
-                type="submit" 
-                className="btn btn-solid" 
-                style={{ flex: 1 }}
-              >
-                Crear Usuario
-              </button>
-              <button 
-                type="button"
-                onClick={() => {
-                  setShowAddUserModal(false);
-                  setNewUserName('');
-                  setNewUserUsername('');
-                }} 
-                className="btn btn-secondary" 
-                style={{ flex: 1 }}
-              >
-                Cancelar
-              </button>
-            </div>
-          </form>
+            <form onSubmit={handleSaveEditUser} style={{ padding: '1.5rem' }}>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: '1rem', marginBottom: '1.5rem' }}>
+                
+                <div className="input-group" style={{ marginBottom: 0 }}>
+                  <label htmlFor="edit-user-name" style={{ color: 'var(--text-muted)', fontWeight: '600', fontSize: '0.85rem', marginBottom: '0.4rem' }}>Nombre Completo</label>
+                  <input 
+                    id="edit-user-name"
+                    type="text" 
+                    className="input-control" 
+                    value={editingUserName}
+                    onChange={e => setEditingUserName(e.target.value)}
+                    required
+                  />
+                </div>
+
+                <div className="input-group" style={{ marginBottom: 0 }}>
+                  <label htmlFor="edit-user-cargo" style={{ color: 'var(--text-muted)', fontWeight: '600', fontSize: '0.85rem', marginBottom: '0.4rem' }}>Cargo</label>
+                  <input 
+                    id="edit-user-cargo"
+                    type="text" 
+                    className="input-control" 
+                    value={editingUserCargo}
+                    onChange={e => setEditingUserCargo(e.target.value)}
+                    required
+                  />
+                </div>
+
+                <div className="input-group" style={{ marginBottom: 0 }}>
+                  <label htmlFor="edit-user-role" style={{ color: 'var(--text-muted)', fontWeight: '600', fontSize: '0.85rem', marginBottom: '0.4rem' }}>Área de Trabajo (Rol)</label>
+                  <select 
+                    id="edit-user-role"
+                    className="input-control" 
+                    value={editingUserRole}
+                    onChange={e => setEditingUserRole(e.target.value)}
+                  >
+                    <option value="Ventas">Ventas</option>
+                    <option value="Produccion">Producción</option>
+                    <option value="Admin">Administración</option>
+                  </select>
+                </div>
+
+                <div className="input-group" style={{ marginBottom: 0 }}>
+                  <label htmlFor="edit-user-username" style={{ color: 'var(--text-muted)', fontWeight: '600', fontSize: '0.85rem', marginBottom: '0.4rem' }}>Nombre de Usuario (Login)</label>
+                  <input 
+                    id="edit-user-username"
+                    type="text" 
+                    className="input-control" 
+                    value={editingUserUsername}
+                    disabled
+                    style={{ backgroundColor: 'var(--bg-secondary)', opacity: 0.7, cursor: 'not-allowed' }}
+                  />
+                </div>
+
+                <div className="input-group" style={{ marginBottom: 0 }}>
+                  <label htmlFor="edit-user-phone" style={{ color: 'var(--text-muted)', fontWeight: '600', fontSize: '0.85rem', marginBottom: '0.4rem' }}>Teléfono</label>
+                  <input 
+                    id="edit-user-phone"
+                    type="tel" 
+                    className="input-control" 
+                    value={editingUserPhone}
+                    onChange={e => setEditingUserPhone(e.target.value)}
+                  />
+                </div>
+
+              </div>
+
+              <div style={{ display: 'flex', gap: '1rem', marginTop: '1.5rem', flexWrap: 'wrap' }}>
+                <button 
+                  type="button"
+                  onClick={() => setEditingUserId(null)} 
+                  className="btn btn-secondary" 
+                  style={{ flex: '1 1 120px', justifyContent: 'center' }}
+                >
+                  Cancelar
+                </button>
+                <button 
+                  type="submit" 
+                  className="btn btn-primary" 
+                  disabled={isSavingEdit}
+                  style={{ flex: '1 1 120px', justifyContent: 'center' }}
+                >
+                  {isSavingEdit ? 'Guardando...' : 'Guardar Cambios'}
+                </button>
+              </div>
+            </form>
+          </div>
         </div>
       )}
 

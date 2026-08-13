@@ -1,31 +1,23 @@
 export const defaultPermissions = {
   Admin: {
-    crear_cotizaciones: true,
-    eliminar_cotizaciones: true,
-    aprobar_cotizaciones: true,
-    gestionar_ordenes: true,
-    configurar_sistema: true
+    cotizaciones: { ver: true, crear: true, editar: true, cambiar_estatus: true, anular: true, eliminar: true, imprimir: true, gestionar_clientes: true },
+    ordenes_trabajo: { ver: true, crear: true, editar: true, asignar_tecnicos: true, cambiar_estatus: true, imprimir: true, eliminar: true },
+    dashboard: { ver_general: true, ver_financieros: true, ver_operativos: true },
+    herramientas_analiticas: { ver_reportes: true, exportar_datos: true, ver_alertas: true },
+    ajustes: { acceso: true, gestionar_usuarios: true, gestionar_roles: true, configurar_kpis: true, ver_logs: true }
   },
   Ventas: {
-    crear_cotizaciones: true,
-    eliminar_cotizaciones: true,
-    aprobar_cotizaciones: false,
-    gestionar_ordenes: false,
-    configurar_sistema: false
+    cotizaciones: { ver: true, crear: true, editar: true, cambiar_estatus: true, anular: false, eliminar: false, imprimir: true, gestionar_clientes: true },
+    ordenes_trabajo: { ver: true, crear: false, editar: false, asignar_tecnicos: false, cambiar_estatus: false, imprimir: false, eliminar: false },
+    dashboard: { ver_general: true, ver_financieros: true, ver_operativos: false },
+    herramientas_analiticas: { ver_reportes: false, exportar_datos: true, ver_alertas: true },
+    ajustes: { acceso: false, gestionar_usuarios: false, gestionar_roles: false, configurar_kpis: false, ver_logs: false }
   },
   Produccion: {
-    crear_cotizaciones: false,
-    eliminar_cotizaciones: false,
-    aprobar_cotizaciones: false,
-    gestionar_ordenes: true,
-    configurar_sistema: false
+    cotizaciones: { ver: false, crear: false, editar: false, cambiar_estatus: false, anular: false, eliminar: false, imprimir: false, gestionar_clientes: false },
+    ordenes_trabajo: { ver: true, crear: true, editar: true, asignar_tecnicos: true, cambiar_estatus: true, imprimir: true, eliminar: false },
+    dashboard: { ver_general: true, ver_financieros: false, ver_operativos: true },
+    herramientas_analiticas: { ver_reportes: true, exportar_datos: false, ver_alertas: true },
+    ajustes: { acceso: false, gestionar_usuarios: false, gestionar_roles: false, configurar_kpis: false, ver_logs: false }
   }
-};
-
-export const checkPermission = (user, permission) => {
-  if (!user) return false;
-  const saved = localStorage.getItem('comunicaciones_seis_permissions');
-  const permissions = saved ? JSON.parse(saved) : defaultPermissions;
-  const userRole = user.role || 'Ventas';
-  return permissions[userRole]?.[permission] ?? false;
 };

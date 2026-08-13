@@ -374,12 +374,47 @@ export default function Dashboard({ user, onLogout }) {
       </div>
 
       <div className="card glass-panel" style={{ display: 'flex', alignItems: 'center', gap: '1rem', padding: '1rem', marginBottom: '1.5rem', background: 'var(--surface-hover)' }}>
-        <div style={{ background: 'var(--primary-light)', color: 'var(--primary-color)', padding: '0.75rem', borderRadius: '50%' }}>
-          <User size={24} />
+        <div style={{ position: 'relative', width: '56px', height: '56px', flexShrink: 0 }}>
+          <img 
+            src={user?.avatar_url || '/FotoPerfilPlantilla.jpg'} 
+            alt={user?.name || 'Usuario'}
+            style={{ 
+              width: '56px', 
+              height: '56px', 
+              borderRadius: '50%', 
+              objectFit: 'cover',
+              backgroundColor: 'var(--border-color)',
+              boxShadow: '0 4px 12px rgba(0,0,0,0.1)'
+            }}
+            onError={(e) => {
+              e.target.style.display = 'none';
+              e.target.nextSibling.style.display = 'flex';
+            }}
+          />
+          <div style={{ 
+            display: 'none',
+            width: '56px', 
+            height: '56px', 
+            borderRadius: '50%', 
+            background: 'linear-gradient(135deg, var(--primary-color) 0%, var(--primary-dark-color, #1e1b4b) 100%)', 
+            color: 'white', 
+            alignItems: 'center', 
+            justifyContent: 'center',
+            fontSize: '1.5rem',
+            fontWeight: 'bold',
+            boxShadow: '0 4px 12px rgba(0,0,0,0.1)'
+          }}>
+            {user?.name ? user.name.charAt(0) : 'U'}
+          </div>
         </div>
         <div style={{ flex: 1 }}>
           <p style={{ margin: 0, fontWeight: 'bold', fontSize: '1.125rem', color: 'var(--text-main)' }}>{user?.name || 'Administrador'}</p>
-          <p style={{ margin: 0, fontSize: '0.875rem', color: 'var(--text-muted)' }}>Usuario: @{user?.username || 'admin'}</p>
+          <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'center', marginTop: '0.35rem' }}>
+            <p className="dashboard-username">Usuario: @{user?.username || 'admin'}</p>
+            <span className="dashboard-role">
+              {user?.role === 'Admin' ? 'Administrador' : user?.role === 'Ventas' ? 'Ejecutivo de Ventas' : user?.role === 'Produccion' ? 'Jefe de Producción' : 'Administrador'}
+            </span>
+          </div>
         </div>
         {onLogout && (
           <button className="btn-icon btn-icon-red" onClick={onLogout} title="Cerrar sesión" style={{ cursor: 'pointer', border: 'none' }}>

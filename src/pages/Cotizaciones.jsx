@@ -5,13 +5,14 @@ import CotizacionForm from '../components/CotizacionForm';
 import DatePicker from 'react-datepicker';
 import 'react-datepicker/dist/react-datepicker.css';
 import { logEvent } from '../utils/logs';
-import { checkPermission } from '../utils/permissions';
+import { usePermissions } from '../contexts/PermissionsContext';
 import { supabase } from '../utils/supabaseClient';
 import { formatDate } from '../utils/formatters';
 
 export default function Cotizaciones({ user }) {
-  const canCreate = checkPermission(user, 'crear_cotizaciones');
-  const canDelete = checkPermission(user, 'eliminar_cotizaciones');
+  const { hasPermission } = usePermissions();
+  const canCreate = hasPermission('cotizaciones', 'crear');
+  const canDelete = hasPermission('cotizaciones', 'eliminar');
 
   const [searchTerm, setSearchTerm] = useState('');
   const [searchParams] = useSearchParams();
@@ -422,7 +423,9 @@ export default function Cotizaciones({ user }) {
               <span className={getBadgeClass(cotizacion.estado)}>{cotizacion.estado}</span>
             </div>
             <p style={{ margin: 0, fontWeight: 'bold', fontSize: '1.05rem', color: 'var(--text-main)', lineHeight: '1.2' }}>{cotizacion.cliente}</p>
-            <p style={{ margin: '0 0 0.5rem 0', fontSize: '0.8rem', color: 'var(--text-muted)', lineHeight: '1.2' }}>{cotizacion.tipo}</p>
+            <p style={{ margin: '0 0 0.5rem 0', fontSize: '0.8rem', color: 'var(--text-muted)', lineHeight: '1.2' }}>
+              {cotizacion.tipo} • Ejecutivo: {cotizacion.ejecutivo}
+            </p>
             <div className="flex-row-between" style={{ fontSize: '0.875rem', marginBottom: '0.25rem' }}>
               <span style={{ color: 'var(--text-muted)' }}>Emisión: {formatDate(cotizacion.fecha)}</span>
               <strong style={{ color: 'var(--primary-color)' }}>${cotizacion.monto.toFixed(2)}</strong>

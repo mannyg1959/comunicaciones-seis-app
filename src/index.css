@@ -65,6 +65,29 @@ body.light-mode {
 
 /* Light mode override removed to enforce dark theme */
 
+/* Dashboard Profile Card specific styles */
+.dashboard-username {
+  margin: 0;
+  font-size: 1rem;
+  color: #ffffff;
+}
+body.light-mode .dashboard-username {
+  color: var(--text-muted);
+}
+
+.dashboard-role {
+  font-size: 0.85rem;
+  padding: 0.15rem 0.6rem;
+  border-radius: var(--radius-sm);
+  background-color: color-mix(in srgb, var(--primary-color) 35%, transparent);
+  color: #ffffff;
+  font-weight: 600;
+}
+body.light-mode .dashboard-role {
+  background-color: color-mix(in srgb, var(--primary-color) 15%, transparent);
+  color: var(--primary-color);
+}
+
 * {
   margin: 0;
   padding: 0;

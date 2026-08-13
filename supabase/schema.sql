@@ -14,6 +14,10 @@ CREATE TABLE IF NOT EXISTS public.profiles (
     username TEXT UNIQUE NOT NULL,
     name TEXT NOT NULL,
     role TEXT NOT NULL CONSTRAINT chk_role CHECK (role IN ('Admin', 'Ventas', 'Produccion')),
+    cargo TEXT,
+    contact_email TEXT,
+    contact_phone TEXT,
+    avatar_url TEXT,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL
 );
 
@@ -276,3 +280,50 @@ VALUES (
     '{"tte": 3, "tce": 7, "dre": 2, "alert_days_quotes": 7, "alert_days_ots": 7}'::jsonb
 )
 ON CONFLICT (setting_key) DO NOTHING;
+
+-- =======================================================
+-- 5. SEGURIDAD (Row Level Security - RLS)
+-- =======================================================
+
+-- Habilitar RLS en todas las tablas
+ALTER TABLE public.profiles ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.clients ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.quotes ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.quote_items ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.work_orders ENABLE ROW LEVEL SECURITY;
+
+-- Políticas para Profiles
+CREATE POLICY "Lectura global de perfiles" ON public.profiles FOR SELECT USING (true);
+CREATE POLICY "Admins pueden todo en perfiles" ON public.profiles FOR ALL USING (
+  EXISTS (SELECT 1 FROM public.profiles WHERE id = auth.uid() AND role = 'Admin')
+);
+CREATE POLICY "Usuarios actualizan su perfil" ON public.profiles FOR UPDATE USING (id = auth.uid());
+
+-- Políticas para Clients
+CREATE POLICY "Lectura global de clientes" ON public.clients FOR SELECT USING (true);
+CREATE POLICY "Admins y Ventas gestionan clientes" ON public.clients FOR ALL USING (
+  EXISTS (SELECT 1 FROM public.profiles WHERE id = auth.uid() AND role IN ('Admin', 'Ventas'))
+);
+
+-- Políticas para Quotes (Cotizaciones)
+CREATE POLICY "Admins ven y editan todas las cotizaciones" ON public.quotes FOR ALL USING (
+  EXISTS (SELECT 1 FROM public.profiles WHERE id = auth.uid() AND role = 'Admin')
+);
+CREATE POLICY "Ventas ve y edita sus propias cotizaciones" ON public.quotes FOR ALL USING (
+  seller_id = auth.uid()
+);
+-- Nota: Produccion no tiene politica en Quotes, por lo que no puede verlas ni interactuar con ellas.
+
+-- Políticas para Quote Items (Heredan de Quotes)
+CREATE POLICY "Admins ven y editan todos los items" ON public.quote_items FOR ALL USING (
+  EXISTS (SELECT 1 FROM public.profiles WHERE id = auth.uid() AND role = 'Admin')
+);
+CREATE POLICY "Ventas ve y edita sus propios items" ON public.quote_items FOR ALL USING (
+  EXISTS (SELECT 1 FROM public.quotes WHERE id = quote_id AND seller_id = auth.uid())
+);
+
+-- Políticas para Work Orders (Órdenes de Trabajo)
+CREATE POLICY "Lectura global de OTs" ON public.work_orders FOR SELECT USING (true);
+CREATE POLICY "Acceso total a OTs para roles internos" ON public.work_orders FOR ALL USING (
+  EXISTS (SELECT 1 FROM public.profiles WHERE id = auth.uid() AND role IN ('Admin', 'Produccion', 'Ventas'))
+);
