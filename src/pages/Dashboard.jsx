@@ -442,7 +442,7 @@ export default function Dashboard({ user, onLogout }) {
       ) : (
         <>
           <h2 style={{ margin: '0 0 1rem 0', fontSize: '1.125rem' }}>Acciones Rápidas</h2>
-          <div style={{ display: 'flex', gap: '1rem', marginBottom: '1.5rem' }}>
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: '1rem', marginBottom: '1.5rem' }}>
             <button 
               className="btn btn-solid" 
               onClick={() => navigate('/cotizaciones?new=true')}
@@ -461,7 +461,7 @@ export default function Dashboard({ user, onLogout }) {
             </button>
           </div>
 
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem', marginBottom: '1.5rem' }}>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 250px), 1fr))', gap: '1rem', marginBottom: '1.5rem' }}>
             {/* COTIZACIONES */}
             <div className="card glass-panel" style={{ padding: '1rem', margin: 0 }}>
               <h2 style={{ fontSize: '1.125rem', marginBottom: '1rem', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>

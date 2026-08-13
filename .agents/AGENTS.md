@@ -8,8 +8,7 @@
 
 ## Flujo de Trabajo y Despliegues (Git / Vercel)
 
-- **Desarrollo en rama `dev`**: Todo el trabajo diario y actualizaciones del código deben realizarse y subirse (`push`) en la rama `dev` (desarrollo).
-- **Despliegues en Vercel (`main`)**: La rama `main` está reservada exclusivamente para la versión de producción en Vercel. Solo se debe fusionar (`merge`) la rama `dev` hacia `main` cuando el usuario dé una autorización explícita para desplegar a producción.
+- **Desarrollo en rama `main`**: A partir de ahora, como regla general, todas las actualizaciones del repositorio en GitHub deben realizarse directamente en la rama `main`.
 
 ## Lógica de Negocio - Cotizaciones
 
