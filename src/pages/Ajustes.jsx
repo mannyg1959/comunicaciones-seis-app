@@ -2,7 +2,7 @@ import { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { 
   Settings, User, Bell, Shield, Moon, Sun, ChevronRight, ChevronLeft, LogOut, 
-  Users, Clock, History, Save, Trash2, Search, CheckCircle, AlertTriangle, ArrowLeft, UserPlus, X, SlidersHorizontal, Key, Edit2
+  Users, Clock, History, Save, Trash2, Search, CheckCircle, AlertTriangle, ArrowLeft, UserPlus, X, SlidersHorizontal, Key, Edit2, Building2
 } from 'lucide-react';
 import { defaultPermissions } from '../utils/permissions';
 import { logEvent } from '../utils/logs';
@@ -453,6 +453,7 @@ export default function Ajustes({ user, onLogout }) {
     switch (activeTab) {
       case 'roles': return 'Roles y Permisos';
       case 'usuarios': return 'Usuarios del Sistema';
+      case 'empresa': return 'Datos de la Empresa';
       case 'kpis': return 'Parámetros de Trazabilidad';
       case 'logs': return 'Log de Transacciones';
       default: return 'Ajustes';
@@ -504,30 +505,42 @@ export default function Ajustes({ user, onLogout }) {
 
       {/* Main Settings Menu */}
       {activeTab === 'menu' && (
-        <div className="card" style={{ padding: '0', marginBottom: '2rem' }}>
-          <div onClick={() => navigate('/perfil')} style={menuItemStyle}>
-            <div style={menuItemLeftStyle}>
-              <User size={24} style={{ color: 'var(--text-muted)' }} />
-              <span style={menuItemTextStyle}>Mi Perfil</span>
+        <>
+          <p style={{ margin: '0 0 1.5rem 0', color: 'var(--text-muted)' }}>
+            Administra la configuración general de la plataforma, roles, usuarios, datos de la empresa y preferencias del sistema.
+          </p>
+          <div className="card" style={{ padding: '0', marginBottom: '2rem' }}>
+            <div onClick={() => navigate('/perfil')} style={menuItemStyle}>
+              <div style={menuItemLeftStyle}>
+                <User size={24} style={{ color: 'var(--text-muted)' }} />
+                <span style={menuItemTextStyle}>Mi Perfil</span>
+              </div>
+              <ChevronRight size={20} style={{ color: 'var(--text-muted)' }} />
             </div>
-            <ChevronRight size={20} style={{ color: 'var(--text-muted)' }} />
-          </div>
 
-          <div onClick={() => setActiveTab('roles')} style={menuItemStyle}>
-            <div style={menuItemLeftStyle}>
-              <Shield size={24} style={{ color: 'var(--text-muted)' }} />
-              <span style={menuItemTextStyle}>Roles y Permisos</span>
+            <div onClick={() => setActiveTab('usuarios')} style={menuItemStyle}>
+              <div style={menuItemLeftStyle}>
+                <Users size={24} style={{ color: 'var(--text-muted)' }} />
+                <span style={menuItemTextStyle}>Usuarios del Sistema</span>
+              </div>
+              <ChevronRight size={20} style={{ color: 'var(--text-muted)' }} />
             </div>
-            <ChevronRight size={20} style={{ color: 'var(--text-muted)' }} />
-          </div>
 
-          <div onClick={() => setActiveTab('usuarios')} style={menuItemStyle}>
-            <div style={menuItemLeftStyle}>
-              <Users size={24} style={{ color: 'var(--text-muted)' }} />
-              <span style={menuItemTextStyle}>Usuarios del Sistema</span>
+            <div onClick={() => setActiveTab('empresa')} style={menuItemStyle}>
+              <div style={menuItemLeftStyle}>
+                <Building2 size={24} style={{ color: 'var(--text-muted)' }} />
+                <span style={menuItemTextStyle}>Datos de la Empresa</span>
+              </div>
+              <ChevronRight size={20} style={{ color: 'var(--text-muted)' }} />
             </div>
-            <ChevronRight size={20} style={{ color: 'var(--text-muted)' }} />
-          </div>
+
+            <div onClick={() => setActiveTab('roles')} style={menuItemStyle}>
+              <div style={menuItemLeftStyle}>
+                <Shield size={24} style={{ color: 'var(--text-muted)' }} />
+                <span style={menuItemTextStyle}>Roles y Permisos</span>
+              </div>
+              <ChevronRight size={20} style={{ color: 'var(--text-muted)' }} />
+            </div>
 
           <div onClick={() => setActiveTab('kpis')} style={menuItemStyle}>
             <div style={menuItemLeftStyle}>
@@ -561,6 +574,7 @@ export default function Ajustes({ user, onLogout }) {
             <ChevronRight size={20} style={{ color: 'var(--error-color)' }} />
           </div>
         </div>
+        </>
       )}
 
       {/* Visual Roles & Permissions configuration screen */}

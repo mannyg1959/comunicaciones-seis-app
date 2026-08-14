@@ -1,8 +1,10 @@
 import { useState, useRef } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { User, Edit2, Save, CheckCircle, Eye, EyeOff } from 'lucide-react';
 import { supabase } from '../utils/supabaseClient';
 
 export default function Perfiles({ user, setUser }) {
+  const navigate = useNavigate();
   const [formData, setFormData] = useState({
     name: user?.name || '',
     cargo: user?.role === 'Admin' ? 'Administrador Principal' : 'Ejecutivo',
@@ -464,7 +466,7 @@ export default function Perfiles({ user, setUser }) {
               type="button" 
               className="btn btn-secondary" 
               style={{ flex: 1, justifyContent: 'center', height: '48px', fontSize: '0.95rem' }}
-              onClick={() => window.location.reload()}
+              onClick={() => navigate(-1)}
               disabled={isSaving}
             >
               Cancelar
