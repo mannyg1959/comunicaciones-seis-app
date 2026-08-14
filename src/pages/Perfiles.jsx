@@ -459,14 +459,25 @@ export default function Perfiles({ user, setUser }) {
             </div>
           </div>
 
-          <button 
-            type="submit" 
-            className="btn btn-primary" 
-            style={{ width: '100%', justifyContent: 'center', height: '48px', fontSize: '0.95rem' }}
-            disabled={isSaving}
-          >
-            {isSaving ? 'Guardando cambios...' : 'Guardar Cambios'}
-          </button>
+          <div style={{ display: 'flex', gap: '1rem', flexWrap: 'wrap' }}>
+            <button 
+              type="button" 
+              className="btn btn-secondary" 
+              style={{ flex: 1, justifyContent: 'center', height: '48px', fontSize: '0.95rem' }}
+              onClick={() => window.location.reload()}
+              disabled={isSaving}
+            >
+              Cancelar
+            </button>
+            <button 
+              type="submit" 
+              className="btn btn-primary" 
+              style={{ flex: 1, justifyContent: 'center', height: '48px', fontSize: '0.95rem' }}
+              disabled={isSaving}
+            >
+              {isSaving ? 'Guardando cambios...' : 'Guardar Cambios'}
+            </button>
+          </div>
         </form>
       </div>
 
