@@ -358,7 +358,7 @@ export default function Dashboard({ user, onLogout }) {
           </h1>
         </div>
 
-        <div style={{ display: 'flex', justifyContent: 'flex-start', marginBottom: '0.5rem' }}>
+        <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: '0.5rem' }}>
           <div className="logo-container" onClick={() => window.location.reload()} title="Recargar Panel" style={{ padding: 0 }}>
             <img src="/logo-flowlog.png" alt="Logo" style={{ height: '58px', mixBlendMode: 'normal', display: 'block' }} />
           </div>
