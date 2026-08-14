@@ -352,14 +352,14 @@ export default function Dashboard({ user, onLogout }) {
         margin: '-1.5rem -1.5rem 1rem -1.5rem',
         padding: '1.5rem 1.5rem 0.25rem 1.5rem'
       }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '0.5rem', margin: '0 0 0.25rem 0' }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '0.5rem', margin: '0 0 0.75rem 0', paddingBottom: '0.75rem', borderBottom: '1px solid var(--border-color)' }}>
           <h1 style={{ margin: 0, display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
             <LayoutDashboard size={28} color="var(--primary-color)" /> Panel de Control
           </h1>
         </div>
 
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '0.5rem', marginBottom: '0.5rem' }}>
-          <span style={{ fontSize: '0.9rem', fontWeight: '600', color: 'var(--primary-color)', backgroundColor: 'var(--primary-light)', padding: '0.25rem 0.75rem', borderRadius: 'var(--radius-md)' }}>
+          <span style={{ fontSize: '0.9rem', fontWeight: '500', color: 'var(--text-muted)' }}>
             {(() => {
               const days = ['Domingo', 'Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado'];
               const months = ['enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio', 'julio', 'agosto', 'septiembre', 'octubre', 'noviembre', 'diciembre'];
