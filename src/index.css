@@ -132,10 +132,10 @@ label, .badge, .nav-item {
 }
 
 /* Typography */
-h1 { font-size: 1.05rem !important; margin-bottom: 0.5rem; }
-h2 { font-size: 0.875rem !important; margin-bottom: 0.5rem; }
-h3 { font-size: 0.8rem !important; margin-bottom: 0.5rem; }
-h4, h5, h6 { font-size: 0.7rem !important; margin-bottom: 0.5rem; }
+h1 { font-size: 1.2rem !important; margin-bottom: 0.5rem; }
+h2 { font-size: 1rem !important; margin-bottom: 0.5rem; }
+h3 { font-size: 0.9rem !important; margin-bottom: 0.5rem; }
+h4, h5, h6 { font-size: 0.8rem !important; margin-bottom: 0.5rem; }
 p { color: var(--text-muted); }
 
 /* Layout Utilities */
