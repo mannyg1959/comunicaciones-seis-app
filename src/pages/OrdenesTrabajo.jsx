@@ -508,7 +508,7 @@ export default function OrdenesTrabajo({ user }) {
   };
 
   const handleValidatePassword = () => {
-    if (adminPasswordInput === '1234') {
+    if (adminPasswordInput === 'CaracasCCS1*') {
       setAuthStep('warning');
       setAuthError('');
     } else {

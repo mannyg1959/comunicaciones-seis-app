@@ -855,8 +855,8 @@ export default function Ajustes({ user, onLogout }) {
               display: 'flex', 
               alignItems: 'center', 
               flexWrap: 'wrap',
-              gap: '1.25rem', 
-              padding: '1.5rem', 
+              gap: '1rem', 
+              padding: '1rem', 
               borderBottom: '1px solid var(--border-color)',
               backgroundColor: 'rgba(0,0,0,0.1)'
             }}>
@@ -865,8 +865,8 @@ export default function Ajustes({ user, onLogout }) {
                   src="/FotoPerfilPlantilla.jpg" 
                   alt="Perfil por Defecto" 
                   style={{ 
-                    width: '90px', 
-                    height: '90px', 
+                    width: '70px', 
+                    height: '70px', 
                     borderRadius: '14px', 
                     objectFit: 'cover',
                     boxShadow: '0 4px 12px rgba(0,0,0,0.15)',
@@ -880,8 +880,8 @@ export default function Ajustes({ user, onLogout }) {
                 {/* Fallback si la imagen no se encuentra */}
                 <div style={{ 
                   display: 'none',
-                  width: '90px', 
-                  height: '90px', 
+                  width: '70px', 
+                  height: '70px', 
                   borderRadius: '14px', 
                   background: 'linear-gradient(135deg, var(--primary-color) 0%, var(--primary-dark-color, #1e1b4b) 100%)', 
                   color: 'white', 
@@ -891,7 +891,7 @@ export default function Ajustes({ user, onLogout }) {
                   fontWeight: 'bold',
                   boxShadow: '0 4px 12px rgba(0,0,0,0.15)'
                 }}>
-                  <User size={40} />
+                  <User size={32} />
                 </div>
               </div>
 
@@ -905,8 +905,8 @@ export default function Ajustes({ user, onLogout }) {
               </div>
             </div>
 
-            <form onSubmit={handleAddUser} style={{ padding: '1.5rem' }}>
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: '1rem', marginBottom: '1.5rem' }}>
+            <form onSubmit={handleAddUser} style={{ padding: '1rem' }}>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: '0.75rem', marginBottom: '1rem' }}>
                 
                 <div className="input-group" style={{ marginBottom: 0 }}>
                   <label htmlFor="new-user-name" style={{ color: 'var(--text-muted)', fontWeight: '600', fontSize: '0.85rem', marginBottom: '0.4rem' }}>Nombre Completo</label>
@@ -978,7 +978,7 @@ export default function Ajustes({ user, onLogout }) {
 
               </div>
 
-              <div style={{ display: 'flex', gap: '1rem', marginTop: '1.5rem', flexWrap: 'wrap' }}>
+              <div style={{ display: 'flex', gap: '0.75rem', marginTop: '1rem', flexWrap: 'wrap' }}>
                 <button 
                   type="button"
                   onClick={() => {
@@ -1037,8 +1037,8 @@ export default function Ajustes({ user, onLogout }) {
               display: 'flex', 
               alignItems: 'center', 
               flexWrap: 'wrap',
-              gap: '1.25rem', 
-              padding: '1.5rem', 
+              gap: '1rem', 
+              padding: '1rem', 
               borderBottom: '1px solid var(--border-color)',
               backgroundColor: 'rgba(0,0,0,0.1)'
             }}>
@@ -1050,8 +1050,8 @@ export default function Ajustes({ user, onLogout }) {
                   src={editAvatarFile ? URL.createObjectURL(editAvatarFile) : editAvatarUrl} 
                   alt="Perfil" 
                   style={{ 
-                    width: '90px', 
-                    height: '90px', 
+                    width: '70px', 
+                    height: '70px', 
                     borderRadius: '14px', 
                     objectFit: 'cover',
                     boxShadow: '0 4px 12px rgba(0,0,0,0.15)',
@@ -1064,8 +1064,8 @@ export default function Ajustes({ user, onLogout }) {
                 />
                 <div style={{ 
                   display: 'none',
-                  width: '90px', 
-                  height: '90px', 
+                  width: '70px', 
+                  height: '70px', 
                   borderRadius: '14px', 
                   background: 'linear-gradient(135deg, var(--primary-color) 0%, var(--primary-dark-color, #1e1b4b) 100%)', 
                   color: 'white', 
@@ -1075,7 +1075,7 @@ export default function Ajustes({ user, onLogout }) {
                   fontWeight: 'bold',
                   boxShadow: '0 4px 12px rgba(0,0,0,0.15)'
                 }}>
-                  <User size={40} />
+                  <User size={32} />
                 </div>
                 <div 
                   style={{
@@ -1112,8 +1112,8 @@ export default function Ajustes({ user, onLogout }) {
               </div>
             </div>
 
-            <form onSubmit={handleSaveEditUser} style={{ padding: '1.5rem' }}>
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: '1rem', marginBottom: '1.5rem' }}>
+            <form onSubmit={handleSaveEditUser} style={{ padding: '1rem' }}>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: '0.75rem', marginBottom: '1rem' }}>
                 
                 <div className="input-group" style={{ marginBottom: 0 }}>
                   <label htmlFor="edit-user-name" style={{ color: 'var(--text-muted)', fontWeight: '600', fontSize: '0.85rem', marginBottom: '0.4rem' }}>Nombre Completo</label>
@@ -1178,7 +1178,7 @@ export default function Ajustes({ user, onLogout }) {
 
               </div>
 
-              <div style={{ display: 'flex', gap: '1rem', marginTop: '1.5rem', flexWrap: 'wrap' }}>
+              <div style={{ display: 'flex', gap: '0.75rem', marginTop: '1rem', flexWrap: 'wrap' }}>
                 <button 
                   type="button"
                   onClick={() => setEditingUserId(null)} 

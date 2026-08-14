@@ -8,6 +8,7 @@ import OrdenesTrabajo from './pages/OrdenesTrabajo';
 import Perfiles from './pages/Perfiles';
 import Ajustes from './pages/Ajustes';
 import Herramientas from './pages/Herramientas';
+import MonitorKanban from './pages/MonitorKanban';
 import RequirePasswordChange from './components/RequirePasswordChange';
 import { PermissionsProvider, usePermissions } from './contexts/PermissionsContext';
 
@@ -94,6 +95,9 @@ function App() {
     <Router>
       <Routes>
         <Route path="/" element={!user ? <Login onLogin={setUser} /> : <Navigate to="/dashboard" replace />} />
+        
+        {/* Rutas Públicas */}
+        <Route path="/monitor-kanban" element={<MonitorKanban />} />
         
         <Route path="/dashboard" element={<AppLayout user={user} setUser={setUser}><Dashboard user={user} onLogout={handleLogout} /></AppLayout>} />
         <Route path="/cotizaciones" element={<AppLayout user={user} setUser={setUser}><Cotizaciones user={user} /></AppLayout>} />

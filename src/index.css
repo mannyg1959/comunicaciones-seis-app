@@ -95,7 +95,7 @@ body.light-mode .dashboard-role {
   -webkit-tap-highlight-color: transparent;
 }
 
-body {
+html, body {
   background-color: var(--bg-color);
   color: var(--text-main);
   line-height: 1.47059;
@@ -106,6 +106,8 @@ body {
   flex-direction: column;
   font-family: 'Inter', sans-serif;
   -webkit-font-smoothing: antialiased;
+  overscroll-behavior-y: none;
+  overscroll-behavior: none;
 }
 
 h1, h2, h3, h4, h5, h6 {
@@ -701,5 +703,371 @@ body.light-mode .btn-secondary:hover {
 
 .carousel-nav-btn:active {
   transform: scale(0.95);
+}
+
+/* ==========================================================================
+   Monitor Kanban (TV Dashboard) Styles
+   ========================================================================== */
+body.monitor-mode {
+  background-color: #0b1121;
+  color: #fff;
+  overflow: hidden;
+}
+
+body.monitor-mode #root {
+  height: 100vh;
+  width: 100vw;
+  max-width: 100%;
+  margin: 0;
+  overflow: hidden;
+  box-shadow: none;
+}
+
+body.monitor-mode .app-container {
+  padding: 0;
+  max-width: 100%;
+  height: 100%;
+}
+
+.monitor-container {
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+  width: 100vw;
+  background-color: #0b1121;
+}
+
+.monitor-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 1rem 2rem;
+  background-color: #1e293b;
+  border-bottom: 2px solid var(--primary-color);
+  flex-shrink: 0;
+}
+
+.monitor-header h1 {
+  margin: 0;
+  font-size: 2rem;
+  font-weight: 700;
+  letter-spacing: 2px;
+  color: #fff;
+  text-shadow: 0 0 10px rgba(79, 70, 229, 0.5);
+}
+
+.monitor-clock {
+  font-size: 1.25rem;
+  font-weight: 600;
+  color: var(--text-muted);
+}
+
+.monitor-board {
+  display: flex;
+  flex: 1;
+  overflow: hidden;
+  padding: 1rem;
+  gap: 1rem;
+}
+
+.monitor-column {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  background-color: rgba(30, 41, 59, 0.5);
+  border-radius: 12px;
+  border: 1px solid var(--border-color);
+  overflow: hidden;
+}
+
+.monitor-column .column-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 1rem;
+  background-color: rgba(0,0,0,0.2);
+  border-bottom: 3px solid transparent;
+}
+
+.monitor-column.stage-programacion .column-header { border-bottom-color: var(--status-pendiente); }
+.monitor-column.stage-produccion .column-header { border-bottom-color: var(--status-produccion); }
+.monitor-column.stage-revision .column-header { border-bottom-color: var(--status-revision); }
+.monitor-column.stage-finalizado .column-header { border-bottom-color: var(--status-finalizado); }
+
+.monitor-column .column-header h2 {
+  margin: 0;
+  font-size: 1.2rem;
+  text-transform: uppercase;
+}
+
+.monitor-column .column-header .count-badge {
+  background-color: rgba(255,255,255,0.1);
+  padding: 0.2rem 0.6rem;
+  border-radius: 20px;
+  font-weight: bold;
+}
+
+.column-cards-container {
+  flex: 1;
+  overflow-y: auto;
+  padding: 0.75rem;
+  scrollbar-width: none; /* Firefox */
+  -ms-overflow-style: none; /* IE/Edge */
+}
+.column-cards-container::-webkit-scrollbar {
+  display: none; /* Chrome, Safari, Opera */
+}
+
+.cards-scroll-track {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.monitor-card {
+  background-color: var(--surface-color);
+  border-radius: 8px;
+  padding: 1rem;
+  box-shadow: 0 4px 6px rgba(0,0,0,0.3);
+  border-left: 4px solid var(--primary-color);
+  animation: fadeIn 0.5s ease-out;
+}
+
+.monitor-card.paused {
+  border-left-color: var(--error-color);
+  background-color: rgba(239, 68, 68, 0.15);
+}
+
+.monitor-card .card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 0.5rem;
+}
+
+.monitor-card .ot-id {
+  font-weight: bold;
+  font-size: 1.1rem;
+  color: var(--text-muted);
+}
+
+.monitor-card .paused-badge {
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+  color: var(--error-color);
+  font-size: 0.75rem;
+  font-weight: bold;
+  text-transform: uppercase;
+  background-color: rgba(239, 68, 68, 0.2);
+  padding: 0.1rem 0.4rem;
+  border-radius: 4px;
+}
+
+.monitor-card .card-client {
+  margin: 0 0 0.25rem 0;
+  font-size: 1.3rem;
+  color: #fff;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.monitor-card .card-type {
+  margin: 0 0 1rem 0;
+  font-size: 0.9rem;
+  color: var(--text-muted);
+}
+
+.monitor-card .card-progress {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-bottom: 0.75rem;
+}
+
+.monitor-card .progress-bar-bg {
+  flex: 1;
+  height: 6px;
+  background-color: rgba(255,255,255,0.1);
+  border-radius: 3px;
+  overflow: hidden;
+}
+
+.monitor-card .progress-bar-fill {
+  height: 100%;
+  border-radius: 3px;
+  transition: width 0.5s ease;
+}
+
+.monitor-card .progress-text {
+  font-size: 0.8rem;
+  font-weight: bold;
+}
+
+.monitor-card .card-footer {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 0.8rem;
+  color: var(--text-muted);
+}
+
+.monitor-card .delivery-date {
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+}
+
+.monitor-card .operative-badge {
+  background-color: rgba(255,255,255,0.1);
+  padding: 0.1rem 0.4rem;
+  border-radius: 4px;
+}
+
+.monitor-loading {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  gap: 1rem;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(10px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+/* ==========================================================================
+   Monitor Kanban (TV Dashboard) Styles V2
+   ========================================================================== */
+.monitor-card-v2 {
+  background-color: #20273a;
+  border-radius: 8px;
+  padding: 1rem;
+  box-shadow: 0 4px 6px rgba(0,0,0,0.3);
+  border-left: 4px solid #ff4444;
+  animation: fadeIn 0.5s ease-out;
+  color: #fff;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.monitor-card-v2.paused {
+  border-left-color: #ffaa00;
+  background-color: rgba(255, 170, 0, 0.1);
+}
+
+.monitor-card-v2 .card-header-v2 {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  margin-bottom: 0.25rem;
+}
+
+.monitor-card-v2 .id-group {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+
+.monitor-card-v2 .ot-id {
+  font-weight: 700;
+  font-size: 1.1rem;
+  color: #fff;
+}
+
+.monitor-card-v2 .ot-ref {
+  font-size: 0.85rem;
+  color: #8fa0bd;
+}
+
+.monitor-card-v2 .badges-group {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.monitor-card-v2 .alert-badge {
+  background-color: rgba(255, 68, 68, 0.2);
+  color: #ff6b6b;
+  border: 1px solid rgba(255, 68, 68, 0.3);
+  padding: 0.15rem 0.4rem;
+  border-radius: 4px;
+  font-size: 0.8rem;
+  font-weight: bold;
+}
+
+.monitor-card-v2 .stage-badge {
+  background-color: rgba(255,255,255,0.1);
+  color: #8fa0bd;
+  padding: 0.15rem 0.5rem;
+  border-radius: 12px;
+  font-size: 0.75rem;
+}
+
+.monitor-card-v2 .card-client-v2 {
+  margin: 0;
+  font-size: 1.15rem;
+  font-weight: 600;
+  color: #ffffff;
+}
+
+.monitor-card-v2 .card-info-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-top: 0.25rem;
+}
+
+.monitor-card-v2 .info-label {
+  font-size: 0.9rem;
+  color: #e2e8f0;
+}
+
+.monitor-card-v2 .info-value {
+  font-weight: 600;
+}
+
+.monitor-card-v2 .gap-badge {
+  background-color: #0f5132;
+  color: #a3cfbb;
+  padding: 0.2rem 0.6rem;
+  border-radius: 4px;
+  font-size: 0.8rem;
+  font-weight: 600;
+}
+
+.monitor-card-v2 .gap-badge.unassigned {
+  background-color: rgba(255,255,255,0.1);
+  color: #d1d5db;
+}
+
+.monitor-card-v2 .card-info-row-small {
+  margin-top: 0.15rem;
+}
+
+.monitor-card-v2 .info-label-small {
+  font-size: 0.85rem;
+  color: #8fa0bd;
+}
+
+.monitor-card-v2 .target-value {
+  font-weight: 600;
+  color: #ffaa00;
+}
+
+.monitor-card-v2 .target-value.missing {
+  color: #ffaa00;
+}
+
+.monitor-card-v2 .card-progress-v2 {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-top: 0.75rem;
 }
 
