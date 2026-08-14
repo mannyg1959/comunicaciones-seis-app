@@ -358,13 +358,7 @@ export default function Dashboard({ user, onLogout }) {
           </h1>
         </div>
 
-        <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: '0.5rem' }}>
-          <div className="logo-container" onClick={() => window.location.reload()} title="Recargar Panel" style={{ padding: 0 }}>
-            <img src="/logo-flowlog.png" alt="Logo" style={{ height: '58px', mixBlendMode: 'normal', display: 'block' }} />
-          </div>
-        </div>
-
-        <div style={{ display: 'flex', justifyContent: 'flex-start', marginBottom: '0.5rem' }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '0.5rem', marginBottom: '0.5rem' }}>
           <span style={{ fontSize: '0.9rem', fontWeight: '600', color: 'var(--primary-color)', backgroundColor: 'var(--primary-light)', padding: '0.25rem 0.75rem', borderRadius: 'var(--radius-md)' }}>
             {(() => {
               const days = ['Domingo', 'Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado'];
@@ -373,6 +367,10 @@ export default function Dashboard({ user, onLogout }) {
               return `${days[today.getDay()]}, ${today.getDate()} de ${months[today.getMonth()]} de ${today.getFullYear()}`;
             })()}
           </span>
+
+          <div className="logo-container" onClick={() => window.location.reload()} title="Recargar Panel" style={{ padding: 0 }}>
+            <img src="/logo-flowlog.png" alt="Logo" style={{ height: '36px', mixBlendMode: 'normal', display: 'block' }} />
+          </div>
         </div>
       </div>
 
