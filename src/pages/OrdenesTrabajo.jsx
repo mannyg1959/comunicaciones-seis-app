@@ -416,10 +416,22 @@ export default function OrdenesTrabajo({ user }) {
         if (isRetroceder) {
           const currentStage = oldEstado;
           const logsForOT = otLogs[selectedOT.id] || [];
-          const logsToDelete = logsForOT.filter(log => getStageForLog(log.id, logsForOT) === currentStage);
           
+          // Helper robusto para obtener la etapa de un log o incidente
+          const getStage = (id) => {
+              const log = logsForOT.find(l => l.id === id);
+              if (log && log.estado) return log.estado;
+              return getStageForLog(id, logsForOT);
+          };
+
+          const logsToDelete = logsForOT.filter(log => getStage(log.id) === currentStage);
           const logIdsToDelete = logsToDelete.map(l => l.id);
+          
+          // Tomar tanto los logs de tipo incident como los que están en otIncidents
           const incidentIdsToDelete = logsToDelete.filter(l => l.type === 'incident').map(l => l.id);
+          const incidentsInState = (otIncidents[selectedOT.id] || []).filter(inc => getStage(inc.id) === currentStage).map(inc => inc.id);
+          
+          const allIncidentIdsToDelete = [...new Set([...incidentIdsToDelete, ...incidentsInState])];
 
           if (logIdsToDelete.length > 0) {
             const { error: deleteLogsError } = await supabase
@@ -429,11 +441,11 @@ export default function OrdenesTrabajo({ user }) {
             if (deleteLogsError) throw deleteLogsError;
           }
 
-          if (incidentIdsToDelete.length > 0) {
+          if (allIncidentIdsToDelete.length > 0) {
             const { error: deleteIncidentsError } = await supabase
               .from('work_order_incidents')
               .delete()
-              .in('id', incidentIdsToDelete);
+              .in('id', allIncidentIdsToDelete);
             if (deleteIncidentsError) throw deleteIncidentsError;
           }
         }
