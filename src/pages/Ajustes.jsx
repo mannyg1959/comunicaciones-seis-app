@@ -120,6 +120,49 @@ export default function Ajustes({ user, onLogout }) {
     }
   }, [activeTab]);
 
+  // ── State for Datos de la Empresa ──────────────────────────
+  const empresaInitial = {
+    razon_social: '', rif: '', direccion: '',
+    telefono: '', email: '', sitio_web: ''
+  };
+  const [empresaData,          setEmpresaData]          = useState(empresaInitial);
+  const [empresaId,            setEmpresaId]            = useState(null);
+  const [isLoadingEmpresa,     setIsLoadingEmpresa]     = useState(false);
+  const [isSavingEmpresa,      setIsSavingEmpresa]      = useState(false);
+  const [showEmpresaSuccess,   setShowEmpresaSuccess]   = useState(false);
+
+  // Cargar datos de empresa desde Supabase
+  useEffect(() => {
+    if (activeTab !== 'empresa') return;
+    const fetchEmpresa = async () => {
+      setIsLoadingEmpresa(true);
+      try {
+        const { data, error } = await supabase
+          .from('empresa')
+          .select('*')
+          .limit(1)
+          .maybeSingle();
+        if (error) throw error;
+        if (data) {
+          setEmpresaId(data.id);
+          setEmpresaData({
+            razon_social: data.razon_social || '',
+            rif:          data.rif          || '',
+            direccion:    data.direccion    || '',
+            telefono:     data.telefono     || '',
+            email:        data.email        || '',
+            sitio_web:    data.sitio_web    || '',
+          });
+        }
+      } catch (err) {
+        console.error('Error al cargar datos de la empresa:', err);
+      } finally {
+        setIsLoadingEmpresa(false);
+      }
+    };
+    fetchEmpresa();
+  }, [activeTab]);
+
   const [showAddUserModal, setShowAddUserModal] = useState(false);
   const [newUserName, setNewUserName] = useState('');
   const [newUserUsername, setNewUserUsername] = useState('');
@@ -384,6 +427,47 @@ export default function Ajustes({ user, onLogout }) {
 
   const showNotification = (text) => {
     setMessage(text);
+  };
+
+  // ── Handlers: Datos de la Empresa ───────────────────────
+  const handleEmpresaChange = (field, value) => {
+    setEmpresaData(prev => ({ ...prev, [field]: value }));
+  };
+
+  const handleSaveEmpresa = async () => {
+    setIsSavingEmpresa(true);
+    try {
+      const payload = {
+        ...empresaData,
+        updated_at: new Date().toISOString(),
+      };
+
+      if (empresaId) {
+        // Actualizar registro existente
+        const { error } = await supabase
+          .from('empresa')
+          .update(payload)
+          .eq('id', empresaId);
+        if (error) throw error;
+      } else {
+        // Crear primer registro
+        const { data, error } = await supabase
+          .from('empresa')
+          .insert(payload)
+          .select('id')
+          .single();
+        if (error) throw error;
+        if (data?.id) setEmpresaId(data.id);
+      }
+
+      logEvent(currentUser, 'Actualización de Datos de la Empresa', `Razón Social: ${empresaData.razon_social}`);
+      setShowEmpresaSuccess(true);
+    } catch (err) {
+      console.error('Error al guardar datos de la empresa:', err);
+      showNotification('Error al guardar los datos de la empresa');
+    } finally {
+      setIsSavingEmpresa(false);
+    }
   };
 
   const handlePermissionChange = (role, module, action) => {
@@ -682,6 +766,210 @@ export default function Ajustes({ user, onLogout }) {
           </div>
         );
       })()}
+
+      {/* Datos de la Empresa screen */}
+      {activeTab === 'empresa' && (
+        <div>
+          <p style={{ margin: '0 0 1.5rem 0', fontSize: '0.9rem', color: 'var(--text-muted)' }}>
+            Información oficial de la organización registrada en el sistema.
+          </p>
+
+          {isLoadingEmpresa ? (
+            <div style={{ textAlign: 'center', padding: '3rem', color: 'var(--text-muted)' }}>
+              <div style={{ fontSize: '2rem', marginBottom: '0.75rem' }}>🏢</div>
+              Cargando datos de la empresa...
+            </div>
+          ) : (
+            <div className="card" style={{ padding: '1.5rem' }}>
+
+              {/* Encabezado visual */}
+              <div style={{
+                display: 'flex', alignItems: 'center', gap: '0.75rem',
+                marginBottom: '1.75rem', paddingBottom: '1.25rem',
+                borderBottom: '1px solid var(--border-color)'
+              }}>
+                <div style={{
+                  width: '48px', height: '48px', borderRadius: '12px',
+                  background: 'linear-gradient(135deg, var(--primary-color), #6366f1)',
+                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  flexShrink: 0
+                }}>
+                  <Building2 size={24} color="white" />
+                </div>
+                <div>
+                  <h3 style={{ margin: 0, fontSize: '1rem', fontWeight: 600 }}>
+                    {empresaData.razon_social || 'Empresa sin nombre'}
+                  </h3>
+                  <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>
+                    {empresaId ? 'Registro existente · haz clic en Guardar para actualizar' : 'Registro nuevo · completa los campos y guarda'}
+                  </span>
+                </div>
+              </div>
+
+              {/* Formulario */}
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '1.1rem' }}>
+
+                {/* Razón Social */}
+                <div>
+                  <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 600, color: 'var(--text-muted)', marginBottom: '0.4rem', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                    Razón Social *
+                  </label>
+                  <input
+                    id="empresa-razon-social"
+                    type="text"
+                    className="form-control"
+                    placeholder="Ej: Comunicaciones SEIS, C.A."
+                    value={empresaData.razon_social}
+                    onChange={e => handleEmpresaChange('razon_social', e.target.value)}
+                    style={{ width: '100%', boxSizing: 'border-box' }}
+                  />
+                </div>
+
+                {/* RIF */}
+                <div>
+                  <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 600, color: 'var(--text-muted)', marginBottom: '0.4rem', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                    RIF / RUC
+                  </label>
+                  <input
+                    id="empresa-rif"
+                    type="text"
+                    className="form-control"
+                    placeholder="Ej: J-12345678-9"
+                    value={empresaData.rif}
+                    onChange={e => handleEmpresaChange('rif', e.target.value)}
+                    style={{ width: '100%', boxSizing: 'border-box' }}
+                  />
+                </div>
+
+                {/* Dirección */}
+                <div>
+                  <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 600, color: 'var(--text-muted)', marginBottom: '0.4rem', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                    Dirección
+                  </label>
+                  <textarea
+                    id="empresa-direccion"
+                    className="form-control"
+                    placeholder="Ej: Av. Principal, Edif. Centro Empresarial, Piso 3, Caracas"
+                    value={empresaData.direccion}
+                    onChange={e => handleEmpresaChange('direccion', e.target.value)}
+                    rows={3}
+                    style={{ width: '100%', boxSizing: 'border-box', resize: 'vertical', minHeight: '80px' }}
+                  />
+                </div>
+
+                {/* Teléfono y Email en fila */}
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
+                  <div>
+                    <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 600, color: 'var(--text-muted)', marginBottom: '0.4rem', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                      Teléfono
+                    </label>
+                    <input
+                      id="empresa-telefono"
+                      type="tel"
+                      className="form-control"
+                      placeholder="Ej: +58 212 555-0000"
+                      value={empresaData.telefono}
+                      onChange={e => handleEmpresaChange('telefono', e.target.value)}
+                      style={{ width: '100%', boxSizing: 'border-box' }}
+                    />
+                  </div>
+                  <div>
+                    <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 600, color: 'var(--text-muted)', marginBottom: '0.4rem', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                      Email
+                    </label>
+                    <input
+                      id="empresa-email"
+                      type="email"
+                      className="form-control"
+                      placeholder="Ej: contacto@empresa.com"
+                      value={empresaData.email}
+                      onChange={e => handleEmpresaChange('email', e.target.value)}
+                      style={{ width: '100%', boxSizing: 'border-box' }}
+                    />
+                  </div>
+                </div>
+
+                {/* Sitio Web */}
+                <div>
+                  <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 600, color: 'var(--text-muted)', marginBottom: '0.4rem', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                    Sitio Web
+                  </label>
+                  <input
+                    id="empresa-sitio-web"
+                    type="url"
+                    className="form-control"
+                    placeholder="Ej: https://www.empresa.com"
+                    value={empresaData.sitio_web}
+                    onChange={e => handleEmpresaChange('sitio_web', e.target.value)}
+                    style={{ width: '100%', boxSizing: 'border-box' }}
+                  />
+                </div>
+
+              </div>{/* end form fields */}
+
+              {/* Botón Guardar */}
+              <div style={{ marginTop: '2rem', display: 'flex', justifyContent: 'flex-end', flexWrap: 'wrap', gap: '0.75rem' }}>
+                <button
+                  id="empresa-btn-cancelar"
+                  className="btn btn-secondary"
+                  onClick={() => setActiveTab('menu')}
+                  style={{ width: 'auto', padding: '0 1.25rem', height: '48px', fontSize: '0.95rem' }}
+                >
+                  Cancelar
+                </button>
+                <button
+                  id="empresa-btn-guardar"
+                  className="btn btn-primary"
+                  onClick={handleSaveEmpresa}
+                  disabled={isSavingEmpresa || !empresaData.razon_social.trim()}
+                  style={{ width: 'auto', padding: '0 1.5rem', height: '48px', fontSize: '0.95rem' }}
+                >
+                  {isSavingEmpresa ? 'Guardando...' : (<><Save size={16} style={{ marginRight: '0.4rem' }} />Guardar Cambios</>)}
+                </button>
+              </div>
+
+            </div>
+          )}
+
+          {/* Modal de confirmación de guardado exitoso */}
+          {showEmpresaSuccess && (
+            <div style={{
+              position: 'fixed', inset: 0, zIndex: 9999,
+              background: 'rgba(0,0,0,0.55)', backdropFilter: 'blur(4px)',
+              display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '1rem'
+            }}>
+              <div className="card" style={{
+                padding: '2rem', maxWidth: '380px', width: '100%', textAlign: 'center',
+                border: '1px solid rgba(34,197,94,0.3)', boxShadow: '0 20px 60px rgba(0,0,0,0.4)'
+              }}>
+                <div style={{
+                  width: '64px', height: '64px', borderRadius: '50%',
+                  background: 'rgba(34,197,94,0.15)', border: '2px solid rgba(34,197,94,0.4)',
+                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  margin: '0 auto 1.25rem'
+                }}>
+                  <CheckCircle size={32} color="#22c55e" />
+                </div>
+                <h3 style={{ margin: '0 0 0.5rem', fontSize: '1.1rem', fontWeight: 700 }}>
+                  ¡Datos Guardados!
+                </h3>
+                <p style={{ margin: '0 0 1.5rem', color: 'var(--text-muted)', fontSize: '0.9rem' }}>
+                  Los datos de la empresa se actualizaron exitosamente en la base de datos.
+                </p>
+                <button
+                  id="empresa-success-ok"
+                  className="btn btn-primary"
+                  onClick={() => setShowEmpresaSuccess(false)}
+                  style={{ width: '100%', height: '48px', fontSize: '0.95rem' }}
+                >
+                  Aceptar
+                </button>
+              </div>
+            </div>
+          )}
+
+        </div>
+      )}
 
       {/* System Users management screen */}
       {activeTab === 'usuarios' && (
