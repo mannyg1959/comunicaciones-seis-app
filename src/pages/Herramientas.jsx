@@ -196,15 +196,21 @@ export default function Herramientas({ user }) {
       if (tickerExpiry === '8h')  { expires_at = new Date(now.getTime() + 8*60*60*1000).toISOString(); }
       if (tickerExpiry === '24h') { expires_at = new Date(now.getTime() + 24*60*60*1000).toISOString(); }
 
-      const { error } = await supabase.from('monitor_ticker').insert({
+      const payload = {
         message:     tickerText.trim(),
         sender_name: user?.name || user?.username || 'Usuario',
         priority:    tickerPriority,
         is_active:   true,
         expires_at,
-      });
+      };
 
-      if (error) throw error;
+      if (editingMessage) {
+        const { error } = await supabase.from('monitor_ticker').update(payload).eq('id', editingMessage.id);
+        if (error) throw error;
+      } else {
+        const { error } = await supabase.from('monitor_ticker').insert(payload);
+        if (error) throw error;
+      }
 
       setTickerText('');
       setTickerPriority('normal');
@@ -573,7 +579,7 @@ export default function Herramientas({ user }) {
             padding: '0 1rem',
             background: activeTab === 'reportes' ? 'var(--primary-color)' : 'transparent',
             color: activeTab === 'reportes' ? '#ffffff' : 'var(--text-muted)',
-            border: 'none',
+            border: activeTab === 'reportes' ? '1px solid var(--primary-color)' : '1px solid var(--border-color)',
             borderRadius: '8px'
           }}
         >
@@ -588,7 +594,7 @@ export default function Herramientas({ user }) {
             padding: '0 1rem',
             background: activeTab === 'exportar' ? 'var(--primary-color)' : 'transparent',
             color: activeTab === 'exportar' ? '#ffffff' : 'var(--text-muted)',
-            border: 'none',
+            border: activeTab === 'exportar' ? '1px solid var(--primary-color)' : '1px solid var(--border-color)',
             borderRadius: '8px'
           }}
         >
@@ -603,7 +609,7 @@ export default function Herramientas({ user }) {
             padding: '0 1rem',
             background: activeTab === 'alertas' ? 'var(--primary-color)' : 'transparent',
             color: activeTab === 'alertas' ? '#ffffff' : 'var(--text-muted)',
-            border: 'none',
+            border: activeTab === 'alertas' ? '1px solid var(--primary-color)' : '1px solid var(--border-color)',
             borderRadius: '8px',
             position: 'relative'
           }}
@@ -630,19 +636,16 @@ export default function Herramientas({ user }) {
           )}
         </button>
         <button 
-          disabled={true}
+          onClick={() => setActiveTab('monitor')}
           className="btn" 
-          title="Próximamente"
           style={{ 
             height: '42px', 
             fontSize: '0.9rem',
             padding: '0 1rem',
-            background: 'transparent',
-            color: 'var(--text-muted)',
-            border: 'none',
-            borderRadius: '8px',
-            opacity: 0.5,
-            cursor: 'not-allowed'
+            background: activeTab === 'monitor' ? 'var(--primary-color)' : 'transparent',
+            color: activeTab === 'monitor' ? '#ffffff' : 'var(--text-muted)',
+            border: activeTab === 'monitor' ? '1px solid var(--primary-color)' : '1px solid var(--border-color)',
+            borderRadius: '8px'
           }}
         >
           <Tv size={16} /> Monitor
@@ -1739,7 +1742,7 @@ export default function Herramientas({ user }) {
                 onChange={e => setTickerText(e.target.value)}
                 maxLength={280}
                 placeholder="Escribe el mensaje que aparecerá en la banda del monitor TV..."
-                rows={3}
+                rows={4}
                 style={{
                   width: '100%', padding: '0.75rem', borderRadius: '8px',
                   border: '1px solid var(--border-color)', background: 'var(--bg-color)',

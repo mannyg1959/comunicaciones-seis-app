@@ -161,6 +161,7 @@ export default function CotizacionForm({ initialData, onCancel, onSave, onDelete
     observaciones: ''
   });
   const [clientsList, setClientsList] = useState([]);
+  const [empresa, setEmpresa] = useState(null);
 
   useEffect(() => {
     const fetchClients = async () => {
@@ -178,6 +179,7 @@ export default function CotizacionForm({ initialData, onCancel, onSave, onDelete
             correo: c.contact_email,
             ciudad: c.address ? c.address.split(',')[0] || '' : '',
             estado: c.address ? c.address.split(',')[1] || '' : '',
+            direccion: c.address || '',
             observaciones: ''
           }));
           setClientsList(activeClients);
@@ -203,6 +205,7 @@ export default function CotizacionForm({ initialData, onCancel, onSave, onDelete
               correo: c.contact_email,
               ciudad: c.address.split(',')[0] || '',
               estado: c.address.split(',')[1] || '',
+              direccion: c.address || '',
               observaciones: ''
             }));
             setClientsList(activeClients);
@@ -214,6 +217,22 @@ export default function CotizacionForm({ initialData, onCancel, onSave, onDelete
       }
     };
     fetchClients();
+    const fetchEmpresa = async () => {
+      try {
+        const { data, error } = await supabase
+          .from('empresa')
+          .select('*')
+          .limit(1)
+          .maybeSingle();
+        if (error) throw error;
+        if (data) {
+          setEmpresa(data);
+        }
+      } catch (err) {
+        console.error('Error fetching company data:', err);
+      }
+    };
+    fetchEmpresa();
   }, []);
 
   const [tempMotivoRechazo, setTempMotivoRechazo] = useState('');
@@ -562,40 +581,13 @@ export default function CotizacionForm({ initialData, onCancel, onSave, onDelete
       }
       let htmlText = await response.text();
 
-      const senderAddresses = [
-        "Av. Francisco de Miranda, Edif. Centro Seguros Sudamérica, El Rosal, Caracas",
-        "Av. Intercomunal Jorge Rodríguez, Sector Las Garzas, Barcelona, Anzoátegui",
-        "Av. Francisco de Miranda, Multicentro Empresarial del Este, Chacao, Caracas"
-      ];
-
-      const clientAddresses = [
-        "Av. Bolívar, Centro Comercial Las Industrias, Valencia, Carabobo",
-        "Av. Bella Vista, Edif. Don Matías, Maracaibo, Zulia",
-        "Calle 15 entre Carreras 19 y 20, Barquisimeto, Lara",
-        "Av. Las Américas, Sector Albarregas, Mérida",
-        "Av. Principal de Las Mercedes, Edif. Centro Profesional, Caracas"
-      ];
-
-      const getAddress = (list, seed) => {
-        let index = 0;
-        if (seed) {
-          let sum = 0;
-          for (let i = 0; i < seed.length; i++) {
-            sum += seed.charCodeAt(i);
-          }
-          index = sum % list.length;
-        } else {
-          index = Math.floor(Math.random() * list.length);
-        }
-        return list[index] + ", Venezuela";
-      };
-
-      const senderAddr = getAddress(senderAddresses, "Comunicaciones 6");
-      const clientAddr = getAddress(clientAddresses, formData.cliente || "Cliente");
+      const clientObj = clientsList.find(c => c.id === formData.clientId || c.empresa === formData.cliente);
+      const clientAddr = clientObj?.direccion || "Dirección por definir, Venezuela";
+      const senderAddr = empresa?.direccion || "Av. Francisco de Miranda, Edif. Centro Seguros Sudamérica, El Rosal, Caracas, Venezuela";
 
       htmlText = htmlText.replace(/\[campo1\]/gi, formData.id || 'N/A');
       htmlText = htmlText.replace(/\[campo2\]/gi, formData.fechaEmision || 'N/A');
-      htmlText = htmlText.replace(/\[campo3\]/gi, 'Comunicaciones 6');
+      htmlText = htmlText.replace(/\[campo3\]/gi, empresa?.razon_social || 'Comunicaciones 6');
       htmlText = htmlText.replace(/\[campo4\]/gi, senderAddr);
       htmlText = htmlText.replace(/\[campo5\]/gi, formData.cliente || 'Sin Cliente');
       htmlText = htmlText.replace(/\[campo6\]/gi, clientAddr);

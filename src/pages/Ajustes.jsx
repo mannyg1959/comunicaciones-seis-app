@@ -770,9 +770,6 @@ export default function Ajustes({ user, onLogout }) {
       {/* Datos de la Empresa screen */}
       {activeTab === 'empresa' && (
         <div>
-          <p style={{ margin: '0 0 1.5rem 0', fontSize: '0.9rem', color: 'var(--text-muted)' }}>
-            Información oficial de la organización registrada en el sistema.
-          </p>
 
           {isLoadingEmpresa ? (
             <div style={{ textAlign: 'center', padding: '3rem', color: 'var(--text-muted)' }}>
@@ -780,7 +777,7 @@ export default function Ajustes({ user, onLogout }) {
               Cargando datos de la empresa...
             </div>
           ) : (
-            <div className="card" style={{ padding: '1.5rem' }}>
+            <div className="card" style={{ padding: '1.5rem', maxWidth: '600px', margin: '0 auto' }}>
 
               {/* Encabezado visual */}
               <div style={{
@@ -807,101 +804,96 @@ export default function Ajustes({ user, onLogout }) {
               </div>
 
               {/* Formulario */}
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '1.1rem' }}>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
 
                 {/* Razón Social */}
-                <div>
-                  <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 600, color: 'var(--text-muted)', marginBottom: '0.4rem', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                <div className="input-group" style={{ marginBottom: 0 }}>
+                  <label htmlFor="empresa-razon-social" style={{ color: 'var(--text-main)', fontWeight: 'bold', fontSize: '0.85rem', marginBottom: '0.4rem' }}>
                     Razón Social *
                   </label>
                   <input
                     id="empresa-razon-social"
                     type="text"
-                    className="form-control"
+                    className="input-control"
                     placeholder="Ej: Comunicaciones SEIS, C.A."
                     value={empresaData.razon_social}
                     onChange={e => handleEmpresaChange('razon_social', e.target.value)}
-                    style={{ width: '100%', boxSizing: 'border-box' }}
                   />
                 </div>
 
                 {/* RIF */}
-                <div>
-                  <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 600, color: 'var(--text-muted)', marginBottom: '0.4rem', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-                    RIF / RUC
+                <div className="input-group" style={{ marginBottom: 0 }}>
+                  <label htmlFor="empresa-rif" style={{ color: 'var(--text-main)', fontWeight: 'bold', fontSize: '0.85rem', marginBottom: '0.4rem' }}>
+                    RIF / NIT
                   </label>
                   <input
                     id="empresa-rif"
                     type="text"
-                    className="form-control"
+                    className="input-control"
                     placeholder="Ej: J-12345678-9"
                     value={empresaData.rif}
                     onChange={e => handleEmpresaChange('rif', e.target.value)}
-                    style={{ width: '100%', boxSizing: 'border-box' }}
                   />
                 </div>
 
                 {/* Dirección */}
-                <div>
-                  <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 600, color: 'var(--text-muted)', marginBottom: '0.4rem', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                <div className="input-group" style={{ marginBottom: 0 }}>
+                  <label htmlFor="empresa-direccion" style={{ color: 'var(--text-main)', fontWeight: 'bold', fontSize: '0.85rem', marginBottom: '0.4rem' }}>
                     Dirección
                   </label>
                   <textarea
                     id="empresa-direccion"
-                    className="form-control"
+                    className="input-control"
                     placeholder="Ej: Av. Principal, Edif. Centro Empresarial, Piso 3, Caracas"
                     value={empresaData.direccion}
                     onChange={e => handleEmpresaChange('direccion', e.target.value)}
-                    rows={3}
-                    style={{ width: '100%', boxSizing: 'border-box', resize: 'vertical', minHeight: '80px' }}
+                    rows={2}
+                    style={{ resize: 'vertical', minHeight: '60px' }}
                   />
                 </div>
 
                 {/* Teléfono y Email en fila */}
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
-                  <div>
-                    <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 600, color: 'var(--text-muted)', marginBottom: '0.4rem', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem' }}>
+                  <div className="input-group" style={{ marginBottom: 0 }}>
+                    <label htmlFor="empresa-telefono" style={{ color: 'var(--text-main)', fontWeight: 'bold', fontSize: '0.85rem', marginBottom: '0.4rem' }}>
                       Teléfono
                     </label>
                     <input
                       id="empresa-telefono"
                       type="tel"
-                      className="form-control"
+                      className="input-control"
                       placeholder="Ej: +58 212 555-0000"
                       value={empresaData.telefono}
                       onChange={e => handleEmpresaChange('telefono', e.target.value)}
-                      style={{ width: '100%', boxSizing: 'border-box' }}
                     />
                   </div>
-                  <div>
-                    <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 600, color: 'var(--text-muted)', marginBottom: '0.4rem', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                  <div className="input-group" style={{ marginBottom: 0 }}>
+                    <label htmlFor="empresa-email" style={{ color: 'var(--text-main)', fontWeight: 'bold', fontSize: '0.85rem', marginBottom: '0.4rem' }}>
                       Email
                     </label>
                     <input
                       id="empresa-email"
                       type="email"
-                      className="form-control"
+                      className="input-control"
                       placeholder="Ej: contacto@empresa.com"
                       value={empresaData.email}
                       onChange={e => handleEmpresaChange('email', e.target.value)}
-                      style={{ width: '100%', boxSizing: 'border-box' }}
                     />
                   </div>
                 </div>
 
                 {/* Sitio Web */}
-                <div>
-                  <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 600, color: 'var(--text-muted)', marginBottom: '0.4rem', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                <div className="input-group" style={{ marginBottom: 0 }}>
+                  <label htmlFor="empresa-sitio-web" style={{ color: 'var(--text-main)', fontWeight: 'bold', fontSize: '0.85rem', marginBottom: '0.4rem' }}>
                     Sitio Web
                   </label>
                   <input
                     id="empresa-sitio-web"
                     type="url"
-                    className="form-control"
+                    className="input-control"
                     placeholder="Ej: https://www.empresa.com"
                     value={empresaData.sitio_web}
                     onChange={e => handleEmpresaChange('sitio_web', e.target.value)}
-                    style={{ width: '100%', boxSizing: 'border-box' }}
                   />
                 </div>
 
@@ -959,7 +951,10 @@ export default function Ajustes({ user, onLogout }) {
                 <button
                   id="empresa-success-ok"
                   className="btn btn-primary"
-                  onClick={() => setShowEmpresaSuccess(false)}
+                  onClick={() => {
+                    setShowEmpresaSuccess(false);
+                    setActiveTab('menu');
+                  }}
                   style={{ width: '100%', height: '48px', fontSize: '0.95rem' }}
                 >
                   Aceptar

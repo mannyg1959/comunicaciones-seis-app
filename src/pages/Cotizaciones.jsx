@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useSearchParams } from 'react-router-dom';
-import { Plus, Search, FileText, SlidersHorizontal, X, CheckCircle, AlertTriangle, HelpCircle } from 'lucide-react';
+import { Plus, Search, FileText, SlidersHorizontal, X, CheckCircle, AlertTriangle, HelpCircle, FileDown } from 'lucide-react';
 import CotizacionForm from '../components/CotizacionForm';
 import DatePicker from 'react-datepicker';
 import 'react-datepicker/dist/react-datepicker.css';
@@ -22,6 +22,8 @@ export default function Cotizaciones({ user }) {
   const [filterFechaInicio, setFilterFechaInicio] = useState(null);
   const [filterFechaFin, setFilterFechaFin] = useState(null);
   const [filterEstadoSelect, setFilterEstadoSelect] = useState(filterEstadoUrl || '');
+  const [isReportModalOpen, setIsReportModalOpen] = useState(false);
+  const [empresa, setEmpresa] = useState(null);
   const [editingCotizacion, setEditingCotizacion] = useState(searchParams.get('new') === 'true' ? { id: 'NEW' } : null);
   const [cotizaciones, setCotizaciones] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -38,7 +40,7 @@ export default function Cotizaciones({ user }) {
         .from('quotes')
         .select(`
           *,
-          client:clients (id, name, contact_name),
+          client:clients (id, name, contact_name, address),
           seller:profiles (name),
           items:quote_items (*),
           work_orders:work_orders(id)
@@ -47,13 +49,13 @@ export default function Cotizaciones({ user }) {
 
       if (error) throw error;
 
-      const filteredQuotes = data.filter(q => !q.work_orders || q.work_orders.length === 0);
-      const mapped = filteredQuotes.map(q => {
+      const mapped = data.map(q => {
         return {
           id: q.id,
           cliente: q.client?.name || 'Sin Cliente',
           clientId: q.client_id,
           contacto: q.contact_name || q.client?.contact_name || '',
+          direccionCliente: q.client?.address || '',
           tipo: q.items && q.items.length > 0 ? q.items[0].line_of_business + (q.items.length > 1 ? ' y otros' : '') : 'Varios',
           monto: q.total,
           estado: q.status,
@@ -61,6 +63,7 @@ export default function Cotizaciones({ user }) {
           fechaEntrega: q.estimated_delivery_date,
           ejecutivo: q.seller?.name || 'Desconocido',
           sellerId: q.seller_id,
+          hasWorkOrder: q.work_orders && q.work_orders.length > 0,
           items: q.items.map(item => ({
             id: item.id,
             lineaNegocio: item.line_of_business,
@@ -89,7 +92,140 @@ export default function Cotizaciones({ user }) {
 
   useEffect(() => {
     fetchCotizaciones();
+    const fetchEmpresa = async () => {
+      try {
+        const { data, error } = await supabase
+          .from('empresa')
+          .select('*')
+          .limit(1)
+          .maybeSingle();
+        if (error) throw error;
+        if (data) {
+          setEmpresa(data);
+        }
+      } catch (err) {
+        console.error('Error fetching company data:', err);
+      }
+    };
+    fetchEmpresa();
   }, []);
+
+  const loadHtml2Pdf = () => {
+    return new Promise((resolve) => {
+      if (window.html2pdf) {
+        resolve(window.html2pdf);
+        return;
+      }
+      const script = document.createElement('script');
+      script.src = 'https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js';
+      script.onload = () => resolve(window.html2pdf);
+      document.body.appendChild(script);
+    });
+  };
+
+  const formatCurrencyDisplay = (num) => {
+    if (num === undefined || num === null || isNaN(num)) return '$0,00';
+    const parts = Number(num).toFixed(2).split('.');
+    const integerPart = parts[0].replace(/\B(?=(\d{3})+(?!\d))/g, '.');
+    const decimalPart = parts[1];
+    return `$${integerPart},${decimalPart}`;
+  };
+
+  const generateSingleQuotePDF = async (quote) => {
+    try {
+      const response = await fetch('/PlantillaCotizacion.html');
+      if (!response.ok) {
+        throw new Error('No se pudo cargar la plantilla de cotización.');
+      }
+      let htmlText = await response.text();
+
+      const senderAddr = empresa?.direccion || "Av. Francisco de Miranda, Edif. Centro Seguros Sudamérica, El Rosal, Caracas, Venezuela";
+      const clientAddr = quote.direccionCliente || "Dirección por definir, Venezuela";
+
+      htmlText = htmlText.replace(/\[campo1\]/gi, quote.id || 'N/A');
+      htmlText = htmlText.replace(/\[campo2\]/gi, quote.fecha || 'N/A');
+      htmlText = htmlText.replace(/\[campo3\]/gi, empresa?.razon_social || 'Comunicaciones 6');
+      htmlText = htmlText.replace(/\[campo4\]/gi, senderAddr);
+      htmlText = htmlText.replace(/\[campo5\]/gi, quote.cliente || 'Sin Cliente');
+      htmlText = htmlText.replace(/\[campo6\]/gi, clientAddr);
+      htmlText = htmlText.replace(/src="\/logo\.png"/gi, `src="${window.location.origin}/logo.png"`);
+
+      const parser = new DOMParser();
+      const doc = parser.parseFromString(htmlText, 'text/html');
+      const table = doc.getElementById('items-table');
+
+      if (table) {
+        let tableHTML = `
+          <thead>
+            <tr>
+              <th style="background:#1e3a5f;color:#ffffff;font-family:'Segoe UI',Arial,sans-serif;font-size:7pt;font-weight:700;text-transform:uppercase;letter-spacing:0.6px;padding:4pt 6pt;border:1px solid #1e3a5f;text-align:center;width:34pt;">REF.</th>
+              <th style="background:#1e3a5f;color:#ffffff;font-family:'Segoe UI',Arial,sans-serif;font-size:7pt;font-weight:700;text-transform:uppercase;letter-spacing:0.6px;padding:4pt 6pt;border:1px solid #1e3a5f;text-align:left;">DESCRIPCIÓN</th>
+              <th style="background:#1e3a5f;color:#ffffff;font-family:'Segoe UI',Arial,sans-serif;font-size:7pt;font-weight:700;text-transform:uppercase;letter-spacing:0.6px;padding:4pt 6pt;border:1px solid #1e3a5f;text-align:center;width:38pt;">CANT.</th>
+              <th style="background:#1e3a5f;color:#ffffff;font-family:'Segoe UI',Arial,sans-serif;font-size:7pt;font-weight:700;text-transform:uppercase;letter-spacing:0.6px;padding:4pt 6pt;border:1px solid #1e3a5f;text-align:right;width:84pt;">PRECIO UNIT.</th>
+            </tr>
+          </thead>
+          <tbody>
+        `;
+
+        quote.items.forEach((item, index) => {
+          let details = item.descripcion || '';
+          const price = formatCurrencyDisplay(parseFloat(item.costoUnitario) || 0);
+          const rowBg = index % 2 === 0 ? '#f8fafc' : '#ffffff';
+
+          tableHTML += `
+            <tr style="background:${rowBg};">
+              <td style="font-family:'Segoe UI',Arial,sans-serif;font-size:7.5pt;color:#1a2e4a;padding:2.5pt 6pt;border:1px solid #e2e8f0;text-align:center;vertical-align:top;">${index + 1}</td>
+              <td style="font-family:'Segoe UI',Arial,sans-serif;font-size:7.5pt;color:#1a2e4a;padding:2.5pt 6pt;border:1px solid #e2e8f0;vertical-align:top;white-space:pre-wrap;">${details}</td>
+              <td style="font-family:'Segoe UI',Arial,sans-serif;font-size:7.5pt;color:#1a2e4a;padding:2.5pt 6pt;border:1px solid #e2e8f0;text-align:center;vertical-align:top;">${item.cantidad}</td>
+              <td style="font-family:'Segoe UI',Arial,sans-serif;font-size:7.5pt;color:#1a2e4a;padding:2.5pt 6pt;border:1px solid #e2e8f0;text-align:right;vertical-align:top;">${price}</td>
+            </tr>
+          `;
+        });
+
+        const subtotalFormatted = formatCurrencyDisplay(quote.subtotal);
+        const taxesFormatted = formatCurrencyDisplay(quote.impuestos);
+        const totalFormatted = formatCurrencyDisplay(quote.total);
+
+        tableHTML += `
+            <tr>
+              <td colspan="3" style="font-family:'Segoe UI',Arial,sans-serif;padding:2.5pt 6pt;border:1px solid #dbe4ef;background:#f0f5fa;text-align:right;font-size:7.5pt;color:#64748b;font-style:italic;">Subtotal:</td>
+              <td style="font-family:'Segoe UI',Arial,sans-serif;padding:2.5pt 6pt;border:1px solid #dbe4ef;background:#f0f5fa;text-align:right;font-size:7.5pt;font-weight:600;color:#1a2e4a;">${subtotalFormatted}</td>
+            </tr>
+            <tr>
+              <td colspan="3" style="font-family:'Segoe UI',Arial,sans-serif;padding:2.5pt 6pt;border:1px solid #dbe4ef;background:#f0f5fa;text-align:right;font-size:7.5pt;color:#64748b;font-style:italic;">IVA (16%):</td>
+              <td style="font-family:'Segoe UI',Arial,sans-serif;padding:2.5pt 6pt;border:1px solid #dbe4ef;background:#f0f5fa;text-align:right;font-size:7.5pt;font-weight:600;color:#1a2e4a;">${taxesFormatted}</td>
+            </tr>
+            <tr>
+              <td colspan="3" style="font-family:'Segoe UI',Arial,sans-serif;padding:4pt 6pt;border:1px solid #1e3a5f;background:#1e3a5f;text-align:right;font-size:8.5pt;font-weight:700;color:#ffffff;letter-spacing:0.3px;">TOTAL DE PRESUPUESTO:</td>
+              <td style="font-family:'Segoe UI',Arial,sans-serif;padding:4pt 6pt;border:1px solid #1e3a5f;background:#1e3a5f;text-align:right;font-size:8.5pt;font-weight:700;color:#ffffff;">${totalFormatted}</td>
+            </tr>
+          </tbody>
+        `;
+
+        table.innerHTML = tableHTML;
+      }
+
+      const finalHtml = doc.documentElement.outerHTML;
+      const html2pdfLib = await loadHtml2Pdf();
+      
+      const element = document.createElement('div');
+      element.innerHTML = finalHtml;
+      
+      const opt = {
+        margin:       [10, 10, 10, 10],
+        filename:     `cotizacion_${quote.id}.pdf`,
+        image:        { type: 'jpeg', quality: 0.98 },
+        html2canvas:  { scale: 2, useCORS: true, letterRendering: true },
+        jsPDF:        { unit: 'mm', format: 'letter', orientation: 'portrait' }
+      };
+
+      await html2pdfLib().set(opt).from(element).save();
+      showNotification(`PDF de Cotización ${quote.id} generado con éxito.`);
+    } catch (err) {
+      console.error(err);
+      showNotification('Error al generar el PDF: ' + err.message, 'error');
+    }
+  };
 
   const [isFilterDrawerOpen, setIsFilterDrawerOpen] = useState(false);
   const [isHelpOpen, setIsHelpOpen] = useState(false);
@@ -123,7 +259,7 @@ export default function Cotizaciones({ user }) {
   };
 
   const filtered = cotizaciones.filter(c => {
-    if (c.convertidaAOT) return false;
+    if (c.hasWorkOrder) return false;
     
     const matchesSearch = c.cliente.toLowerCase().includes(searchTerm.toLowerCase()) || c.id.toLowerCase().includes(searchTerm.toLowerCase());
     const matchesCliente = filterCliente ? c.cliente === filterCliente : true;
@@ -331,68 +467,90 @@ export default function Cotizaciones({ user }) {
         borderBottom: '1px solid var(--border-color)'
       }}>
 
-      {notification.show && (
-        <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(3px)', display: 'flex', justifyContent: 'center', alignItems: 'center', zIndex: 1100, padding: '1rem' }}>
-          <div className="card glass-panel" style={{ width: '100%', maxWidth: '400px', margin: 0, textAlign: 'center' }}>
-            <div style={{ display: 'flex', justifyContent: 'center', marginBottom: '1rem' }}>
-              {notification.type === 'success' 
-                ? <CheckCircle size={48} color="var(--success-color)" />
-                : <AlertTriangle size={48} color="var(--error-color)" />
-              }
-            </div>
-            <h3 style={{ margin: '0 0 1rem 0', color: 'var(--text-main)', fontSize: '1.25rem' }}>
-              {notification.type === 'success' ? '¡Operación Exitosa!' : '¡Error!'}
-            </h3>
-            <p style={{ margin: '0 0 1.5rem 0', color: 'var(--text-muted)' }}>{notification.message}</p>
-            <button 
-              className="btn btn-primary" 
-              style={{ 
-                width: '100%', 
-                justifyContent: 'center',
-                color: '#ffffff',
-                backgroundColor: notification.type === 'error' ? 'var(--error-color)' : 'var(--primary-color)'
-              }}
-              onClick={() => setNotification({ show: false, message: '', type: 'success' })}
-            >
-              Aceptar
-            </button>
-          </div>
-        </div>
-      )}
-
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '1rem', flexWrap: 'wrap', marginBottom: '1rem' }}>
-          <h1 style={{ margin: 0, display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-            <FileText size={28} color="var(--primary-color)" /> Cotizaciones
-          </h1>
-          <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'center' }}>
-            {canCreate && (
+        {notification.show && (
+          <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(3px)', display: 'flex', justifyContent: 'center', alignItems: 'center', zIndex: 1100, padding: '1rem' }}>
+            <div className="card glass-panel" style={{ width: '100%', maxWidth: '400px', margin: 0, textAlign: 'center' }}>
+              <div style={{ display: 'flex', justifyContent: 'center', marginBottom: '1rem' }}>
+                {notification.type === 'success' 
+                  ? <CheckCircle size={48} color="var(--success-color)" />
+                  : <AlertTriangle size={48} color="var(--error-color)" />
+                }
+              </div>
+              <h3 style={{ margin: '0 0 1rem 0', color: 'var(--text-main)', fontSize: '1.25rem' }}>
+                {notification.type === 'success' ? '¡Operación Exitosa!' : '¡Error!'}
+              </h3>
+              <p style={{ margin: '0 0 1.5rem 0', color: 'var(--text-muted)' }}>{notification.message}</p>
               <button 
                 className="btn btn-primary" 
-                style={{ padding: '0.65rem 1.25rem', width: 'auto', display: 'flex', alignItems: 'center', gap: '0.5rem', fontSize: '0.95rem' }} 
-                onClick={() => setEditingCotizacion({id: 'NEW'})}
+                style={{ 
+                  width: '100%', 
+                  justifyContent: 'center',
+                  color: '#ffffff',
+                  backgroundColor: notification.type === 'error' ? 'var(--error-color)' : 'var(--primary-color)'
+                }}
+                onClick={() => setNotification({ show: false, message: '', type: 'success' })}
               >
-                <Plus size={18} />
-                <span>Nueva</span>
+                Aceptar
               </button>
-            )}
-            <button 
-              className={`btn ${isAnyFilterActive ? 'btn-primary' : 'btn-secondary'}`} 
-              style={{ padding: '0.65rem 1.25rem', width: 'auto', display: 'flex', alignItems: 'center', gap: '0.5rem', fontSize: '0.95rem' }} 
-              onClick={() => setIsFilterDrawerOpen(true)}
-            >
-              <SlidersHorizontal size={18} />
-              Filtros {isAnyFilterActive ? '(Activo)' : ''}
-            </button>
-            <button 
-              className="btn btn-secondary" 
-              style={{ padding: '0.65rem 1.25rem', width: 'auto', display: 'flex', alignItems: 'center', gap: '0.5rem', fontSize: '0.95rem' }} 
-              onClick={() => setIsHelpOpen(true)}
-              title="Ayuda del módulo"
-            >
-              <HelpCircle size={18} />
-              Ayuda
-            </button>
+            </div>
           </div>
+        )}
+
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+          <div>
+            <div style={{ display: 'flex', justifyContent: 'flex-start', alignItems: 'center', marginBottom: '1rem', width: '100%' }}>
+              <h1 style={{ margin: 0, display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                <FileText size={28} color="var(--primary-color)" /> Cotizaciones
+              </h1>
+            </div>
+            
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem', marginBottom: '1rem', width: '100%' }}>
+              {canCreate && (
+                <button 
+                  className="btn btn-primary" 
+                  style={{ height: '48px', width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem', fontSize: '0.95rem' }} 
+                  onClick={() => setEditingCotizacion({id: 'NEW'})}
+                >
+                  <Plus size={18} />
+                  <span>Nueva</span>
+                </button>
+              )}
+              <button 
+                className={`btn ${isAnyFilterActive ? 'btn-primary' : 'btn-secondary'}`} 
+                style={{ height: '48px', width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem', fontSize: '0.95rem' }} 
+                onClick={() => setIsFilterDrawerOpen(true)}
+              >
+                <SlidersHorizontal size={18} />
+                <span>Filtros {isAnyFilterActive ? '(Activo)' : ''}</span>
+              </button>
+              <button 
+                className="btn btn-secondary" 
+                style={{ 
+                  height: '48px', 
+                  width: '100%', 
+                  gridColumn: canCreate ? 'span 2' : 'span 1', 
+                  display: 'flex', 
+                  alignItems: 'center', 
+                  justifyContent: 'center', 
+                  gap: '0.5rem', 
+                  fontSize: '0.95rem' 
+                }} 
+                onClick={() => setIsReportModalOpen(true)}
+              >
+                <FileDown size={18} />
+                <span>Reporte PDF</span>
+              </button>
+            </div>
+          </div>
+
+          <button 
+            className="btn" 
+            style={{ padding: '0.5rem', background: 'transparent', border: 'none', color: 'var(--text-muted)' }} 
+            onClick={() => setIsHelpOpen(true)}
+            title="Ayuda del módulo"
+          >
+            <HelpCircle size={22} />
+          </button>
         </div>
 
         <div style={{ position: 'relative' }}>
@@ -589,6 +747,84 @@ export default function Cotizaciones({ user }) {
                 Entendido
               </button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {isReportModalOpen && (
+        <div style={{ 
+          position: 'fixed', 
+          top: 0, 
+          left: 0, 
+          right: 0, 
+          bottom: 0, 
+          backgroundColor: 'var(--bg-color)', 
+          zIndex: 1200,
+          display: 'flex',
+          flexDirection: 'column',
+          width: '100vw',
+          height: '100vh',
+          overflow: 'hidden'
+        }}>
+          <div className="modal-header" style={{ padding: '1.5rem', borderBottom: '1px solid var(--border-color)', borderRadius: 0 }}>
+            <h3 style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', margin: 0 }}>
+              <FileDown size={20} color="var(--primary-color)" />
+              <span>Cotizaciones Generadas (Con OT)</span>
+            </h3>
+            <button className="modal-close-btn" onClick={() => setIsReportModalOpen(false)}>
+              <X size={20} />
+            </button>
+          </div>
+          <div className="modal-body" style={{ flex: 1, overflowY: 'auto', padding: 0 }}>
+            {cotizaciones.length === 0 ? (
+              <div style={{ textAlign: 'center', padding: '3rem 2rem', color: 'var(--text-muted)' }}>
+                No hay cotizaciones registradas.
+              </div>
+            ) : (
+              <div style={{ display: 'flex', flexDirection: 'column' }}>
+                {cotizaciones.map(c => (
+                  <div 
+                    key={c.id} 
+                    className="report-list-row"
+                    style={{ 
+                      padding: '1.25rem 1.5rem', 
+                      cursor: 'pointer', 
+                      display: 'flex', 
+                      justifyContent: 'space-between', 
+                      alignItems: 'center',
+                      borderBottom: '1px solid var(--border-color)'
+                    }}
+                    onClick={() => {
+                      generateSingleQuotePDF(c);
+                    }}
+                  >
+                    <div style={{ textAlign: 'left' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.25rem' }}>
+                        <strong style={{ color: 'var(--text-main)', fontSize: '1.05rem' }}>{c.id}</strong>
+                        {c.hasWorkOrder && (
+                          <span className="badge badge-success" style={{ fontSize: '0.65rem', padding: '0.1rem 0.3rem' }}>OT Asignada</span>
+                        )}
+                      </div>
+                      <p style={{ margin: '0 0 0.25rem 0', fontWeight: 'bold', color: 'var(--text-main)' }}>{c.cliente}</p>
+                      <p style={{ margin: 0, fontSize: '0.8rem', color: 'var(--text-muted)' }}>
+                        Emisión: {formatDate(c.fecha)} • Ejecutivo: {c.ejecutivo}
+                      </p>
+                    </div>
+                    <div style={{ textAlign: 'right', display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '0.25rem' }}>
+                      <strong style={{ color: 'var(--primary-color)', fontSize: '1.1rem' }}>{formatCurrencyDisplay(c.total)}</strong>
+                      <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)', display: 'flex', alignItems: 'center', gap: '0.25rem' }}>
+                        <FileDown size={14} /> Descargar PDF
+                      </span>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+          <div className="modal-footer" style={{ padding: '1.5rem', borderTop: '1px solid var(--border-color)', borderRadius: 0 }}>
+            <button className="btn btn-secondary" onClick={() => setIsReportModalOpen(false)} style={{ height: '48px', fontSize: '0.95rem', width: '100%', justifyContent: 'center' }}>
+              Cerrar
+            </button>
           </div>
         </div>
       )}

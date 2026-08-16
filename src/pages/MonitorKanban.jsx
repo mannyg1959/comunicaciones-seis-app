@@ -70,10 +70,10 @@ export default function MonitorKanban() {
     
     fetchOrders();
 
-    // Actualizar reloj cada minuto
+    // Actualizar reloj cada segundo
     const clockInterval = setInterval(() => {
       setCurrentTime(new Date());
-    }, 60000);
+    }, 1000);
 
     // Suscripción a Realtime para actualizaciones automáticas
     const channel = supabase
@@ -151,9 +151,12 @@ export default function MonitorKanban() {
   return (
     <div className="monitor-container monitor-with-ticker">
       <header className="monitor-header">
-        <h1>MONITOR DE PRODUCCIÓN SEIS</h1>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
+          <img src="/logo.png" alt="Logo" style={{ height: '36px', objectFit: 'contain' }} />
+          <h1 style={{ margin: 0 }}>Tablero de Control de Producción</h1>
+        </div>
         <div className="monitor-clock" style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
-          <span>{currentTime.toLocaleDateString('es-ES', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })} | {currentTime.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' })}</span>
+          <span>{currentTime.toLocaleDateString('es-ES', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })} | {currentTime.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit', second: '2-digit' })}</span>
           <button 
             onClick={() => {
               if (!document.fullscreenElement) {

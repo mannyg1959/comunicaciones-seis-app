@@ -1148,7 +1148,7 @@ body.monitor-mode .app-container {
 .ticker-track {
   display: flex;
   white-space: nowrap;
-  animation: tickerScroll 40s linear infinite;
+  animation: tickerScroll 30s linear infinite;
 }
 
 /* Pausa al hover (para leer mensajes cómodamente) */
@@ -1167,5 +1167,13 @@ body.monitor-mode .app-container {
 
 .monitor-ticker-bar.urgent .ticker-content {
   color: #fca5a5;
+}
+
+.report-list-row {
+  transition: background-color 0.2s ease;
+}
+
+.report-list-row:hover {
+  background-color: rgba(255, 255, 255, 0.04);
 }
 

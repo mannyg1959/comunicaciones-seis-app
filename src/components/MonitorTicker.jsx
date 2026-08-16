@@ -49,8 +49,7 @@ export default function MonitorTicker() {
   const tickerText = messages
     .map(m => {
       const prefix = m.priority === 'urgente' ? '🚨 URGENTE: ' : '📢 ';
-      const author = m.sender_name ? ` [${m.sender_name}]` : '';
-      return `${prefix}${m.message}${author}`;
+      return `${prefix}${m.message}`;
     })
     .join('     ◆     ');
 
