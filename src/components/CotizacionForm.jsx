@@ -608,11 +608,11 @@ export default function CotizacionForm({ initialData, onCancel, onSave, onDelete
       if (table) {
         let tableHTML = `
           <thead>
-            <tr class="c8">
-              <td class="c0" colspan="1" rowspan="1" style="border: 1px solid #cccccc;"><p class="c14" style="margin: 0; text-align: center;"><span class="c25" style="font-weight: bold; color: white;">REF.</span></p></td>
-              <td class="c43" colspan="1" rowspan="1" style="border: 1px solid #cccccc;"><p class="c7" style="margin: 0;"><span class="c25" style="font-weight: bold; color: white;">DESCRIPCI&Oacute;N</span></p></td>
-              <td class="c48" colspan="1" rowspan="1" style="border: 1px solid #cccccc;"><p class="c14" style="margin: 0; text-align: center;"><span class="c25" style="font-weight: bold; color: white;">UNIDADES</span></p></td>
-              <td class="c40" colspan="1" rowspan="1" style="border: 1px solid #cccccc;"><p class="c15" style="margin: 0; text-align: right;"><span class="c25" style="font-weight: bold; color: white;">PRECIO</span></p></td>
+            <tr>
+              <th style="background:#1e3a5f;color:#ffffff;font-family:'Segoe UI',Arial,sans-serif;font-size:7pt;font-weight:700;text-transform:uppercase;letter-spacing:0.6px;padding:4pt 6pt;border:1px solid #1e3a5f;text-align:center;width:34pt;">REF.</th>
+              <th style="background:#1e3a5f;color:#ffffff;font-family:'Segoe UI',Arial,sans-serif;font-size:7pt;font-weight:700;text-transform:uppercase;letter-spacing:0.6px;padding:4pt 6pt;border:1px solid #1e3a5f;text-align:left;">DESCRIPCIÓN</th>
+              <th style="background:#1e3a5f;color:#ffffff;font-family:'Segoe UI',Arial,sans-serif;font-size:7pt;font-weight:700;text-transform:uppercase;letter-spacing:0.6px;padding:4pt 6pt;border:1px solid #1e3a5f;text-align:center;width:38pt;">CANT.</th>
+              <th style="background:#1e3a5f;color:#ffffff;font-family:'Segoe UI',Arial,sans-serif;font-size:7pt;font-weight:700;text-transform:uppercase;letter-spacing:0.6px;padding:4pt 6pt;border:1px solid #1e3a5f;text-align:right;width:84pt;">PRECIO UNIT.</th>
             </tr>
           </thead>
           <tbody>
@@ -622,13 +622,14 @@ export default function CotizacionForm({ initialData, onCancel, onSave, onDelete
           let details = item.descripcion || '';
 
           const price = formatCurrencyDisplay(parseFloat(item.costoUnitario) || 0);
+          const rowBg = index % 2 === 0 ? '#f8fafc' : '#ffffff';
 
           tableHTML += `
-            <tr class="c8">
-              <td class="c1" colspan="1" rowspan="1" style="border: 1px solid #cccccc;"><p class="c14" style="margin: 0; text-align: center;"><span class="c20">${index + 1}</span></p></td>
-              <td class="c3" colspan="1" rowspan="1" style="border: 1px solid #cccccc; white-space: pre-wrap;"><p class="c7" style="margin: 0; white-space: pre-wrap;"><span class="c12" style="white-space: pre-wrap;">${details}</span></p></td>
-              <td class="c2" colspan="1" rowspan="1" style="border: 1px solid #cccccc;"><p class="c14" style="margin: 0; text-align: center;"><span class="c12">${item.cantidad}</span></p></td>
-              <td class="c36" colspan="1" rowspan="1" style="border: 1px solid #cccccc;"><p class="c15" style="margin: 0; text-align: right;"><span class="c12">${price}</span></p></td>
+            <tr style="background:${rowBg};">
+              <td style="font-family:'Segoe UI',Arial,sans-serif;font-size:7.5pt;color:#1a2e4a;padding:2.5pt 6pt;border:1px solid #e2e8f0;text-align:center;vertical-align:top;">${index + 1}</td>
+              <td style="font-family:'Segoe UI',Arial,sans-serif;font-size:7.5pt;color:#1a2e4a;padding:2.5pt 6pt;border:1px solid #e2e8f0;vertical-align:top;white-space:pre-wrap;">${details}</td>
+              <td style="font-family:'Segoe UI',Arial,sans-serif;font-size:7.5pt;color:#1a2e4a;padding:2.5pt 6pt;border:1px solid #e2e8f0;text-align:center;vertical-align:top;">${item.cantidad}</td>
+              <td style="font-family:'Segoe UI',Arial,sans-serif;font-size:7.5pt;color:#1a2e4a;padding:2.5pt 6pt;border:1px solid #e2e8f0;text-align:right;vertical-align:top;">${price}</td>
             </tr>
           `;
         });
@@ -638,21 +639,17 @@ export default function CotizacionForm({ initialData, onCancel, onSave, onDelete
         const totalFormatted = formatCurrencyDisplay(formData.total);
 
         tableHTML += `
-            <tr class="c8">
-              <td class="c4" colspan="1" rowspan="1" style="border: 1px solid #cccccc;"><p class="c10" style="margin: 0;"></p></td>
-              <td class="c37" colspan="1" rowspan="1" style="border: 1px solid #cccccc;"><p class="c7" style="margin: 0;"><span class="c12">Subtotal</span></p></td>
-              <td class="c31" colspan="1" rowspan="1" style="border: 1px solid #cccccc;"><p class="c10" style="margin: 0;"></p></td>
-              <td class="c9" colspan="1" rowspan="1" style="border: 1px solid #cccccc;"><p class="c15" style="margin: 0; text-align: right;"><span class="c12">${subtotalFormatted}</span></p></td>
+            <tr>
+              <td colspan="3" style="font-family:'Segoe UI',Arial,sans-serif;padding:2.5pt 6pt;border:1px solid #dbe4ef;background:#f0f5fa;text-align:right;font-size:7.5pt;color:#64748b;font-style:italic;">Subtotal:</td>
+              <td style="font-family:'Segoe UI',Arial,sans-serif;padding:2.5pt 6pt;border:1px solid #dbe4ef;background:#f0f5fa;text-align:right;font-size:7.5pt;font-weight:600;color:#1a2e4a;">${subtotalFormatted}</td>
             </tr>
-            <tr class="c8">
-              <td class="c4" colspan="1" rowspan="1" style="border: 1px solid #cccccc;"><p class="c10" style="margin: 0;"></p></td>
-              <td class="c37" colspan="1" rowspan="1" style="border: 1px solid #cccccc;"><p class="c7" style="margin: 0;"><span class="c12">IVA (16%)</span></p></td>
-              <td class="c31" colspan="1" rowspan="1" style="border: 1px solid #cccccc;"><p class="c10" style="margin: 0;"></p></td>
-              <td class="c9" colspan="1" rowspan="1" style="border: 1px solid #cccccc;"><p class="c15" style="margin: 0; text-align: right;"><span class="c12">${taxesFormatted}</span></p></td>
+            <tr>
+              <td colspan="3" style="font-family:'Segoe UI',Arial,sans-serif;padding:2.5pt 6pt;border:1px solid #dbe4ef;background:#f0f5fa;text-align:right;font-size:7.5pt;color:#64748b;font-style:italic;">IVA (16%):</td>
+              <td style="font-family:'Segoe UI',Arial,sans-serif;padding:2.5pt 6pt;border:1px solid #dbe4ef;background:#f0f5fa;text-align:right;font-size:7.5pt;font-weight:600;color:#1a2e4a;">${taxesFormatted}</td>
             </tr>
-            <tr class="c8">
-              <td class="c17" colspan="3" rowspan="1" style="border: 1px solid #cccccc;"><p class="c28" style="margin: 0; text-align: right;"><span class="c21 c32">TOTAL DE PRESUPUESTO:</span></p></td>
-              <td class="c44" colspan="1" rowspan="1" style="border: 1px solid #cccccc;"><p class="c28" style="margin: 0; text-align: right;"><span class="c21 c32">${totalFormatted}</span></p></td>
+            <tr>
+              <td colspan="3" style="font-family:'Segoe UI',Arial,sans-serif;padding:4pt 6pt;border:1px solid #1e3a5f;background:#1e3a5f;text-align:right;font-size:8.5pt;font-weight:700;color:#ffffff;letter-spacing:0.3px;">TOTAL DE PRESUPUESTO:</td>
+              <td style="font-family:'Segoe UI',Arial,sans-serif;padding:4pt 6pt;border:1px solid #1e3a5f;background:#1e3a5f;text-align:right;font-size:8.5pt;font-weight:700;color:#ffffff;">${totalFormatted}</td>
             </tr>
           </tbody>
         `;

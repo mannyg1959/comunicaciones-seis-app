@@ -1078,3 +1078,94 @@ body.monitor-mode .app-container {
   margin-top: 0.35rem;
 }
 
+/* ═══════════════════════════════════════════════════════════════
+   MONITOR TICKER — Banda horizontal inferior estilo noticiario TV
+═══════════════════════════════════════════════════════════════ */
+
+/* Cuando el ticker está activo, reserva espacio en el board */
+.monitor-with-ticker .monitor-board {
+  padding-bottom: 52px; /* altura del ticker */
+}
+
+/* Barra del ticker */
+.monitor-ticker-bar {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: 44px;
+  background: linear-gradient(90deg, #0d1b2a 0%, #0f2744 100%);
+  border-top: 1px solid rgba(79, 195, 247, 0.25);
+  display: flex;
+  align-items: center;
+  overflow: hidden;
+  z-index: 200;
+  box-shadow: 0 -4px 20px rgba(0, 0, 0, 0.5);
+}
+
+/* Ticker en modo urgente */
+.monitor-ticker-bar.urgent {
+  background: linear-gradient(90deg, #1a0a00 0%, #3d0c00 100%);
+  border-top-color: rgba(239, 68, 68, 0.5);
+}
+
+/* Cápsula de icono "AVISOS" a la izquierda */
+.ticker-icon {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0 1.1rem;
+  height: 100%;
+  background: #4f46e5;
+  color: #ffffff;
+  font-size: 0.7rem;
+  font-weight: 700;
+  letter-spacing: 1.5px;
+  text-transform: uppercase;
+  border-right: 2px solid rgba(255,255,255,0.15);
+}
+
+.monitor-ticker-bar.urgent .ticker-icon {
+  background: #dc2626;
+}
+
+/* Área de texto scrollable */
+.ticker-viewport {
+  flex: 1;
+  overflow: hidden;
+  height: 100%;
+  display: flex;
+  align-items: center;
+}
+
+/* Animación de desplazamiento horizontal */
+@keyframes tickerScroll {
+  0%   { transform: translateX(0); }
+  100% { transform: translateX(-50%); } /* -50% porque duplicamos el contenido */
+}
+
+.ticker-track {
+  display: flex;
+  white-space: nowrap;
+  animation: tickerScroll 40s linear infinite;
+}
+
+/* Pausa al hover (para leer mensajes cómodamente) */
+.ticker-track:hover {
+  animation-play-state: paused;
+}
+
+.ticker-content {
+  display: inline-block;
+  padding-left: 3rem;
+  font-size: 0.9rem;
+  color: #e2e8f0;
+  font-weight: 400;
+  letter-spacing: 0.01em;
+}
+
+.monitor-ticker-bar.urgent .ticker-content {
+  color: #fca5a5;
+}
+

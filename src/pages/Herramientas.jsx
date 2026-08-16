@@ -17,7 +17,11 @@ import {
   Download,
   X,
   Activity,
-  MessageCircle
+  MessageCircle,
+  Megaphone,
+  Tv,
+  Send,
+  Trash2
 } from 'lucide-react';
 import { 
   mockRejectionReasonData
@@ -48,6 +52,17 @@ export default function Herramientas({ user }) {
   const [exportType, setExportType] = useState('cotizaciones');
   const [exportStatus, setExportStatus] = useState('Todos');
   const [exportClient, setExportClient] = useState('Todos');
+
+  // ── Monitor Ticker State ──
+  const [tickerMessages, setTickerMessages] = useState([]);
+  const [tickerModalOpen, setTickerModalOpen] = useState(false);
+  const [tickerText, setTickerText] = useState('');
+  const [tickerPriority, setTickerPriority] = useState('normal');
+  const [tickerExpiry, setTickerExpiry] = useState('never');
+  const [tickerSending, setTickerSending] = useState(false);
+  const [tickerSuccess, setTickerSuccess] = useState(false);
+  const [deleteConfirmId, setDeleteConfirmId] = useState(null);
+  const [editingMessage, setEditingMessage] = useState(null); // mensaje que se edita/reenvía
 
   useEffect(() => {
     const fetchData = async () => {
@@ -154,6 +169,74 @@ export default function Herramientas({ user }) {
 
     fetchData();
   }, []);
+
+  // ── Cargar mensajes del ticker ──
+  const fetchTickerMessages = async () => {
+    const { data, error } = await supabase
+      .from('monitor_ticker')
+      .select('id, message, sender_name, priority, is_active, expires_at, created_at')
+      .order('created_at', { ascending: false })
+      .limit(20);
+    if (!error && data) setTickerMessages(data);
+  };
+
+  useEffect(() => {
+    fetchTickerMessages();
+  }, []);
+
+  // ── Enviar mensaje al ticker ──
+  const handleSendTicker = async () => {
+    if (!tickerText.trim()) return;
+    setTickerSending(true);
+    try {
+      let expires_at = null;
+      const now = new Date();
+      if (tickerExpiry === '1h')  { expires_at = new Date(now.getTime() + 1*60*60*1000).toISOString(); }
+      if (tickerExpiry === '4h')  { expires_at = new Date(now.getTime() + 4*60*60*1000).toISOString(); }
+      if (tickerExpiry === '8h')  { expires_at = new Date(now.getTime() + 8*60*60*1000).toISOString(); }
+      if (tickerExpiry === '24h') { expires_at = new Date(now.getTime() + 24*60*60*1000).toISOString(); }
+
+      const { error } = await supabase.from('monitor_ticker').insert({
+        message:     tickerText.trim(),
+        sender_name: user?.name || user?.username || 'Usuario',
+        priority:    tickerPriority,
+        is_active:   true,
+        expires_at,
+      });
+
+      if (error) throw error;
+
+      setTickerText('');
+      setTickerPriority('normal');
+      setTickerExpiry('never');
+      setTickerModalOpen(false);
+      setEditingMessage(null);
+      setTickerSuccess(true);
+      setTimeout(() => setTickerSuccess(false), 3000);
+      fetchTickerMessages();
+    } catch (err) {
+      console.error('Error al enviar mensaje al ticker:', err);
+      alert('Error al enviar el mensaje: ' + err.message);
+    } finally {
+      setTickerSending(false);
+    }
+  };
+
+  // ── Desactivar / eliminar mensaje del ticker ──
+  const handleDeactivateTicker = async (id) => {
+    await supabase.from('monitor_ticker').update({ is_active: false }).eq('id', id);
+    setDeleteConfirmId(null);
+    fetchTickerMessages();
+  };
+
+  // ── Abrir modal pre-cargado con el mensaje a editar ──
+  const handleEditMessage = (msg) => {
+    setEditingMessage(msg);
+    setTickerText(msg.message);
+    setTickerPriority(msg.priority || 'normal');
+    setTickerExpiry('never'); // el usuario elige nueva expiración
+    setTickerModalOpen(true);
+  };
 
   // Unique clients for filtering
   const uniqueClients = Array.from(new Set([
@@ -471,11 +554,12 @@ export default function Herramientas({ user }) {
 
       {/* Tabs Selector */}
       <div style={{ 
-        display: 'flex', 
+        display: 'grid', 
+        gridTemplateColumns: '1fr 1fr',
         gap: '0.5rem', 
         marginBottom: '1.5rem', 
         background: 'var(--surface-color)', 
-        padding: '0.35rem', 
+        padding: '0.5rem', 
         borderRadius: '12px', 
         border: '1px solid var(--border-color)',
         flexShrink: 0
@@ -484,7 +568,6 @@ export default function Herramientas({ user }) {
           onClick={() => setActiveTab('reportes')}
           className="btn" 
           style={{ 
-            flex: 1, 
             height: '42px', 
             fontSize: '0.9rem',
             padding: '0 1rem',
@@ -500,7 +583,6 @@ export default function Herramientas({ user }) {
           onClick={() => setActiveTab('exportar')}
           className="btn" 
           style={{ 
-            flex: 1, 
             height: '42px', 
             fontSize: '0.9rem',
             padding: '0 1rem',
@@ -516,7 +598,6 @@ export default function Herramientas({ user }) {
           onClick={() => setActiveTab('alertas')}
           className="btn" 
           style={{ 
-            flex: 1, 
             height: '42px', 
             fontSize: '0.9rem',
             padding: '0 1rem',
@@ -547,6 +628,24 @@ export default function Herramientas({ user }) {
               {cotizacionesAlertas.length + cotizacionesAlertasAprobadas.length + otAlertas.length + otPreventivas.length}
             </span>
           )}
+        </button>
+        <button 
+          disabled={true}
+          className="btn" 
+          title="Próximamente"
+          style={{ 
+            height: '42px', 
+            fontSize: '0.9rem',
+            padding: '0 1rem',
+            background: 'transparent',
+            color: 'var(--text-muted)',
+            border: 'none',
+            borderRadius: '8px',
+            opacity: 0.5,
+            cursor: 'not-allowed'
+          }}
+        >
+          <Tv size={16} /> Monitor
         </button>
       </div>
 
@@ -1458,6 +1557,270 @@ export default function Herramientas({ user }) {
           </div>
         );
       })()}
+
+      {/* ════════════════════════════════════════════════════
+          TAB: MONITOR — Control del Ticker del TV
+      ════════════════════════════════════════════════════ */}
+      {activeTab === 'monitor' && (
+        <div style={{ animation: 'fadeIn 0.3s ease-out', display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+
+          {/* Notificación de éxito */}
+          {tickerSuccess && (
+            <div style={{
+              background: 'rgba(16,185,129,0.15)', border: '1px solid var(--success-color)',
+              borderRadius: '10px', padding: '0.9rem 1.2rem',
+              display: 'flex', alignItems: 'center', gap: '0.6rem', color: 'var(--success-color)', fontWeight: 600
+            }}>
+              ✅ Mensaje enviado al Monitor TV correctamente.
+            </div>
+          )}
+
+          {/* Header card */}
+          <div className="card" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '1rem', flexWrap: 'wrap' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+              <div style={{ width: 44, height: 44, borderRadius: '10px', background: 'rgba(79,70,229,0.2)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                <Tv size={22} color="#4f46e5" />
+              </div>
+              <div>
+                <h3 style={{ margin: 0, fontSize: '1.05rem' }}>Ticker del Monitor TV</h3>
+                <p style={{ margin: 0, fontSize: '0.8rem', color: 'var(--text-muted)' }}>
+                  Envía mensajes que aparecerán en la banda inferior del Monitor de Producción en tiempo real.
+                </p>
+              </div>
+            </div>
+            <button
+              className="btn btn-solid"
+              style={{ height: 48, fontSize: '0.95rem', display: 'flex', alignItems: 'center', gap: '0.5rem', flexShrink: 0 }}
+              onClick={() => setTickerModalOpen(true)}
+            >
+              <Megaphone size={18} /> Nuevo Mensaje
+            </button>
+          </div>
+
+          {/* Lista de mensajes activos/recientes */}
+          <div className="card">
+            <h4 style={{ margin: '0 0 1rem 0', fontSize: '0.95rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+              <Activity size={16} color="var(--primary-color)" /> Mensajes Recientes
+            </h4>
+
+            {tickerMessages.length === 0 ? (
+              <div style={{ textAlign: 'center', padding: '2rem 1rem', color: 'var(--text-muted)', fontSize: '0.9rem' }}>
+                No hay mensajes en el ticker. Crea uno con el botón "Nuevo Mensaje".
+              </div>
+            ) : (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.6rem' }}>
+                {tickerMessages.map(msg => {
+                  const isExpired = msg.expires_at && new Date(msg.expires_at) < new Date();
+                  const statusLabel = !msg.is_active ? 'Desactivado' : isExpired ? 'Expirado' : 'Activo';
+                  const statusColor = !msg.is_active || isExpired ? 'var(--text-muted)' : 'var(--success-color)';
+
+                  return (
+                    <div
+                      key={msg.id}
+                      onClick={() => handleEditMessage(msg)}
+                      title="Clic para editar y reenviar"
+                      style={{
+                        display: 'flex', alignItems: 'flex-start', gap: '0.75rem',
+                        padding: '0.75rem 1rem',
+                        background: 'var(--surface-color)',
+                        borderRadius: '8px',
+                        border: `1px solid ${msg.priority === 'urgente' ? 'rgba(239,68,68,0.4)' : 'var(--border-color)'}`,
+                        opacity: (!msg.is_active || isExpired) ? 0.55 : 1,
+                        cursor: 'pointer',
+                        transition: 'border-color 0.2s, background 0.2s',
+                      }}
+                      onMouseEnter={e => e.currentTarget.style.borderColor = '#4f46e5'}
+                      onMouseLeave={e => e.currentTarget.style.borderColor = msg.priority === 'urgente' ? 'rgba(239,68,68,0.4)' : 'var(--border-color)'}
+                    >
+                      {/* Icono prioridad */}
+                      <span style={{ fontSize: '1.1rem', flexShrink: 0, marginTop: '0.1rem' }}>
+                        {msg.priority === 'urgente' ? '🚨' : '📢'}
+                      </span>
+
+                      {/* Contenido */}
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <p style={{ margin: 0, fontSize: '0.9rem', color: 'var(--text-main)', wordBreak: 'break-word' }}>
+                          {msg.message}
+                        </p>
+                        <div style={{ display: 'flex', gap: '0.75rem', marginTop: '0.35rem', flexWrap: 'wrap' }}>
+                          {msg.sender_name && (
+                            <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>
+                              👤 {msg.sender_name}
+                            </span>
+                          )}
+                          <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>
+                            🕐 {new Date(msg.created_at).toLocaleString('es-ES', { dateStyle: 'short', timeStyle: 'short' })}
+                          </span>
+                          {msg.expires_at && (
+                            <span style={{ fontSize: '0.75rem', color: isExpired ? 'var(--error-color)' : 'var(--warning-color)' }}>
+                              ⏱ Expira: {new Date(msg.expires_at).toLocaleString('es-ES', { dateStyle: 'short', timeStyle: 'short' })}
+                            </span>
+                          )}
+                          <span style={{ fontSize: '0.72rem', fontWeight: 600, color: statusColor }}>
+                            ● {statusLabel}
+                          </span>
+                        </div>
+                      </div>
+
+                      {/* Botón editar + desactivar — detener propagación para no disparar el onClick del card */}
+                      <div style={{ display: 'flex', gap: '0.25rem', flexShrink: 0 }} onClick={e => e.stopPropagation()}>
+                        {msg.is_active && !isExpired && (
+                          deleteConfirmId === msg.id ? (
+                            <div style={{ display: 'flex', gap: '0.4rem', flexShrink: 0 }}>
+                              <button
+                                className="btn"
+                                style={{ height: 32, fontSize: '0.78rem', background: 'var(--error-color)', color: '#fff', border: 'none', padding: '0 0.75rem' }}
+                                onClick={() => handleDeactivateTicker(msg.id)}
+                              >
+                                Confirmar
+                              </button>
+                              <button
+                                className="btn btn-secondary"
+                                style={{ height: 32, fontSize: '0.78rem', padding: '0 0.75rem' }}
+                                onClick={() => setDeleteConfirmId(null)}
+                              >
+                                Cancelar
+                              </button>
+                            </div>
+                          ) : (
+                            <button
+                              title="Desactivar mensaje"
+                              style={{ background: 'transparent', border: 'none', cursor: 'pointer', color: 'var(--text-muted)', padding: '0.25rem', flexShrink: 0 }}
+                              onClick={() => setDeleteConfirmId(msg.id)}
+                            >
+                              <Trash2 size={16} />
+                            </button>
+                          )
+                        )}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* ════════════════════════════════════════════════════
+          MODAL: Redactar nuevo mensaje para el ticker
+      ════════════════════════════════════════════════════ */}
+      {tickerModalOpen && (
+        <div style={{
+          position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.7)',
+          zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center',
+          padding: '1rem'
+        }}>
+          <div style={{
+            background: 'var(--surface-color)', borderRadius: '16px',
+            border: '1px solid var(--border-color)', padding: '1.75rem',
+            width: '100%', maxWidth: '480px',
+            boxShadow: 'var(--shadow-lg)'
+          }}>
+            {/* Header modal */}
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.25rem' }}>
+              <h3 style={{ margin: 0, display: 'flex', alignItems: 'center', gap: '0.5rem', fontSize: '1.1rem' }}>
+                <Megaphone size={20} color="#4f46e5" />
+                {editingMessage ? 'Editar y Reenviar Mensaje' : 'Nuevo Mensaje al Monitor'}
+              </h3>
+              <button style={{ background: 'transparent', border: 'none', cursor: 'pointer', color: 'var(--text-muted)' }}
+                onClick={() => { setTickerModalOpen(false); setEditingMessage(null); }}>
+                <X size={20} />
+              </button>
+            </div>
+
+            {/* Mensaje */}
+            <div style={{ marginBottom: '1rem' }}>
+              <label style={{ fontSize: '0.85rem', color: 'var(--text-muted)', display: 'block', marginBottom: '0.4rem' }}>
+                Mensaje *
+              </label>
+              <textarea
+                value={tickerText}
+                onChange={e => setTickerText(e.target.value)}
+                maxLength={280}
+                placeholder="Escribe el mensaje que aparecerá en la banda del monitor TV..."
+                rows={3}
+                style={{
+                  width: '100%', padding: '0.75rem', borderRadius: '8px',
+                  border: '1px solid var(--border-color)', background: 'var(--bg-color)',
+                  color: 'var(--text-main)', fontSize: '0.95rem', resize: 'vertical',
+                  fontFamily: 'inherit'
+                }}
+              />
+              <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>
+                {tickerText.length}/280 caracteres
+              </span>
+            </div>
+
+            {/* Prioridad */}
+            <div style={{ marginBottom: '1rem' }}>
+              <label style={{ fontSize: '0.85rem', color: 'var(--text-muted)', display: 'block', marginBottom: '0.4rem' }}>
+                Prioridad
+              </label>
+              <div style={{ display: 'flex', gap: '0.6rem' }}>
+                {[
+                  { value: 'normal',  label: '📢 Normal',  desc: 'Texto estándar' },
+                  { value: 'urgente', label: '🚨 Urgente', desc: 'Barra roja + texto destacado' },
+                ].map(opt => (
+                  <button key={opt.value} onClick={() => setTickerPriority(opt.value)}
+                    style={{
+                      flex: 1, padding: '0.6rem', borderRadius: '8px', cursor: 'pointer',
+                      border: `2px solid ${tickerPriority === opt.value ? (opt.value === 'urgente' ? 'var(--error-color)' : 'var(--primary-color)') : 'var(--border-color)'}`,
+                      background: tickerPriority === opt.value ? (opt.value === 'urgente' ? 'rgba(239,68,68,0.1)' : 'rgba(79,70,229,0.1)') : 'transparent',
+                      color: 'var(--text-main)', fontSize: '0.85rem', fontWeight: 600
+                    }}>
+                    {opt.label}
+                    <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)', fontWeight: 400, marginTop: '0.15rem' }}>{opt.desc}</div>
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Tiempo de expiración */}
+            <div style={{ marginBottom: '1.5rem' }}>
+              <label style={{ fontSize: '0.85rem', color: 'var(--text-muted)', display: 'block', marginBottom: '0.4rem' }}>
+                Tiempo de Expiración
+              </label>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: '0.5rem' }}>
+                {[
+                  { value: 'never', label: 'Sin límite' },
+                  { value: '1h',    label: '1 hora' },
+                  { value: '4h',    label: '4 horas' },
+                  { value: '8h',    label: '8 horas' },
+                  { value: '24h',   label: '24 horas' },
+                ].map(opt => (
+                  <button key={opt.value} onClick={() => setTickerExpiry(opt.value)}
+                    style={{
+                      padding: '0.5rem 0.25rem', borderRadius: '8px', cursor: 'pointer', textAlign: 'center',
+                      border: `2px solid ${tickerExpiry === opt.value ? 'var(--primary-color)' : 'var(--border-color)'}`,
+                      background: tickerExpiry === opt.value ? 'rgba(79,70,229,0.15)' : 'transparent',
+                      color: tickerExpiry === opt.value ? 'var(--primary-color)' : 'var(--text-muted)',
+                      fontSize: '0.78rem', fontWeight: tickerExpiry === opt.value ? 700 : 400
+                    }}>
+                    {opt.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Acciones */}
+            <div style={{ display: 'flex', gap: '0.75rem', justifyContent: 'flex-end' }}>
+              <button className="btn btn-secondary" style={{ height: 48 }} onClick={() => { setTickerModalOpen(false); setEditingMessage(null); }}>
+                Cancelar
+              </button>
+              <button
+                className="btn btn-solid"
+                style={{ height: 48, display: 'flex', alignItems: 'center', gap: '0.5rem', opacity: !tickerText.trim() || tickerSending ? 0.6 : 1 }}
+                disabled={!tickerText.trim() || tickerSending}
+                onClick={handleSendTicker}
+              >
+                <Send size={16} /> {tickerSending ? 'Enviando...' : editingMessage ? 'Reenviar Mensaje' : 'Enviar al Monitor'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       </div>
     </div>
   );

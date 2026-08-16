@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { supabase } from '../utils/supabaseClient';
 import { Clock, AlertTriangle, Maximize, AlertCircle } from 'lucide-react';
 import { formatDate, formatDateTime } from '../utils/formatters';
+import MonitorTicker from '../components/MonitorTicker';
 
 export default function MonitorKanban() {
   const [ordenesTrabajo, setOrdenesTrabajo] = useState([]);
@@ -148,7 +149,7 @@ export default function MonitorKanban() {
   const getOrdersByStage = (stage) => ordenesTrabajo.filter(ot => ot.estado === stage);
 
   return (
-    <div className="monitor-container">
+    <div className="monitor-container monitor-with-ticker">
       <header className="monitor-header">
         <h1>MONITOR DE PRODUCCIÓN SEIS</h1>
         <div className="monitor-clock" style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
@@ -254,6 +255,9 @@ export default function MonitorKanban() {
           })}
         </div>
       )}
+
+      {/* ── TICKER HORIZONTAL INFERIOR ── */}
+      <MonitorTicker />
     </div>
   );
 }
