@@ -786,38 +786,48 @@ export default function OrdenesTrabajo({ user }) {
 
   return (
     <div className="page-content" style={{ paddingBottom: '90px' }}>
-      <div className="flex-row-between" style={{ marginBottom: '1.5rem' }}>
-        <h1 style={{ margin: 0, display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-          <Package size={28} color="var(--primary-color)" /> Órdenes de Trabajo
-        </h1>
-        <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
-          <button 
-            className={`btn ${isAnyFilterActive ? 'btn-primary' : 'btn-secondary'}`} 
-            style={{ padding: '0.5rem 0.75rem', width: 'auto', display: 'flex', alignItems: 'center', gap: '0.35rem', fontSize: '0.85rem' }} 
-            onClick={() => setIsFilterDrawerOpen(true)}
-          >
-            <SlidersHorizontal size={16} />
-            Filtros {isAnyFilterActive ? '(Activo)' : ''}
-          </button>
+      <div style={{
+        position: 'sticky',
+        top: '-1.5rem',
+        zIndex: 100,
+        backgroundColor: 'var(--bg-color)',
+        margin: '-1.5rem -1.5rem 1.5rem -1.5rem',
+        padding: '1.5rem 1.5rem 0.5rem 1.5rem',
+        borderBottom: '1px solid var(--border-color)'
+      }}>
+        <div className="flex-row-between" style={{ marginBottom: '1.5rem' }}>
+          <h1 style={{ margin: 0, display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+            <Package size={28} color="var(--primary-color)" /> Órdenes de Trabajo
+          </h1>
+          <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
+            <button 
+              className={`btn ${isAnyFilterActive ? 'btn-primary' : 'btn-secondary'}`} 
+              style={{ padding: '0.5rem 0.75rem', width: 'auto', display: 'flex', alignItems: 'center', gap: '0.35rem', fontSize: '0.85rem' }} 
+              onClick={() => setIsFilterDrawerOpen(true)}
+            >
+              <SlidersHorizontal size={16} />
+              Filtros {isAnyFilterActive ? '(Activo)' : ''}
+            </button>
+          </div>
+        </div>
+
+        <div style={{ marginBottom: '0', position: 'relative' }}>
+          <div className="input-group" style={{ position: 'relative', margin: 0 }}>
+            <Search size={18} style={{ position: 'absolute', left: '1rem', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)' }} />
+            <input 
+              type="text" 
+              autoComplete="off"
+              className="input-control" 
+              placeholder="Buscar orden o cliente..." 
+              style={{ paddingLeft: '2.5rem' }}
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+            />
+          </div>
         </div>
       </div>
 
-      <div style={{ marginBottom: '1.5rem', position: 'relative' }}>
-        <div className="input-group" style={{ position: 'relative', margin: 0 }}>
-          <Search size={18} style={{ position: 'absolute', left: '1rem', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)' }} />
-          <input 
-            type="text" 
-            autoComplete="off"
-            className="input-control" 
-            placeholder="Buscar orden o cliente..." 
-            style={{ paddingLeft: '2.5rem' }}
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-          />
-        </div>
-      </div>
-
-      <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem', marginTop: '0.5rem' }}>
         {sortedFiltered.map(ot => {
           const incidents = otIncidents[ot.id] || [];
           const hasIncidents = incidents.length > 0;

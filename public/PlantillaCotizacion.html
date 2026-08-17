@@ -1,5 +1,6 @@
 <!DOCTYPE html>
 <html lang="es">
+
 <head>
   <meta charset="UTF-8" />
   <title>Cotización — Comunicaciones 6</title>
@@ -24,8 +25,10 @@
       color: #1a2e4a;
       background: #ffffff;
       font-size: 9pt;
-      width: 720px;        /* ancho total fijo → html2pdf escala esto al ancho de página */
-      padding: 32px 44px;  /* 644px de área de contenido */
+      width: 720px;
+      /* ancho total fijo → html2pdf escala esto al ancho de página */
+      padding: 32px 44px;
+      /* 644px de área de contenido */
       overflow: hidden;
     }
 
@@ -50,7 +53,8 @@
     }
 
     .logo-block img {
-      height: 83px;   /* 30% reducción respecto al original de 119px */
+      height: 83px;
+      /* 30% reducción respecto al original de 119px */
       width: auto;
       display: block;
       max-width: 100%;
@@ -245,101 +249,108 @@
     }
   </style>
 </head>
+
 <body>
 
-<!-- ═══════════════════════════════════════════════════════════
+  <!-- ═══════════════════════════════════════════════════════════
      WRAPPER PRINCIPAL (contiene todos los estilos de layout)
      Necesario porque html2pdf descarta la etiqueta <body>
 ═══════════════════════════════════════════════════════════ -->
-<div class="doc-wrapper">
+  <div class="doc-wrapper">
 
-  <!-- ══════════════════════════════════════
+    <!-- ══════════════════════════════════════
        CABECERA
   ══════════════════════════════════════ -->
-  <div class="doc-header">
-    <div class="logo-block">
-      <img id="company-logo" src="/logo.png" alt="Comunicaciones 6" />
-      <div class="contact-info">
-        ✉ ventas@comunicacionesvzla.com &nbsp;|&nbsp; @comunicacionesvzla
+    <div class="doc-header">
+      <div class="logo-block">
+        <img id="company-logo" src="/logo_w.jpg" alt="Comunicaciones 6" />
+        <div class="contact-info">
+          ✉ ventas@comunicacionesvzla.com &nbsp;|&nbsp; @comunicacionesvzla
+        </div>
+      </div>
+      <div class="doc-info">
+        <div class="doc-title">Cotización</div>
+        <div class="meta-row">
+          <div class="meta-label">Número</div>
+          <div class="meta-value">[campo1]</div>
+        </div>
+        <div class="meta-row">
+          <div class="meta-label">Fecha</div>
+          <div class="meta-value-sm">[campo2]</div>
+        </div>
       </div>
     </div>
-    <div class="doc-info">
-      <div class="doc-title">Cotización</div>
-      <div class="meta-row">
-        <div class="meta-label">Número</div>
-        <div class="meta-value">[campo1]</div>
-      </div>
-      <div class="meta-row">
-        <div class="meta-label">Fecha</div>
-        <div class="meta-value-sm">[campo2]</div>
-      </div>
-    </div>
-  </div>
 
-  <!-- ══════════════════════════════════════
+    <!-- ══════════════════════════════════════
        DE / PARA
   ══════════════════════════════════════ -->
-  <div class="parties-row">
-    <div class="party-box">
-      <div class="party-label">De</div>
-      <div class="party-name">[campo3]</div>
-      <div class="party-address">[campo4]</div>
+    <div class="parties-row">
+      <div class="party-box">
+        <div class="party-label">De</div>
+        <div class="party-name">[campo3]</div>
+        <div class="party-address">[campo4]</div>
+      </div>
+      <div class="party-box">
+        <div class="party-label">Para</div>
+        <div class="party-name">[campo5]</div>
+        <div class="party-address">[campo6]</div>
+      </div>
     </div>
-    <div class="party-box">
-      <div class="party-label">Para</div>
-      <div class="party-name">[campo5]</div>
-      <div class="party-address">[campo6]</div>
-    </div>
-  </div>
 
-  <!-- ══════════════════════════════════════
+    <!-- ══════════════════════════════════════
        TEXTO DE PRESENTACIÓN
   ══════════════════════════════════════ -->
-  <p class="intro-text">
-    Con relación a su solicitud de Cotización, nos complace presentarle la propuesta adjunta.
-    Cada aspecto ha sido cuidadosamente planeado para brindarle una solución competitiva, confiable
-    y orientada al éxito de su proyecto. Quedamos a su entera disposición para revisar cualquier
-    detalle o ajustar la propuesta según su requerimiento.
-  </p>
+    <p class="intro-text">
+      Con relación a su solicitud de Cotización, nos complace presentarle la propuesta adjunta.
+      Cada aspecto ha sido cuidadosamente planeado para brindarle una solución competitiva, confiable
+      y orientada al éxito de su proyecto. Quedamos a su entera disposición para revisar cualquier
+      detalle o ajustar la propuesta según su requerimiento.
+    </p>
 
-  <!-- ══════════════════════════════════════
+    <!-- ══════════════════════════════════════
        TABLA DE ÍTEMS
        (llenada dinámicamente por CotizacionForm.jsx)
   ══════════════════════════════════════ -->
-  <table id="items-table"></table>
+    <table id="items-table"></table>
 
-  <!-- ══════════════════════════════════════
+    <!-- ══════════════════════════════════════
        PIE DE PÁGINA: TÉRMINOS Y FIRMAS
   ══════════════════════════════════════ -->
-  <div class="doc-footer">
+    <div class="doc-footer">
 
-    <div class="terms-box">
-      <div class="terms-title">Términos y Condiciones</div>
-      <div class="terms-text">
-        <strong>1. Validez:</strong> La presente cotización tiene una validez de 15 días calendario a partir de la fecha de emisión.<br>
-        <strong>2. Forma de Pago:</strong> Según condiciones acordadas. Los precios indicados incluyen IVA (16%). No incluyen impuestos adicionales no especificados expresamente.<br>
-        <strong>3. Entrega:</strong> Los tiempos de entrega aplican a partir de la confirmación formal del pedido y recepción del anticipo acordado. Retrasos por causas externas no son responsabilidad de Comunicaciones 6.<br>
-        <strong>4. Garantía:</strong> Todos nuestros trabajos cuentan con garantía de calidad. Cualquier reclamación debe realizarse dentro de los 3 días hábiles siguientes a la entrega del material.<br>
-        <strong>5. Propiedad Intelectual:</strong> Los diseños y artes desarrollados son propiedad de Comunicaciones 6 hasta tanto se concrete el pago total del servicio contratado.
+      <div class="terms-box">
+        <div class="terms-title">Términos y Condiciones</div>
+        <div class="terms-text">
+          <strong>1. Validez:</strong> La presente cotización tiene una validez de 15 días calendario a partir de la
+          fecha de emisión.<br>
+          <strong>2. Forma de Pago:</strong> Según condiciones acordadas. Los precios indicados incluyen IVA (16%). No
+          incluyen impuestos adicionales no especificados expresamente.<br>
+          <strong>3. Entrega:</strong> Los tiempos de entrega aplican a partir de la confirmación formal del pedido y
+          recepción del anticipo acordado. Retrasos por causas externas no son responsabilidad de Comunicaciones 6.<br>
+          <strong>4. Garantía:</strong> Todos nuestros trabajos cuentan con garantía de calidad. Cualquier reclamación
+          debe realizarse dentro de los 3 días hábiles siguientes a la entrega del material.<br>
+          <strong>5. Propiedad Intelectual:</strong> Los diseños y artes desarrollados son propiedad de Comunicaciones 6
+          hasta tanto se concrete el pago total del servicio contratado.
+        </div>
       </div>
+
+      <div class="signature-row">
+        <div class="signature-block">
+          <div class="signature-gap"></div>
+          <div class="signature-line"></div>
+          <div class="signature-label">Elaborado por — Comunicaciones 6</div>
+        </div>
+        <div class="signature-block">
+          <div class="signature-gap"></div>
+          <div class="signature-line"></div>
+          <div class="signature-label">Aceptado por — Cliente</div>
+        </div>
+      </div>
+
     </div>
 
-    <div class="signature-row">
-      <div class="signature-block">
-        <div class="signature-gap"></div>
-        <div class="signature-line"></div>
-        <div class="signature-label">Elaborado por — Comunicaciones 6</div>
-      </div>
-      <div class="signature-block">
-        <div class="signature-gap"></div>
-        <div class="signature-line"></div>
-        <div class="signature-label">Aceptado por — Cliente</div>
-      </div>
-    </div>
-
-  </div>
-
-</div><!-- fin .doc-wrapper -->
+  </div><!-- fin .doc-wrapper -->
 
 </body>
+
 </html>

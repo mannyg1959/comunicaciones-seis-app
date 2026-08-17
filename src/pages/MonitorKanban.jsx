@@ -103,47 +103,31 @@ export default function MonitorKanban() {
     };
   }, []);
 
-  // Auto-scroll (marquesina) para las columnas
+  const [pageIndexes, setPageIndexes] = useState({});
+  const itemsPerPage = 3;
+
+  // Paginación automática (Carrusel) para las columnas
   useEffect(() => {
     if (loading || ordenesTrabajo.length === 0) return;
-    
-    let animationFrameId;
-    const directions = new Map();
-    const speed = 0.4; // Velocidad del scroll (píxeles por frame)
 
-    const animateScroll = () => {
-      const containers = document.querySelectorAll('.column-cards-container');
-      
-      containers.forEach((container, index) => {
-        // Solo animar si hay desbordamiento (overflow)
-        if (container.scrollHeight > container.clientHeight) {
-          let dir = directions.get(index) || 1; // 1 = abajo, -1 = arriba
-          
-          container.scrollTop += speed * dir;
-          
-          // Si llega abajo, cambiar dirección hacia arriba
-          if (dir === 1 && container.scrollTop + container.clientHeight >= container.scrollHeight - 1) {
-            directions.set(index, -1);
-          } 
-          // Si llega arriba, cambiar dirección hacia abajo
-          else if (dir === -1 && container.scrollTop <= 0) {
-            directions.set(index, 1);
+    const intervalId = setInterval(() => {
+      setPageIndexes(prev => {
+        const nextIndexes = { ...prev };
+        stages.forEach(stage => {
+          const columnOrders = ordenesTrabajo.filter(ot => ot.estado === stage);
+          const totalPages = Math.ceil(columnOrders.length / itemsPerPage);
+          if (totalPages > 1) {
+            const current = nextIndexes[stage] || 0;
+            nextIndexes[stage] = (current + 1) % totalPages;
+          } else {
+            nextIndexes[stage] = 0;
           }
-        }
+        });
+        return nextIndexes;
       });
-      
-      animationFrameId = requestAnimationFrame(animateScroll);
-    };
+    }, 10000); // Cambiar de página cada 10 segundos
 
-    // Iniciar un poco después para dar tiempo al renderizado de las tarjetas
-    const timeoutId = setTimeout(() => {
-      animationFrameId = requestAnimationFrame(animateScroll);
-    }, 2000);
-
-    return () => {
-      clearTimeout(timeoutId);
-      cancelAnimationFrame(animationFrameId);
-    };
+    return () => clearInterval(intervalId);
   }, [loading, ordenesTrabajo]);
 
   const getOrdersByStage = (stage) => ordenesTrabajo.filter(ot => ot.estado === stage);
@@ -185,16 +169,27 @@ export default function MonitorKanban() {
         <div className="monitor-board">
           {stages.map(stage => {
             const columnOrders = getOrdersByStage(stage);
+            const totalPages = Math.ceil(columnOrders.length / itemsPerPage);
+            const currentPage = pageIndexes[stage] || 0;
+            const paginatedOrders = columnOrders.slice(currentPage * itemsPerPage, (currentPage + 1) * itemsPerPage);
+
             return (
               <div key={stage} className={`monitor-column stage-${stage.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "")}`}>
                 <div className="column-header">
-                  <h2>{stage}</h2>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                    <h2 style={{ margin: 0 }}>{stage}</h2>
+                    {totalPages > 1 && (
+                      <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)', fontWeight: 'normal' }}>
+                        (Pág {currentPage + 1}/{totalPages})
+                      </span>
+                    )}
+                  </div>
                   <span className="count-badge">{columnOrders.length}</span>
                 </div>
                 
                 <div className="column-cards-container">
-                  <div className="cards-scroll-track">
-                    {columnOrders.map(ot => (
+                  <div className="cards-scroll-track" style={{ transition: 'opacity 0.3s ease-in-out' }}>
+                    {paginatedOrders.map(ot => (
                       <div key={ot.id} className={`monitor-card-v2 ${ot.isPaused ? 'paused' : ''}`}>
                         
                         {/* Header: ID, Ref, Alertas, Etapa */}

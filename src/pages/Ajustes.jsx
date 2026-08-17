@@ -546,26 +546,51 @@ export default function Ajustes({ user, onLogout }) {
 
   return (
     <div className="page-content">
-      <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginBottom: '1.5rem' }}>
-        {activeTab !== 'menu' && (
-          <button 
-            onClick={() => setActiveTab('menu')} 
-            style={{ 
-              background: 'none', 
-              border: 'none', 
-              color: 'var(--text-muted)', 
-              cursor: 'pointer',
-              display: 'flex',
-              alignItems: 'center',
-              padding: '0.5rem 0.25rem'
-            }}
-          >
-            <ArrowLeft size={24} />
-          </button>
+      <div style={{
+        position: 'sticky',
+        top: '-1.5rem',
+        zIndex: 100,
+        backgroundColor: 'var(--bg-color)',
+        margin: '-1.5rem -1.5rem 1.5rem -1.5rem',
+        padding: '1.5rem 1.5rem 0.5rem 1.5rem',
+        borderBottom: '1px solid var(--border-color)'
+      }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginBottom: activeTab === 'usuarios' ? '1rem' : '0' }}>
+          {activeTab !== 'menu' && (
+            <button 
+              onClick={() => setActiveTab('menu')} 
+              style={{ 
+                background: 'none', 
+                border: 'none', 
+                color: 'var(--text-muted)', 
+                cursor: 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                padding: '0.5rem 0.25rem'
+              }}
+            >
+              <ArrowLeft size={24} />
+            </button>
+          )}
+          <h1 style={{ margin: 0, display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+            <Settings size={28} color="var(--primary-color)" /> {getTabTitle()}
+          </h1>
+        </div>
+
+        {activeTab === 'usuarios' && (
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '0.75rem' }}>
+            <p style={{ margin: 0, fontSize: '0.9rem', color: 'var(--text-muted)' }}>
+              Visualiza y administra las cuentas de usuario y sus roles asignados.
+            </p>
+            <button 
+              className="btn btn-primary" 
+              onClick={() => setShowAddUserModal(true)}
+              style={{ width: 'auto', padding: '0 1rem' }}
+            >
+              <UserPlus size={18} /> Añadir Usuario
+            </button>
+          </div>
         )}
-        <h1 style={{ margin: 0, display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-          <Settings size={28} color="var(--primary-color)" /> {getTabTitle()}
-        </h1>
       </div>
 
       {message && (
@@ -596,66 +621,58 @@ export default function Ajustes({ user, onLogout }) {
           <div className="card" style={{ padding: '0', marginBottom: '2rem' }}>
             <div onClick={() => navigate('/perfil')} style={menuItemStyle}>
               <div style={menuItemLeftStyle}>
-                <User size={24} style={{ color: 'var(--text-muted)' }} />
+                <User size={38} style={{ color: 'var(--text-muted)' }} />
                 <span style={menuItemTextStyle}>Mi Perfil</span>
               </div>
-              <ChevronRight size={20} style={{ color: 'var(--text-muted)' }} />
+              <ChevronRight size={32} style={{ color: 'var(--text-muted)' }} />
             </div>
 
             <div onClick={() => setActiveTab('usuarios')} style={menuItemStyle}>
               <div style={menuItemLeftStyle}>
-                <Users size={24} style={{ color: 'var(--text-muted)' }} />
+                <Users size={38} style={{ color: 'var(--text-muted)' }} />
                 <span style={menuItemTextStyle}>Usuarios del Sistema</span>
               </div>
-              <ChevronRight size={20} style={{ color: 'var(--text-muted)' }} />
+              <ChevronRight size={32} style={{ color: 'var(--text-muted)' }} />
             </div>
 
             <div onClick={() => setActiveTab('empresa')} style={menuItemStyle}>
               <div style={menuItemLeftStyle}>
-                <Building2 size={24} style={{ color: 'var(--text-muted)' }} />
+                <Building2 size={38} style={{ color: 'var(--text-muted)' }} />
                 <span style={menuItemTextStyle}>Datos de la Empresa</span>
               </div>
-              <ChevronRight size={20} style={{ color: 'var(--text-muted)' }} />
+              <ChevronRight size={32} style={{ color: 'var(--text-muted)' }} />
             </div>
 
             <div onClick={() => setActiveTab('roles')} style={menuItemStyle}>
               <div style={menuItemLeftStyle}>
-                <Shield size={24} style={{ color: 'var(--text-muted)' }} />
+                <Shield size={38} style={{ color: 'var(--text-muted)' }} />
                 <span style={menuItemTextStyle}>Roles y Permisos</span>
               </div>
-              <ChevronRight size={20} style={{ color: 'var(--text-muted)' }} />
+              <ChevronRight size={32} style={{ color: 'var(--text-muted)' }} />
             </div>
 
           <div onClick={() => setActiveTab('kpis')} style={menuItemStyle}>
             <div style={menuItemLeftStyle}>
-              <Clock size={24} style={{ color: 'var(--text-muted)' }} />
+              <Clock size={38} style={{ color: 'var(--text-muted)' }} />
               <span style={menuItemTextStyle}>Parámetros de Trazabilidad</span>
             </div>
-            <ChevronRight size={20} style={{ color: 'var(--text-muted)' }} />
+            <ChevronRight size={32} style={{ color: 'var(--text-muted)' }} />
           </div>
 
           <div onClick={() => setActiveTab('logs')} style={menuItemStyle}>
             <div style={menuItemLeftStyle}>
-              <History size={24} style={{ color: 'var(--text-muted)' }} />
+              <History size={38} style={{ color: 'var(--text-muted)' }} />
               <span style={menuItemTextStyle}>Log de Transacciones</span>
             </div>
-            <ChevronRight size={20} style={{ color: 'var(--text-muted)' }} />
+            <ChevronRight size={32} style={{ color: 'var(--text-muted)' }} />
           </div>
 
-          <div onClick={toggleTheme} style={menuItemStyle}>
+          <div onClick={toggleTheme} style={{ ...menuItemStyle, borderBottom: 'none' }}>
             <div style={menuItemLeftStyle}>
-              {isLightMode ? <Sun size={24} style={{ color: 'var(--text-muted)' }} /> : <Moon size={24} style={{ color: 'var(--text-muted)' }} />}
+              {isLightMode ? <Sun size={38} style={{ color: 'var(--text-muted)' }} /> : <Moon size={38} style={{ color: 'var(--text-muted)' }} />}
               <span style={menuItemTextStyle}>{isLightMode ? 'Modo Claro' : 'Modo Oscuro'}</span>
             </div>
-            <ChevronRight size={20} style={{ color: 'var(--text-muted)' }} />
-          </div>
-
-          <div onClick={handleLogout} style={{ ...menuItemStyle, borderBottom: 'none' }}>
-            <div style={menuItemLeftStyle}>
-              <LogOut size={24} style={{ color: 'var(--error-color)' }} />
-              <span style={{ ...menuItemTextStyle, color: 'var(--error-color)' }}>Cerrar Sesión</span>
-            </div>
-            <ChevronRight size={20} style={{ color: 'var(--error-color)' }} />
+            <ChevronRight size={32} style={{ color: 'var(--text-muted)' }} />
           </div>
         </div>
         </>
@@ -969,19 +986,6 @@ export default function Ajustes({ user, onLogout }) {
       {/* System Users management screen */}
       {activeTab === 'usuarios' && (
         <div>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem', flexWrap: 'wrap', gap: '0.75rem' }}>
-            <p style={{ margin: 0, fontSize: '0.9rem', color: 'var(--text-muted)' }}>
-              Visualiza y administra las cuentas de usuario y sus roles asignados.
-            </p>
-            <button 
-              className="btn btn-primary" 
-              onClick={() => setShowAddUserModal(true)}
-              style={{ width: 'auto', padding: '0 1rem' }}
-            >
-              <UserPlus size={18} /> Añadir Usuario
-            </button>
-          </div>
-
           <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
             {usuarios.map(userItem => {
               const userInitials = userItem.name.split(' ').map(n => n[0]).join('').substring(0, 2).toUpperCase();

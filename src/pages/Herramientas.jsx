@@ -63,6 +63,7 @@ export default function Herramientas({ user }) {
   const [tickerSuccess, setTickerSuccess] = useState(false);
   const [deleteConfirmId, setDeleteConfirmId] = useState(null);
   const [editingMessage, setEditingMessage] = useState(null); // mensaje que se edita/reenvía
+  const [showDeleteTickerConfirm, setShowDeleteTickerConfirm] = useState(false);
 
   useEffect(() => {
     const fetchData = async () => {
@@ -233,6 +234,25 @@ export default function Herramientas({ user }) {
     await supabase.from('monitor_ticker').update({ is_active: false }).eq('id', id);
     setDeleteConfirmId(null);
     fetchTickerMessages();
+  };
+
+  // ── Eliminar mensaje del ticker (borrado permanente) ──
+  const handleDeleteTicker = async () => {
+    if (!editingMessage) return;
+    try {
+      setTickerSending(true);
+      const { error } = await supabase.from('monitor_ticker').delete().eq('id', editingMessage.id);
+      if (error) throw error;
+      setTickerModalOpen(false);
+      setEditingMessage(null);
+      setShowDeleteTickerConfirm(false);
+      fetchTickerMessages();
+    } catch (err) {
+      console.error('Error al eliminar mensaje del ticker:', err);
+      alert('Error al eliminar: ' + err.message);
+    } finally {
+      setTickerSending(false);
+    }
   };
 
   // ── Abrir modal pre-cargado con el mensaje a editar ──
@@ -550,110 +570,119 @@ export default function Herramientas({ user }) {
   }
 
   return (
-    <div className="page-content" style={{ paddingBottom: '90px', display: 'flex', flexDirection: 'column', height: '100%', overflow: 'hidden' }}>
-      {/* Header */}
-      <div style={{ marginBottom: '1.5rem', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '1rem', flexShrink: 0 }}>
-        <h1 style={{ margin: 0, display: 'flex', alignItems: 'center', gap: '0.6rem', fontSize: '1.6rem' }}>
-          <Wrench size={28} color="var(--primary-color)" /> Herramientas y Analíticas
-        </h1>
-      </div>
-
-      {/* Tabs Selector */}
-      <div style={{ 
-        display: 'grid', 
-        gridTemplateColumns: '1fr 1fr',
-        gap: '0.5rem', 
-        marginBottom: '1.5rem', 
-        background: 'var(--surface-color)', 
-        padding: '0.5rem', 
-        borderRadius: '12px', 
-        border: '1px solid var(--border-color)',
-        flexShrink: 0
+    <div className="page-content" style={{ paddingBottom: '90px' }}>
+      <div style={{
+        position: 'sticky',
+        top: '-1.5rem',
+        zIndex: 100,
+        backgroundColor: 'var(--bg-color)',
+        margin: '-1.5rem -1.5rem 1.5rem -1.5rem',
+        padding: '1.5rem 1.5rem 0.5rem 1.5rem',
+        borderBottom: '1px solid var(--border-color)'
       }}>
-        <button 
-          onClick={() => setActiveTab('reportes')}
-          className="btn" 
-          style={{ 
-            height: '42px', 
-            fontSize: '0.9rem',
-            padding: '0 1rem',
-            background: activeTab === 'reportes' ? 'var(--primary-color)' : 'transparent',
-            color: activeTab === 'reportes' ? '#ffffff' : 'var(--text-muted)',
-            border: activeTab === 'reportes' ? '1px solid var(--primary-color)' : '1px solid var(--border-color)',
-            borderRadius: '8px'
-          }}
-        >
-          <BarChart2 size={16} /> Reportes
-        </button>
-        <button 
-          onClick={() => setActiveTab('exportar')}
-          className="btn" 
-          style={{ 
-            height: '42px', 
-            fontSize: '0.9rem',
-            padding: '0 1rem',
-            background: activeTab === 'exportar' ? 'var(--primary-color)' : 'transparent',
-            color: activeTab === 'exportar' ? '#ffffff' : 'var(--text-muted)',
-            border: activeTab === 'exportar' ? '1px solid var(--primary-color)' : '1px solid var(--border-color)',
-            borderRadius: '8px'
-          }}
-        >
-          <FileSpreadsheet size={16} /> Exportar
-        </button>
-        <button 
-          onClick={() => setActiveTab('alertas')}
-          className="btn" 
-          style={{ 
-            height: '42px', 
-            fontSize: '0.9rem',
-            padding: '0 1rem',
-            background: activeTab === 'alertas' ? 'var(--primary-color)' : 'transparent',
-            color: activeTab === 'alertas' ? '#ffffff' : 'var(--text-muted)',
-            border: activeTab === 'alertas' ? '1px solid var(--primary-color)' : '1px solid var(--border-color)',
-            borderRadius: '8px',
-            position: 'relative'
-          }}
-        >
-          <AlertTriangle size={16} /> Alertas 
-          {(cotizacionesAlertas.length + cotizacionesAlertasAprobadas.length + otAlertas.length + otPreventivas.length) > 0 && (
-            <span style={{ 
-              position: 'absolute', 
-              top: '4px', 
-              right: '4px', 
-              background: 'var(--error-color)', 
-              color: '#ffffff', 
-              fontSize: '0.7rem', 
-              width: '18px', 
-              height: '18px', 
-              borderRadius: '50%', 
-              display: 'flex', 
-              alignItems: 'center', 
-              justifyContent: 'center',
-              fontWeight: 'bold'
-            }}>
-              {cotizacionesAlertas.length + cotizacionesAlertasAprobadas.length + otAlertas.length + otPreventivas.length}
-            </span>
-          )}
-        </button>
-        <button 
-          onClick={() => setActiveTab('monitor')}
-          className="btn" 
-          style={{ 
-            height: '42px', 
-            fontSize: '0.9rem',
-            padding: '0 1rem',
-            background: activeTab === 'monitor' ? 'var(--primary-color)' : 'transparent',
-            color: activeTab === 'monitor' ? '#ffffff' : 'var(--text-muted)',
-            border: activeTab === 'monitor' ? '1px solid var(--primary-color)' : '1px solid var(--border-color)',
-            borderRadius: '8px'
-          }}
-        >
-          <Tv size={16} /> Monitor
-        </button>
+        {/* Header */}
+        <div style={{ marginBottom: '1.5rem', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '1rem' }}>
+          <h1 style={{ margin: 0, display: 'flex', alignItems: 'center', gap: '0.6rem', fontSize: '1.6rem' }}>
+            <Wrench size={28} color="var(--primary-color)" /> Herramientas y Analíticas
+          </h1>
+        </div>
+
+        {/* Tabs Selector */}
+        <div style={{ 
+          display: 'grid', 
+          gridTemplateColumns: '1fr 1fr',
+          gap: '0.5rem', 
+          marginBottom: '0', 
+          background: 'var(--surface-color)', 
+          padding: '0.5rem', 
+          borderRadius: '12px', 
+          border: '1px solid var(--border-color)'
+        }}>
+          <button 
+            onClick={() => setActiveTab('reportes')}
+            className="btn" 
+            style={{ 
+              height: '42px', 
+              fontSize: '0.9rem',
+              padding: '0 1rem',
+              background: activeTab === 'reportes' ? 'var(--primary-color)' : 'transparent',
+              color: activeTab === 'reportes' ? '#ffffff' : 'var(--text-muted)',
+              border: activeTab === 'reportes' ? '1px solid var(--primary-color)' : '1px solid var(--border-color)',
+              borderRadius: '8px'
+            }}
+          >
+            <BarChart2 size={16} /> Reportes
+          </button>
+          <button 
+            onClick={() => setActiveTab('exportar')}
+            className="btn" 
+            style={{ 
+              height: '42px', 
+              fontSize: '0.9rem',
+              padding: '0 1rem',
+              background: activeTab === 'exportar' ? 'var(--primary-color)' : 'transparent',
+              color: activeTab === 'exportar' ? '#ffffff' : 'var(--text-muted)',
+              border: activeTab === 'exportar' ? '1px solid var(--primary-color)' : '1px solid var(--border-color)',
+              borderRadius: '8px'
+            }}
+          >
+            <FileSpreadsheet size={16} /> Exportar
+          </button>
+          <button 
+            onClick={() => setActiveTab('alertas')}
+            className="btn" 
+            style={{ 
+              height: '42px', 
+              fontSize: '0.9rem',
+              padding: '0 1rem',
+              background: activeTab === 'alertas' ? 'var(--primary-color)' : 'transparent',
+              color: activeTab === 'alertas' ? '#ffffff' : 'var(--text-muted)',
+              border: activeTab === 'alertas' ? '1px solid var(--primary-color)' : '1px solid var(--border-color)',
+              borderRadius: '8px',
+              position: 'relative'
+            }}
+          >
+            <AlertTriangle size={16} /> Alertas 
+            {(cotizacionesAlertas.length + cotizacionesAlertasAprobadas.length + otAlertas.length + otPreventivas.length) > 0 && (
+              <span style={{ 
+                position: 'absolute', 
+                top: '4px', 
+                right: '4px', 
+                background: 'var(--error-color)', 
+                color: '#ffffff', 
+                fontSize: '0.7rem', 
+                width: '18px', 
+                height: '18px', 
+                borderRadius: '50%', 
+                display: 'flex', 
+                alignItems: 'center', 
+                justifyContent: 'center',
+                fontWeight: 'bold'
+              }}>
+                {cotizacionesAlertas.length + cotizacionesAlertasAprobadas.length + otAlertas.length + otPreventivas.length}
+              </span>
+            )}
+          </button>
+          <button 
+            onClick={() => setActiveTab('monitor')}
+            className="btn" 
+            style={{ 
+              height: '42px', 
+              fontSize: '0.9rem',
+              padding: '0 1rem',
+              background: activeTab === 'monitor' ? 'var(--primary-color)' : 'transparent',
+              color: activeTab === 'monitor' ? '#ffffff' : 'var(--text-muted)',
+              border: activeTab === 'monitor' ? '1px solid var(--primary-color)' : '1px solid var(--border-color)',
+              borderRadius: '8px'
+            }}
+          >
+            <Tv size={16} /> Monitor
+          </button>
+        </div>
       </div>
 
-      {/* Content Render - Scrollable */}
-      <div style={{ flex: 1, overflowY: 'auto', paddingRight: '4px', paddingBottom: '20px' }}>
+      {/* Content Render */}
+      <div style={{ paddingBottom: '20px' }}>
         {activeTab === 'reportes' && (
         <div style={{ animation: 'fadeIn 0.3s ease-out' }}>
           {/* Subtabs for Report categories */}
@@ -1664,38 +1693,6 @@ export default function Herramientas({ user }) {
                           </span>
                         </div>
                       </div>
-
-                      {/* Botón editar + desactivar — detener propagación para no disparar el onClick del card */}
-                      <div style={{ display: 'flex', gap: '0.25rem', flexShrink: 0 }} onClick={e => e.stopPropagation()}>
-                        {msg.is_active && !isExpired && (
-                          deleteConfirmId === msg.id ? (
-                            <div style={{ display: 'flex', gap: '0.4rem', flexShrink: 0 }}>
-                              <button
-                                className="btn"
-                                style={{ height: 32, fontSize: '0.78rem', background: 'var(--error-color)', color: '#fff', border: 'none', padding: '0 0.75rem' }}
-                                onClick={() => handleDeactivateTicker(msg.id)}
-                              >
-                                Confirmar
-                              </button>
-                              <button
-                                className="btn btn-secondary"
-                                style={{ height: 32, fontSize: '0.78rem', padding: '0 0.75rem' }}
-                                onClick={() => setDeleteConfirmId(null)}
-                              >
-                                Cancelar
-                              </button>
-                            </div>
-                          ) : (
-                            <button
-                              title="Desactivar mensaje"
-                              style={{ background: 'transparent', border: 'none', cursor: 'pointer', color: 'var(--text-muted)', padding: '0.25rem', flexShrink: 0 }}
-                              onClick={() => setDeleteConfirmId(msg.id)}
-                            >
-                              <Trash2 size={16} />
-                            </button>
-                          )
-                        )}
-                      </div>
                     </div>
                   );
                 })}
@@ -1807,17 +1804,65 @@ export default function Herramientas({ user }) {
             </div>
 
             {/* Acciones */}
-            <div style={{ display: 'flex', gap: '0.75rem', justifyContent: 'flex-end' }}>
-              <button className="btn btn-secondary" style={{ height: 48 }} onClick={() => { setTickerModalOpen(false); setEditingMessage(null); }}>
+            <div style={{ display: 'flex', gap: '0.75rem', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap-reverse' }}>
+              <div>
+                {editingMessage && (
+                  <button
+                    className="btn"
+                    style={{ height: 48, background: 'transparent', color: 'var(--error-color)', border: '1px solid var(--error-color)' }}
+                    onClick={() => setShowDeleteTickerConfirm(true)}
+                  >
+                    <Trash2 size={16} style={{ marginRight: '0.5rem' }} /> Eliminar
+                  </button>
+                )}
+              </div>
+              <div style={{ display: 'flex', gap: '0.75rem', flexWrap: 'wrap' }}>
+                <button className="btn btn-secondary" style={{ height: 48 }} onClick={() => { setTickerModalOpen(false); setEditingMessage(null); }}>
+                  Cancelar
+                </button>
+                <button
+                  className="btn btn-solid"
+                  style={{ height: 48, display: 'flex', alignItems: 'center', gap: '0.5rem', opacity: !tickerText.trim() || tickerSending ? 0.6 : 1 }}
+                  disabled={!tickerText.trim() || tickerSending}
+                  onClick={handleSendTicker}
+                >
+                  <Send size={16} /> {tickerSending ? 'Enviando...' : editingMessage ? 'Reenviar Mensaje' : 'Enviar al Monitor'}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Confirmar Eliminación Modal */}
+      {showDeleteTickerConfirm && (
+        <div style={{
+          position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.8)',
+          zIndex: 1100, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '1rem'
+        }}>
+          <div className="card" style={{ width: '100%', maxWidth: '400px', textAlign: 'center', padding: '2rem' }}>
+            <div style={{ marginBottom: '1rem', display: 'flex', justifyContent: 'center' }}>
+              <Trash2 size={48} color="var(--error-color)" />
+            </div>
+            <h3 style={{ margin: '0 0 1rem 0' }}>¿Eliminar Mensaje?</h3>
+            <p style={{ color: 'var(--text-muted)', marginBottom: '1.5rem' }}>
+              Esta acción eliminará permanentemente el mensaje de la base de datos y no podrá deshacerse.
+            </p>
+            <div style={{ display: 'flex', gap: '1rem', justifyContent: 'center' }}>
+              <button 
+                className="btn btn-secondary" 
+                onClick={() => setShowDeleteTickerConfirm(false)}
+                disabled={tickerSending}
+              >
                 Cancelar
               </button>
-              <button
-                className="btn btn-solid"
-                style={{ height: 48, display: 'flex', alignItems: 'center', gap: '0.5rem', opacity: !tickerText.trim() || tickerSending ? 0.6 : 1 }}
-                disabled={!tickerText.trim() || tickerSending}
-                onClick={handleSendTicker}
+              <button 
+                className="btn"
+                style={{ background: 'var(--error-color)', color: '#fff', border: 'none' }}
+                onClick={handleDeleteTicker}
+                disabled={tickerSending}
               >
-                <Send size={16} /> {tickerSending ? 'Enviando...' : editingMessage ? 'Reenviar Mensaje' : 'Enviar al Monitor'}
+                {tickerSending ? 'Eliminando...' : 'Sí, Eliminar'}
               </button>
             </div>
           </div>
