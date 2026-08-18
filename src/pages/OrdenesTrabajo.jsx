@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { Package, Search, SlidersHorizontal, X, CheckCircle, AlertTriangle } from 'lucide-react';
+import HelpDrawer from '../components/HelpDrawer';
 import DatePicker from 'react-datepicker';
 import 'react-datepicker/dist/react-datepicker.css';
 import { logEvent } from '../utils/logs';
@@ -808,6 +809,7 @@ export default function OrdenesTrabajo({ user }) {
               <SlidersHorizontal size={16} />
               Filtros {isAnyFilterActive ? '(Activo)' : ''}
             </button>
+            <HelpDrawer module="ordenesTrabajo" />
           </div>
         </div>
 

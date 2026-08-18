@@ -4,6 +4,7 @@ import {
   Settings, User, Bell, Shield, Moon, Sun, ChevronRight, ChevronLeft, LogOut, 
   Users, Clock, History, Save, Trash2, Search, CheckCircle, AlertTriangle, ArrowLeft, UserPlus, X, SlidersHorizontal, Key, Edit2, Building2
 } from 'lucide-react';
+import HelpDrawer from '../components/HelpDrawer';
 import { defaultPermissions } from '../utils/permissions';
 import { logEvent } from '../utils/logs';
 import { supabase } from '../utils/supabaseClient';
@@ -555,26 +556,29 @@ export default function Ajustes({ user, onLogout }) {
         padding: '1.5rem 1.5rem 0.5rem 1.5rem',
         borderBottom: '1px solid var(--border-color)'
       }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginBottom: activeTab === 'usuarios' ? '1rem' : '0' }}>
-          {activeTab !== 'menu' && (
-            <button 
-              onClick={() => setActiveTab('menu')} 
-              style={{ 
-                background: 'none', 
-                border: 'none', 
-                color: 'var(--text-muted)', 
-                cursor: 'pointer',
-                display: 'flex',
-                alignItems: 'center',
-                padding: '0.5rem 0.25rem'
-              }}
-            >
-              <ArrowLeft size={24} />
-            </button>
-          )}
-          <h1 style={{ margin: 0, display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-            <Settings size={28} color="var(--primary-color)" /> {getTabTitle()}
-          </h1>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: activeTab === 'usuarios' ? '1rem' : '0' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+            {activeTab !== 'menu' && (
+              <button 
+                onClick={() => setActiveTab('menu')} 
+                style={{ 
+                  background: 'none', 
+                  border: 'none', 
+                  color: 'var(--text-muted)', 
+                  cursor: 'pointer',
+                  display: 'flex',
+                  alignItems: 'center',
+                  padding: '0.5rem 0.25rem'
+                }}
+              >
+                <ArrowLeft size={24} />
+              </button>
+            )}
+            <h1 style={{ margin: 0, display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+              <Settings size={28} color="var(--primary-color)" /> {getTabTitle()}
+            </h1>
+          </div>
+          <HelpDrawer module="ajustes" />
         </div>
 
         {activeTab === 'usuarios' && (

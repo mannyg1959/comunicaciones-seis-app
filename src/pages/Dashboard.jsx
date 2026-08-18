@@ -8,6 +8,7 @@ import {
 } from '../data/mockData';
 import { useNavigate } from 'react-router-dom';
 import { FileText, Clock, Package, User, LayoutDashboard, LogOut, TrendingUp, PieChart as PieChartIcon, BarChart2, Users, CheckCircle, Activity, Plus, ClipboardList, ArrowUp, AlertTriangle } from 'lucide-react';
+import HelpDrawer from '../components/HelpDrawer';
 import { 
   BarChart, Bar, Cell, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, LabelList,
   PieChart, Pie, LineChart, Line, Legend
@@ -223,6 +224,7 @@ export default function Dashboard({ user, onLogout }) {
   });
   const topClientsData = Object.keys(clientVolumes)
     .map(name => ({ name, volumen: clientVolumes[name] }))
+    .filter(item => item.volumen > 0)
     .sort((a, b) => b.volumen - a.volumen)
     .slice(0, 5);
 
@@ -356,6 +358,7 @@ export default function Dashboard({ user, onLogout }) {
           <h1 style={{ margin: 0, display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
             <LayoutDashboard size={28} color="var(--primary-color)" /> Panel de Control
           </h1>
+          <HelpDrawer module="dashboard" />
         </div>
 
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '0.5rem', marginBottom: '0.5rem' }}>
@@ -368,7 +371,7 @@ export default function Dashboard({ user, onLogout }) {
             })()}
           </span>
 
-          <div className="logo-container" onClick={() => window.location.reload()} title="Recargar Panel" style={{ padding: 0 }}>
+          <div className="logo-container" style={{ padding: 0 }}>
             <img src="/logo-flowlog.png" alt="Logo" style={{ height: '36px', mixBlendMode: 'normal', display: 'block' }} />
           </div>
         </div>
@@ -667,22 +670,31 @@ export default function Dashboard({ user, onLogout }) {
                 </h3>
                 <div style={{ flex: 1, width: '100%', minHeight: 0 }}>
                   <ResponsiveContainer width="100%" height="100%">
-                    <BarChart data={topClientsData} margin={{ top: 10, right: 10, left: -10, bottom: 0 }}>
-                      <CartesianGrid strokeDasharray="3 3" stroke="var(--border-color)" vertical={false} />
-                      <XAxis dataKey="name" stroke="var(--text-muted)" fontSize={11} tickLine={false} axisLine={false} />
-                      <YAxis stroke="var(--text-muted)" fontSize={11} tickLine={false} axisLine={false} tickFormatter={(value) => `$${value/1000}k`} />
+                    <BarChart data={topClientsData} layout="vertical" margin={{ top: 10, right: 30, left: 30, bottom: 0 }}>
+                      <CartesianGrid strokeDasharray="3 3" stroke="var(--border-color)" horizontal={false} />
+                      <XAxis type="number" stroke="var(--text-muted)" fontSize={11} tickLine={false} axisLine={false} tickFormatter={(value) => `$${value/1000}k`} />
+                      <YAxis 
+                        dataKey="name" 
+                        type="category" 
+                        stroke="var(--text-main)" 
+                        fontSize={11} 
+                        tickLine={false} 
+                        axisLine={false} 
+                        width={110}
+                        tickFormatter={(name) => name && name.length > 15 ? name.substring(0, 15) + '...' : name}
+                      />
                       <Tooltip 
                         contentStyle={{ backgroundColor: 'var(--surface-color)', borderColor: 'var(--border-color)', borderRadius: 'var(--radius-md)' }}
                         itemStyle={{ color: 'var(--text-main)' }}
                         cursor={{ fill: 'var(--surface-hover)' }}
                         formatter={(value) => [`$${value.toLocaleString()}`, 'Volumen']}
                       />
-                      <Bar dataKey="volumen" fill="var(--secondary-color)" radius={[4, 4, 0, 0]}>
+                      <Bar dataKey="volumen" fill="var(--secondary-color)" radius={[0, 4, 4, 0]}>
                         <LabelList 
                           dataKey="volumen" 
-                          position="top" 
+                          position="right" 
                           formatter={(val) => `$${(val/1000).toFixed(1)}k`}
-                          style={{ fill: 'var(--text-main)', fontSize: '0.75rem', fontWeight: '500' }}
+                          style={{ fill: 'var(--text-muted)', fontSize: '0.75rem', fontWeight: '500' }}
                         />
                       </Bar>
                     </BarChart>

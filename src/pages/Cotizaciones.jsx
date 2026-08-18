@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { Plus, Search, FileText, SlidersHorizontal, X, CheckCircle, AlertTriangle, HelpCircle, FileDown } from 'lucide-react';
 import CotizacionForm from '../components/CotizacionForm';
+import HelpDrawer from '../components/HelpDrawer';
 import DatePicker from 'react-datepicker';
 import 'react-datepicker/dist/react-datepicker.css';
 import { logEvent } from '../utils/logs';
@@ -228,7 +229,6 @@ export default function Cotizaciones({ user }) {
   };
 
   const [isFilterDrawerOpen, setIsFilterDrawerOpen] = useState(false);
-  const [isHelpOpen, setIsHelpOpen] = useState(false);
 
   const calculateGap = (fechaEntrega) => {
     if (!fechaEntrega) return { text: 'Sin fecha', color: 'var(--text-muted)' };
@@ -496,12 +496,12 @@ export default function Cotizaciones({ user }) {
           </div>
         )}
 
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-          <div>
-            <div style={{ display: 'flex', justifyContent: 'flex-start', alignItems: 'center', marginBottom: '1rem', width: '100%' }}>
+        <div style={{ width: '100%' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem', width: '100%' }}>
               <h1 style={{ margin: 0, display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
                 <FileText size={28} color="var(--primary-color)" /> Cotizaciones
               </h1>
+              <HelpDrawer module="cotizaciones" />
             </div>
             
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem', marginBottom: '1rem', width: '100%' }}>
@@ -543,17 +543,7 @@ export default function Cotizaciones({ user }) {
             </div>
           </div>
 
-          <button 
-            className="btn" 
-            style={{ padding: '0.5rem', background: 'transparent', border: 'none', color: 'var(--text-muted)' }} 
-            onClick={() => setIsHelpOpen(true)}
-            title="Ayuda del módulo"
-          >
-            <HelpCircle size={22} />
-          </button>
-        </div>
-
-        <div style={{ position: 'relative' }}>
+          <div style={{ position: 'relative' }}>
           <div className="input-group" style={{ position: 'relative', margin: 0 }}>
             <Search size={18} style={{ position: 'absolute', left: '1rem', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)' }} />
             <input 
@@ -704,52 +694,7 @@ export default function Cotizaciones({ user }) {
         </>
       )}
 
-      {isHelpOpen && (
-        <div className="modal-overlay" onClick={() => setIsHelpOpen(false)}>
-          <div className="modal-container" style={{ maxWidth: '600px' }} onClick={e => e.stopPropagation()}>
-            <div className="modal-header">
-              <h3 style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', margin: 0 }}>
-                <HelpCircle size={20} color="var(--primary-color)" />
-                <span>Ayuda - Módulo de Cotizaciones</span>
-              </h3>
-              <button className="modal-close-btn" onClick={() => setIsHelpOpen(false)}>
-                <X size={20} />
-              </button>
-            </div>
-            <div className="modal-body" style={{ maxHeight: '70vh', overflowY: 'auto', lineHeight: '1.6' }}>
-              <h4 style={{ color: 'var(--text-main)', marginTop: 0 }}>1. Visualización Rápida</h4>
-              <p style={{ color: 'var(--text-muted)', fontSize: '0.9rem', marginBottom: '1rem' }}>
-                Cada tarjeta representa una cotización. Podrás ver el cliente, monto total, estado y el <strong>GAP de entrega</strong>. El GAP te indica en colores si la fecha estimada de entrega está a tiempo, próxima a vencerse, o ya venció.
-              </p>
-              
-              <div style={{ background: 'var(--bg-color)', padding: '1rem', borderRadius: 'var(--radius)', border: '1px solid var(--border-color)', marginBottom: '1rem' }}>
-                <p style={{ margin: '0 0 0.5rem 0', fontWeight: 'bold' }}>💡 RECOMENDACIÓN</p>
-                <p style={{ margin: 0, fontSize: '0.85rem', color: 'var(--text-muted)' }}>Utiliza el botón de <strong>Filtros</strong> para buscar cotizaciones por cliente, rango de fechas o estatus específico. Esto facilita el seguimiento comercial mensual.</p>
-              </div>
 
-              <h4 style={{ color: 'var(--text-main)' }}>2. Creación y Edición</h4>
-              <p style={{ color: 'var(--text-muted)', fontSize: '0.9rem', marginBottom: '1rem' }}>
-                Haz clic en el botón <strong>"Nueva"</strong> para crear una cotización, o en cualquier tarjeta para ver/editar su detalle.
-              </p>
-
-              <div style={{ background: 'rgba(239, 68, 68, 0.1)', padding: '1rem', borderRadius: 'var(--radius)', border: '1px solid rgba(239, 68, 68, 0.2)', marginBottom: '1rem' }}>
-                <p style={{ margin: '0 0 0.5rem 0', fontWeight: 'bold', color: 'var(--error-color)' }}>⚠️ ADVERTENCIA: Eliminación</p>
-                <p style={{ margin: 0, fontSize: '0.85rem', color: 'var(--text-muted)' }}>Por reglas de integridad del sistema, <strong>solo se pueden eliminar cotizaciones en estado "Borrador" o "Anulada"</strong>. Para eliminar cotizaciones en otro estado, primero deberás cambiar su estatus a Anulada.</p>
-              </div>
-
-              <div style={{ background: 'rgba(59, 130, 246, 0.1)', padding: '1rem', borderRadius: 'var(--radius)', border: '1px solid rgba(59, 130, 246, 0.2)', marginBottom: '1rem' }}>
-                <p style={{ margin: '0 0 0.5rem 0', fontWeight: 'bold', color: 'var(--primary-color)' }}>📌 NOTA: Gráficos y Estadísticas</p>
-                <p style={{ margin: 0, fontSize: '0.85rem', color: 'var(--text-muted)' }}>Recuerda que solo las cotizaciones en estado <strong>"Aprobada"</strong> sumarán a las estadísticas de volumen de ventas y ranking de clientes en el Dashboard.</p>
-              </div>
-            </div>
-            <div className="modal-footer">
-              <button className="btn btn-primary" style={{ width: '100%', justifyContent: 'center' }} onClick={() => setIsHelpOpen(false)}>
-                Entendido
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
 
       {isReportModalOpen && (
         <div style={{ 

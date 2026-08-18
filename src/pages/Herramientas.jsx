@@ -20,9 +20,11 @@ import {
   MessageCircle,
   Megaphone,
   Tv,
+  Check,
   Send,
   Trash2
 } from 'lucide-react';
+import HelpDrawer from '../components/HelpDrawer';
 import { 
   mockRejectionReasonData
 } from '../data/mockData';
@@ -585,6 +587,7 @@ export default function Herramientas({ user }) {
           <h1 style={{ margin: 0, display: 'flex', alignItems: 'center', gap: '0.6rem', fontSize: '1.6rem' }}>
             <Wrench size={28} color="var(--primary-color)" /> Herramientas y Analíticas
           </h1>
+          <HelpDrawer module="herramientas" />
         </div>
 
         {/* Tabs Selector */}
