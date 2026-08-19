@@ -55,7 +55,7 @@ export default function HelpDrawer({ module }) {
               width: '100%',
               maxWidth: '400px',
               height: '100%',
-              backgroundColor: 'var(--bg-card, #1e293b)',
+              backgroundColor: 'var(--surface-color, #1e293b)',
               borderLeft: '1px solid rgba(255, 255, 255, 0.1)',
               display: 'flex',
               flexDirection: 'column',
@@ -72,12 +72,12 @@ export default function HelpDrawer({ module }) {
                 alignItems: 'center',
                 padding: '2rem 2rem 1rem 2rem',
                 borderBottom: '1px solid rgba(255, 255, 255, 0.1)',
-                backgroundColor: 'var(--bg-card, #1e293b)',
+                backgroundColor: 'var(--surface-color, #1e293b)',
                 zIndex: 10,
                 flexShrink: 0
               }}
             >
-              <h3 style={{ margin: 0, color: '#fff', fontSize: '1.25rem', display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <h3 style={{ margin: 0, color: 'var(--text-main, #fff)', fontSize: '1.25rem', display: 'flex', alignItems: 'center', gap: '8px' }}>
                 <HelpCircle size={24} color="var(--primary-color, #3b82f6)" /> Ayuda del Módulo
               </h3>
               <button 
