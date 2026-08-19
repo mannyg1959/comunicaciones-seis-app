@@ -57,11 +57,10 @@ export default function HelpDrawer({ module }) {
               height: '100%',
               backgroundColor: 'var(--bg-card, #1e293b)',
               borderLeft: '1px solid rgba(255, 255, 255, 0.1)',
-              padding: '2rem',
               display: 'flex',
               flexDirection: 'column',
               boxShadow: 'var(--shadow-xl)',
-              overflowY: 'auto',
+              overflow: 'hidden',
               margin: 0,
               borderRadius: 0
             }}
@@ -71,9 +70,11 @@ export default function HelpDrawer({ module }) {
                 display: 'flex',
                 justifyContent: 'space-between',
                 alignItems: 'center',
-                marginBottom: '1.5rem',
+                padding: '2rem 2rem 1rem 2rem',
                 borderBottom: '1px solid rgba(255, 255, 255, 0.1)',
-                paddingBottom: '1rem'
+                backgroundColor: 'var(--bg-card, #1e293b)',
+                zIndex: 10,
+                flexShrink: 0
               }}
             >
               <h3 style={{ margin: 0, color: '#fff', fontSize: '1.25rem', display: 'flex', alignItems: 'center', gap: '8px' }}>
@@ -92,7 +93,16 @@ export default function HelpDrawer({ module }) {
                 <X size={24} />
               </button>
             </div>
-            <div style={{ color: 'var(--text-main, #f1f5f9)', fontSize: '0.95rem', lineHeight: '1.6' }}>
+            <div 
+              style={{ 
+                flex: 1, 
+                overflowY: 'auto', 
+                padding: '1.5rem 2rem 6rem 2rem',
+                color: 'var(--text-main, #f1f5f9)', 
+                fontSize: '0.95rem', 
+                lineHeight: '1.6' 
+              }}
+            >
               {content}
             </div>
           </div>

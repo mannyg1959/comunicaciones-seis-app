@@ -68,6 +68,25 @@ export default function MonitorKanban() {
     // Forzar modo oscuro y ocultar scrollbars para el TV
     document.body.classList.add('monitor-mode');
     
+    // Intentar entrar en pantalla completa automáticamente
+    const tryFullScreen = () => {
+      if (!document.fullscreenElement && document.documentElement.requestFullscreen) {
+        document.documentElement.requestFullscreen().catch(err => {
+          console.warn(`No se pudo iniciar pantalla completa automáticamente: ${err.message}`);
+        });
+      }
+    };
+    
+    tryFullScreen();
+
+    // Fallback: si el navegador bloquea el auto-fullscreen por falta de interacción previa, 
+    // lo intentamos en el primer clic del usuario en cualquier parte de la pantalla.
+    const handleFirstClick = () => {
+      tryFullScreen();
+      document.removeEventListener('click', handleFirstClick);
+    };
+    document.addEventListener('click', handleFirstClick);
+    
     fetchOrders();
 
     // Actualizar reloj cada segundo
@@ -98,6 +117,7 @@ export default function MonitorKanban() {
 
     return () => {
       document.body.classList.remove('monitor-mode');
+      document.removeEventListener('click', handleFirstClick);
       clearInterval(clockInterval);
       supabase.removeChannel(channel);
     };

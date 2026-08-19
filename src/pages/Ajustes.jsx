@@ -619,9 +619,7 @@ export default function Ajustes({ user, onLogout }) {
       {/* Main Settings Menu */}
       {activeTab === 'menu' && (
         <>
-          <p style={{ margin: '0 0 1.5rem 0', color: 'var(--text-muted)' }}>
-            Administra la configuración general de la plataforma, roles, usuarios, datos de la empresa y preferencias del sistema.
-          </p>
+
           <div className="card" style={{ padding: '0', marginBottom: '2rem' }}>
             <div onClick={() => navigate('/perfil')} style={menuItemStyle}>
               <div style={menuItemLeftStyle}>
@@ -1988,7 +1986,7 @@ const menuItemStyle = {
   display: 'flex', 
   alignItems: 'center', 
   justifyContent: 'space-between',
-  padding: '1.25rem 1rem', 
+  padding: '0.75rem 1rem', 
   borderBottom: '1px solid var(--border-color)',
   cursor: 'pointer',
   transition: 'background var(--transition-fast)'
