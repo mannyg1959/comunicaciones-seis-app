@@ -9,6 +9,7 @@ import { defaultPermissions } from '../utils/permissions';
 import { logEvent } from '../utils/logs';
 import { supabase } from '../utils/supabaseClient';
 import { formatDateTime } from '../utils/formatters';
+import { usePermissions } from '../contexts/PermissionsContext';
 
 // Mapeo amigable de módulos y acciones para la UI
 const moduleMap = {
@@ -30,7 +31,7 @@ const moduleMap = {
   },
   ajustes: {
     title: 'Ajustes de Sistema',
-    actions: { acceso: 'Acceso a Configuración', gestionar_usuarios: 'Gestionar Usuarios', gestionar_roles: 'Configurar Roles y Permisos', configurar_kpis: 'Configurar KPIs y Metas', ver_logs: 'Ver Log de Auditoría' }
+    actions: { acceso: 'Acceso a Configuración', gestionar_usuarios: 'Gestionar Usuarios', gestionar_roles: 'Configurar Roles y Permisos', configurar_kpis: 'Configurar KPIs y Metas', ver_logs: 'Ver Log de Auditoría', configurar_monitor: 'Configurar Enlace Monitor TV' }
   }
 };
 
@@ -41,6 +42,7 @@ export default function Ajustes({ user, onLogout }) {
   const [isLightMode, setIsLightMode] = useState(false);
   const [message, setMessage] = useState('');
   const [showConfirmClearLogs, setShowConfirmClearLogs] = useState(false);
+  const { permissions: userPermissions } = usePermissions();
 
   // Current logged in user from state or mock
   const [currentUser, setCurrentUser] = useState(() => {
@@ -680,53 +682,65 @@ export default function Ajustes({ user, onLogout }) {
               <ChevronRight size={32} style={{ color: 'var(--text-muted)' }} />
             </div>
 
-            <div onClick={() => setActiveTab('usuarios')} style={menuItemStyle}>
+            {userPermissions?.ajustes?.gestionar_usuarios && (
+              <div onClick={() => setActiveTab('usuarios')} style={menuItemStyle}>
+                <div style={menuItemLeftStyle}>
+                  <Users size={38} style={{ color: 'var(--text-muted)' }} />
+                  <span style={menuItemTextStyle}>Usuarios del Sistema</span>
+                </div>
+                <ChevronRight size={32} style={{ color: 'var(--text-muted)' }} />
+              </div>
+            )}
+
+            {userPermissions?.ajustes?.acceso && (
+              <div onClick={() => setActiveTab('empresa')} style={menuItemStyle}>
+                <div style={menuItemLeftStyle}>
+                  <Building2 size={38} style={{ color: 'var(--text-muted)' }} />
+                  <span style={menuItemTextStyle}>Datos de la Empresa</span>
+                </div>
+                <ChevronRight size={32} style={{ color: 'var(--text-muted)' }} />
+              </div>
+            )}
+
+            {userPermissions?.ajustes?.gestionar_roles && (
+              <div onClick={() => setActiveTab('roles')} style={menuItemStyle}>
+                <div style={menuItemLeftStyle}>
+                  <Shield size={38} style={{ color: 'var(--text-muted)' }} />
+                  <span style={menuItemTextStyle}>Roles y Permisos</span>
+                </div>
+                <ChevronRight size={32} style={{ color: 'var(--text-muted)' }} />
+              </div>
+            )}
+
+            {userPermissions?.ajustes?.configurar_kpis && (
+              <div onClick={() => setActiveTab('kpis')} style={menuItemStyle}>
+                <div style={menuItemLeftStyle}>
+                  <Clock size={38} style={{ color: 'var(--text-muted)' }} />
+                  <span style={menuItemTextStyle}>Parámetros de Trazabilidad</span>
+                </div>
+                <ChevronRight size={32} style={{ color: 'var(--text-muted)' }} />
+              </div>
+            )}
+
+            {userPermissions?.ajustes?.ver_logs && (
+              <div onClick={() => setActiveTab('logs')} style={menuItemStyle}>
+                <div style={menuItemLeftStyle}>
+                  <History size={38} style={{ color: 'var(--text-muted)' }} />
+                  <span style={menuItemTextStyle}>Log de Transacciones</span>
+                </div>
+                <ChevronRight size={32} style={{ color: 'var(--text-muted)' }} />
+              </div>
+            )}
+
+          {userPermissions?.ajustes?.configurar_monitor && (
+            <div onClick={() => setActiveTab('monitor_tv')} style={menuItemStyle}>
               <div style={menuItemLeftStyle}>
-                <Users size={38} style={{ color: 'var(--text-muted)' }} />
-                <span style={menuItemTextStyle}>Usuarios del Sistema</span>
+                <Tv size={38} style={{ color: 'var(--text-muted)' }} />
+                <span style={menuItemTextStyle}>Enlace de Monitor TV</span>
               </div>
               <ChevronRight size={32} style={{ color: 'var(--text-muted)' }} />
             </div>
-
-            <div onClick={() => setActiveTab('empresa')} style={menuItemStyle}>
-              <div style={menuItemLeftStyle}>
-                <Building2 size={38} style={{ color: 'var(--text-muted)' }} />
-                <span style={menuItemTextStyle}>Datos de la Empresa</span>
-              </div>
-              <ChevronRight size={32} style={{ color: 'var(--text-muted)' }} />
-            </div>
-
-            <div onClick={() => setActiveTab('roles')} style={menuItemStyle}>
-              <div style={menuItemLeftStyle}>
-                <Shield size={38} style={{ color: 'var(--text-muted)' }} />
-                <span style={menuItemTextStyle}>Roles y Permisos</span>
-              </div>
-              <ChevronRight size={32} style={{ color: 'var(--text-muted)' }} />
-            </div>
-
-          <div onClick={() => setActiveTab('kpis')} style={menuItemStyle}>
-            <div style={menuItemLeftStyle}>
-              <Clock size={38} style={{ color: 'var(--text-muted)' }} />
-              <span style={menuItemTextStyle}>Parámetros de Trazabilidad</span>
-            </div>
-            <ChevronRight size={32} style={{ color: 'var(--text-muted)' }} />
-          </div>
-
-          <div onClick={() => setActiveTab('logs')} style={menuItemStyle}>
-            <div style={menuItemLeftStyle}>
-              <History size={38} style={{ color: 'var(--text-muted)' }} />
-              <span style={menuItemTextStyle}>Log de Transacciones</span>
-            </div>
-            <ChevronRight size={32} style={{ color: 'var(--text-muted)' }} />
-          </div>
-
-          <div onClick={() => setActiveTab('monitor_tv')} style={menuItemStyle}>
-            <div style={menuItemLeftStyle}>
-              <Tv size={38} style={{ color: 'var(--text-muted)' }} />
-              <span style={menuItemTextStyle}>Enlace de Monitor TV</span>
-            </div>
-            <ChevronRight size={32} style={{ color: 'var(--text-muted)' }} />
-          </div>
+          )}
 
           <div onClick={toggleTheme} style={{ ...menuItemStyle, borderBottom: 'none' }}>
             <div style={menuItemLeftStyle}>

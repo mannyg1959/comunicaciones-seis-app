@@ -14,18 +14,19 @@ import { PermissionsProvider, usePermissions } from './contexts/PermissionsConte
 
 function BottomNav({ user }) {
   const location = useLocation();
-  const isAdmin = user?.role === 'Admin';
-  const isVentas = user?.role === 'Ventas';
-  const isProduccion = user?.role === 'Produccion';
+  const { permissions } = usePermissions();
   
+  const canSeeCotizaciones = permissions?.cotizaciones?.ver;
+  const canSeeOrdenes = permissions?.ordenes_trabajo?.ver;
+  const canSeeAjustes = permissions?.ajustes?.acceso || permissions?.ajustes?.configurar_monitor; // Mostrar si tiene acceso a ajustes o al menos configurar monitor
+  const canSeeHerramientas = Object.values(permissions?.herramientas_analiticas || {}).some(v => v);
+
   const navItems = [
     { path: '/dashboard', icon: <Home size={24} />, label: 'Inicio' },
-    // Producción NO ve Cotizaciones
-    ...(isAdmin || isVentas ? [{ path: '/cotizaciones', icon: <FileText size={24} />, label: 'Cotizaciones' }] : []),
-    { path: '/ordenes', icon: <Briefcase size={24} />, label: 'Órdenes' },
-    { path: '/herramientas', icon: <Wrench size={24} />, label: 'Herramientas' },
-    // Solo Admin ve Ajustes
-    ...(isAdmin ? [{ path: '/ajustes', icon: <Settings size={24} />, label: 'Ajustes' }] : []),
+    ...(canSeeCotizaciones ? [{ path: '/cotizaciones', icon: <FileText size={24} />, label: 'Cotizaciones' }] : []),
+    ...(canSeeOrdenes ? [{ path: '/ordenes', icon: <Briefcase size={24} />, label: 'Órdenes' }] : []),
+    ...(canSeeHerramientas ? [{ path: '/herramientas', icon: <Wrench size={24} />, label: 'Herramientas' }] : []),
+    ...(canSeeAjustes ? [{ path: '/ajustes', icon: <Settings size={24} />, label: 'Ajustes' }] : []),
   ];
 
   return (
@@ -47,6 +48,7 @@ function BottomNav({ user }) {
 // Layout wrapper for authenticated pages
 function AppLayout({ children, user, setUser }) {
   const location = useLocation();
+  const { permissions, loading: permsLoading } = usePermissions();
   
   if (!user) {
     return <Navigate to="/" replace />;
@@ -56,22 +58,30 @@ function AppLayout({ children, user, setUser }) {
     return <RequirePasswordChange user={user} onComplete={setUser} />;
   }
   
+  if (permsLoading) {
+    return (
+      <div className="app-container" style={{ display: 'flex', justifyContent: 'center', alignItems: 'center' }}>
+        <div className="spinner"></div>
+      </div>
+    );
+  }
+
   // Ruteo Protegido (Expulsar si entra por URL a donde no debe)
   const path = location.pathname;
-  if (user.role === 'Produccion' && path.startsWith('/cotizaciones')) {
+  if (path.startsWith('/cotizaciones') && !permissions?.cotizaciones?.ver) {
     return <Navigate to="/dashboard" replace />;
   }
-  if (user.role !== 'Admin' && path.startsWith('/ajustes')) {
+  
+  const canSeeAjustes = permissions?.ajustes?.acceso || permissions?.ajustes?.configurar_monitor;
+  if (path.startsWith('/ajustes') && !canSeeAjustes) {
     return <Navigate to="/dashboard" replace />;
   }
 
   return (
-    <PermissionsProvider user={user}>
-      <div className="app-container">
-        {children}
-        <BottomNav user={user} />
-      </div>
-    </PermissionsProvider>
+    <div className="app-container">
+      {children}
+      <BottomNav user={user} />
+    </div>
   );
 }
 
@@ -93,22 +103,24 @@ function App() {
 
   return (
     <Router>
-      <Routes>
-        <Route path="/" element={!user ? <Login onLogin={setUser} /> : <Navigate to="/dashboard" replace />} />
-        
-        {/* Rutas Públicas */}
-        <Route path="/monitor-kanban/:token" element={<MonitorKanban />} />
-        <Route path="/monitor-kanban" element={<Navigate to="/" replace />} />
-        
-        <Route path="/dashboard" element={<AppLayout user={user} setUser={setUser}><Dashboard user={user} onLogout={handleLogout} /></AppLayout>} />
-        <Route path="/cotizaciones" element={<AppLayout user={user} setUser={setUser}><Cotizaciones user={user} /></AppLayout>} />
-        <Route path="/ordenes" element={<AppLayout user={user} setUser={setUser}><OrdenesTrabajo user={user} /></AppLayout>} />
-        <Route path="/perfil" element={<AppLayout user={user} setUser={setUser}><Perfiles user={user} setUser={setUser} /></AppLayout>} />
-        <Route path="/herramientas" element={<AppLayout user={user} setUser={setUser}><Herramientas user={user} /></AppLayout>} />
-        <Route path="/ajustes" element={<AppLayout user={user} setUser={setUser}><Ajustes user={user} onLogout={handleLogout} /></AppLayout>} />
-        
-        <Route path="*" element={<Navigate to="/" replace />} />
-      </Routes>
+      <PermissionsProvider user={user}>
+        <Routes>
+          <Route path="/" element={!user ? <Login onLogin={setUser} /> : <Navigate to="/dashboard" replace />} />
+          
+          {/* Rutas Públicas */}
+          <Route path="/monitor-kanban/:token" element={<MonitorKanban />} />
+          <Route path="/monitor-kanban" element={<Navigate to="/" replace />} />
+          
+          <Route path="/dashboard" element={<AppLayout user={user} setUser={setUser}><Dashboard user={user} onLogout={handleLogout} /></AppLayout>} />
+          <Route path="/cotizaciones" element={<AppLayout user={user} setUser={setUser}><Cotizaciones user={user} /></AppLayout>} />
+          <Route path="/ordenes" element={<AppLayout user={user} setUser={setUser}><OrdenesTrabajo user={user} /></AppLayout>} />
+          <Route path="/perfil" element={<AppLayout user={user} setUser={setUser}><Perfiles user={user} setUser={setUser} /></AppLayout>} />
+          <Route path="/herramientas" element={<AppLayout user={user} setUser={setUser}><Herramientas user={user} /></AppLayout>} />
+          <Route path="/ajustes" element={<AppLayout user={user} setUser={setUser}><Ajustes user={user} onLogout={handleLogout} /></AppLayout>} />
+          
+          <Route path="*" element={<Navigate to="/" replace />} />
+        </Routes>
+      </PermissionsProvider>
     </Router>
   );
 }
