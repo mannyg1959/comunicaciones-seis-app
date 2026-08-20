@@ -2,6 +2,7 @@ import { useState, useEffect, useRef } from 'react';
 import { ArrowLeft, Save, Plus, Trash2, FileEdit, FilePlus, User, Package, FileDown, Expand, X, AlertTriangle, ArrowUp, Building2, CreditCard, Phone, Mail, UserPlus, MapPin, Map, MessageSquare, Users, Layers, Search, List } from 'lucide-react';
 import { supabase } from '../utils/supabaseClient';
 import { mockOrdenesTrabajo, mockOrderStatusData } from '../data/mockData';
+import ClientModal from './ClientModal';
 
 
 const defaultClientsData = [
@@ -305,6 +306,82 @@ export default function CotizacionForm({ initialData, onCancel, onSave, onDelete
     estado: '',
     observaciones: ''
   });
+
+  const handleSaveNewClient = async (clientData) => {
+    const fullAddress = `${clientData.direccion ? clientData.direccion + ' | ' : ''}${clientData.ciudad}, ${clientData.estado}`;
+    const { data, error } = await supabase
+      .from('clients')
+      .insert([{
+        name: clientData.empresa,
+        contact_name: clientData.contacto,
+        contact_phone: clientData.telefono,
+        contact_email: clientData.correo,
+        address: fullAddress
+      }])
+      .select();
+
+    if (error) throw error;
+    if (data && data[0]) {
+      const newRecord = data[0];
+      const dbClient = {
+        id: newRecord.id,
+        empresa: newRecord.name || '',
+        contacto: newRecord.contact_name || '',
+        rif: newRecord.id || '',
+        telefono: newRecord.contact_phone || '',
+        correo: newRecord.contact_email || '',
+        direccion: clientData.direccion || '',
+        ciudad: clientData.ciudad || '',
+        estado: clientData.estado || '',
+        observaciones: clientData.observaciones || ''
+      };
+      setClientsList(prev => [...prev, dbClient]);
+      setCustomClients(prev => [...prev, dbClient.empresa]);
+      setFormData(prev => ({
+        ...prev,
+        cliente: dbClient.empresa,
+        contacto: dbClient.contacto,
+        clientId: dbClient.id
+      }));
+    }
+  };
+
+  const handleSaveEditClient = async (clientData) => {
+    const fullAddress = `${clientData.direccion ? clientData.direccion + ' | ' : ''}${clientData.ciudad}, ${clientData.estado}`;
+    const { error } = await supabase
+      .from('clients')
+      .update({
+        name: clientData.empresa,
+        contact_name: clientData.contacto,
+        contact_phone: clientData.telefono,
+        contact_email: clientData.correo,
+        address: fullAddress
+      })
+      .eq('id', clientData.id);
+
+    if (error) throw error;
+
+    setClientsList(prev => prev.map(c => c.id === clientData.id ? {
+      ...c,
+      empresa: clientData.empresa,
+      contacto: clientData.contacto,
+      rif: clientData.rif,
+      telefono: clientData.telefono,
+      correo: clientData.correo,
+      ciudad: clientData.ciudad,
+      estado: clientData.estado,
+      direccion: clientData.direccion,
+      observaciones: clientData.observaciones
+    } : c));
+
+    if (formData.clientId === clientData.id || formData.cliente === clientData.empresa) {
+      setFormData(prev => ({
+        ...prev,
+        cliente: clientData.empresa,
+        contacto: clientData.contacto
+      }));
+    }
+  };
 
   const handleAddClient = () => {
     setShowNewClientModal(true);
@@ -1609,316 +1686,20 @@ export default function CotizacionForm({ initialData, onCancel, onSave, onDelete
         );
       })()}
 
-      {showNewClientModal && (
-        <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.65)', backdropFilter: 'blur(4px)', display: 'flex', justifyContent: 'center', alignItems: 'center', zIndex: 1100, padding: '1rem' }}>
-          <div className="card glass-panel" style={{ width: '100%', maxWidth: '560px', margin: 0, maxHeight: '92vh', overflowY: 'auto', border: '1px solid var(--border-color)', boxShadow: 'var(--shadow-lg)', padding: '1.5rem' }}>
+      <ClientModal
+        isOpen={showNewClientModal}
+        onClose={() => setShowNewClientModal(false)}
+        onSave={handleSaveNewClient}
+        isEditing={false}
+      />
 
-            {/* CABECERA */}
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '1rem' }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
-                <UserPlus size={20} color="var(--primary-color)" />
-                <h2 style={{ margin: 0, fontSize: '1.1rem', fontWeight: '700', color: 'var(--text-main)' }}>Nuevo Cliente</h2>
-              </div>
-              <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
-                <button type="button" className="btn btn-secondary" style={{ height: '36px', fontSize: '0.85rem', padding: '0 1rem' }}
-                  onClick={() => { setShowNewClientModal(false); setNewClientData({ empresa: '', contacto: '', rif: '', telefono: '', correo: '', ciudad: '', estado: '', observaciones: '' }); }}>
-                  Cancelar
-                </button>
-                <button type="button" className="btn btn-primary"
-                  style={{ height: '36px', fontSize: '0.85rem', padding: '0 1rem',
-                    opacity: (!(newClientData.empresa || '').trim() || !(newClientData.contacto || '').trim() || !(newClientData.rif || '').trim() || !(newClientData.telefono || '').trim() || !(newClientData.correo || '').trim() || !(newClientData.ciudad || '').trim() || !(newClientData.estado || '').trim()) ? 0.5 : 1 }}
-                  disabled={!(newClientData.empresa || '').trim() || !(newClientData.contacto || '').trim() || !(newClientData.rif || '').trim() || !(newClientData.telefono || '').trim() || !(newClientData.correo || '').trim() || !(newClientData.ciudad || '').trim() || !(newClientData.estado || '').trim()}
-                  onClick={async () => {
-                    const o = { ...newClientData };
-                    try {
-                      const { data, error } = await supabase.from('clients').insert([{
-                        name: o.empresa, contact_name: o.contacto, contact_phone: o.telefono,
-                        contact_email: o.correo,
-                        address: `${o.direccion ? o.direccion + ' | ' : ''}${o.ciudad}, ${o.estado}`
-                      }]).select();
-                      if (error) throw error;
-                      if (data && data[0]) {
-                        const addr = data[0].address || '';
-                        const dp = addr.split(' | ');
-                        const lp = (dp.length > 1 ? dp[1] : dp[0]).split(', ');
-                        const dbClient = { id: data[0].id, empresa: data[0].name, contacto: data[0].contact_name, rif: data[0].id,
-                          telefono: data[0].contact_phone, correo: data[0].contact_email,
-                          direccion: dp.length > 1 ? dp[0] : '', ciudad: lp[0] || '', estado: lp[1] || '', observaciones: '' };
-                        setClientsList(prev => [...prev, dbClient]);
-                        setCustomClients(prev => [...prev, dbClient.empresa]);
-                        setFormData({ ...formData, cliente: dbClient.empresa, contacto: dbClient.contacto, clientId: dbClient.id });
-                      }
-                    } catch (err) { console.error('Error saving client:', err); }
-                    setShowNewClientModal(false);
-                    setNewClientData({ empresa: '', contacto: '', rif: '', telefono: '', correo: '', ciudad: '', estado: '', observaciones: '' });
-                  }}>
-                  Guardar
-                </button>
-                <button type="button" onClick={() => setShowNewClientModal(false)}
-                  style={{ background: 'transparent', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', display: 'flex', padding: '0.25rem' }}>
-                  <X size={18} />
-                </button>
-              </div>
-            </div>
-
-            <hr style={{ border: 'none', borderBottom: '1px solid var(--border-color)', margin: '0 0 1rem 0' }} />
-
-            {/* SECCIÓN 1: EMPRESA */}
-            <p style={{ fontSize: '0.68rem', fontWeight: '700', textTransform: 'uppercase', letterSpacing: '0.08em', color: 'var(--primary-color)', margin: '0 0 0.6rem 0' }}>Datos de la Empresa</p>
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.6rem', marginBottom: '0.6rem' }}>
-              <div className="input-group" style={{ marginBottom: 0 }}>
-                <label>Empresa <span style={{ color: 'var(--error-color)' }}>*</span></label>
-                <div style={{ position: 'relative' }}>
-                  <Building2 size={14} style={{ position: 'absolute', left: '0.65rem', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)' }} />
-                  <input type="text" className="input-control" placeholder="Ej. Alimentos Polar, C.A."
-                    style={{ paddingLeft: '2rem', height: '38px', fontSize: '0.85rem' }}
-                    value={newClientData.empresa} onChange={e => setNewClientData({...newClientData, empresa: e.target.value})} />
-                </div>
-              </div>
-              <div className="input-group" style={{ marginBottom: 0 }}>
-                <label>RIF / NIT / RUT <span style={{ color: 'var(--error-color)' }}>*</span></label>
-                <div style={{ position: 'relative' }}>
-                  <CreditCard size={14} style={{ position: 'absolute', left: '0.65rem', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)' }} />
-                  <input type="text" className="input-control" placeholder="Ej. J-12345678-9"
-                    style={{ paddingLeft: '2rem', height: '38px', fontSize: '0.85rem' }}
-                    value={newClientData.rif} onChange={e => setNewClientData({...newClientData, rif: e.target.value})} />
-                </div>
-              </div>
-            </div>
-
-            {/* SECCIÓN 2: CONTACTO */}
-            <hr style={{ border: 'none', borderBottom: '1px solid var(--border-color)', margin: '0.75rem 0 0.6rem 0' }} />
-            <p style={{ fontSize: '0.68rem', fontWeight: '700', textTransform: 'uppercase', letterSpacing: '0.08em', color: 'var(--primary-color)', margin: '0 0 0.6rem 0' }}>Datos del Contacto</p>
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.6rem', marginBottom: '0.6rem' }}>
-              <div className="input-group" style={{ marginBottom: 0 }}>
-                <label>Nombre del Contacto <span style={{ color: 'var(--error-color)' }}>*</span></label>
-                <div style={{ position: 'relative' }}>
-                  <User size={14} style={{ position: 'absolute', left: '0.65rem', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)' }} />
-                  <input type="text" className="input-control" placeholder="Ej. Juan Pérez"
-                    style={{ paddingLeft: '2rem', height: '38px', fontSize: '0.85rem' }}
-                    value={newClientData.contacto} onChange={e => setNewClientData({...newClientData, contacto: e.target.value})} />
-                </div>
-              </div>
-              <div className="input-group" style={{ marginBottom: 0 }}>
-                <label>Teléfono <span style={{ color: 'var(--error-color)' }}>*</span></label>
-                <div style={{ position: 'relative' }}>
-                  <Phone size={14} style={{ position: 'absolute', left: '0.65rem', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)' }} />
-                  <input type="text" className="input-control" placeholder="Ej. +58 412-1234567"
-                    style={{ paddingLeft: '2rem', height: '38px', fontSize: '0.85rem' }}
-                    value={newClientData.telefono} onChange={e => setNewClientData({...newClientData, telefono: e.target.value})} />
-                </div>
-              </div>
-            </div>
-            <div className="input-group" style={{ marginBottom: '0.6rem' }}>
-              <label>Correo Electrónico <span style={{ color: 'var(--error-color)' }}>*</span></label>
-              <div style={{ position: 'relative' }}>
-                <Mail size={14} style={{ position: 'absolute', left: '0.65rem', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)' }} />
-                <input type="email" className="input-control" placeholder="Ej. contacto@empresa.com"
-                  style={{ paddingLeft: '2rem', height: '38px', fontSize: '0.85rem' }}
-                  value={newClientData.correo} onChange={e => setNewClientData({...newClientData, correo: e.target.value})} />
-              </div>
-            </div>
-
-            {/* SECCIÓN 3: UBICACIÓN */}
-            <hr style={{ border: 'none', borderBottom: '1px solid var(--border-color)', margin: '0.75rem 0 0.6rem 0' }} />
-            <p style={{ fontSize: '0.68rem', fontWeight: '700', textTransform: 'uppercase', letterSpacing: '0.08em', color: 'var(--primary-color)', margin: '0 0 0.6rem 0' }}>Ubicación</p>
-            <div className="input-group" style={{ marginBottom: '0.6rem' }}>
-              <label>Dirección</label>
-              <div style={{ position: 'relative' }}>
-                <Navigation size={14} style={{ position: 'absolute', left: '0.65rem', top: '0.65rem', color: 'var(--text-muted)' }} />
-                <textarea className="input-control" rows="2" placeholder="Ej. Av. Principal, Edif. Centro, Piso 3..."
-                  style={{ paddingLeft: '2rem', paddingTop: '0.55rem', resize: 'vertical', fontSize: '0.85rem' }}
-                  value={newClientData.direccion || ''} onChange={e => setNewClientData({...newClientData, direccion: e.target.value})} />
-              </div>
-            </div>
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.6rem', marginBottom: '0.6rem' }}>
-              <div className="input-group" style={{ marginBottom: 0 }}>
-                <label>Ciudad <span style={{ color: 'var(--error-color)' }}>*</span></label>
-                <div style={{ position: 'relative' }}>
-                  <MapPin size={14} style={{ position: 'absolute', left: '0.65rem', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)' }} />
-                  <input type="text" className="input-control" placeholder="Ej. Caracas"
-                    style={{ paddingLeft: '2rem', height: '38px', fontSize: '0.85rem' }}
-                    value={newClientData.ciudad} onChange={e => setNewClientData({...newClientData, ciudad: e.target.value})} />
-                </div>
-              </div>
-              <div className="input-group" style={{ marginBottom: 0 }}>
-                <label>Estado <span style={{ color: 'var(--error-color)' }}>*</span></label>
-                <div style={{ position: 'relative' }}>
-                  <Map size={14} style={{ position: 'absolute', left: '0.65rem', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)' }} />
-                  <input type="text" className="input-control" placeholder="Ej. Miranda"
-                    style={{ paddingLeft: '2rem', height: '38px', fontSize: '0.85rem' }}
-                    value={newClientData.estado} onChange={e => setNewClientData({...newClientData, estado: e.target.value})} />
-                </div>
-              </div>
-            </div>
-
-            {/* SECCIÓN 4: OBSERVACIONES */}
-            <hr style={{ border: 'none', borderBottom: '1px solid var(--border-color)', margin: '0.75rem 0 0.6rem 0' }} />
-            <div className="input-group" style={{ marginBottom: 0 }}>
-              <label>Observaciones</label>
-              <div style={{ position: 'relative' }}>
-                <MessageSquare size={14} style={{ position: 'absolute', left: '0.65rem', top: '0.65rem', color: 'var(--text-muted)' }} />
-                <textarea className="input-control" rows="2" placeholder="Detalles u observaciones adicionales..."
-                  style={{ paddingLeft: '2rem', paddingTop: '0.55rem', fontSize: '0.85rem' }}
-                  value={newClientData.observaciones} onChange={e => setNewClientData({...newClientData, observaciones: e.target.value})} />
-              </div>
-            </div>
-
-          </div>
-        </div>
-      )}
-
-      {showEditClientModal && (
-        <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.65)', backdropFilter: 'blur(4px)', display: 'flex', justifyContent: 'center', alignItems: 'center', zIndex: 1200, padding: '1rem' }}>
-          <div className="card glass-panel" style={{ width: '100%', maxWidth: '560px', margin: 0, maxHeight: '92vh', overflowY: 'auto', border: '1px solid var(--border-color)', boxShadow: 'var(--shadow-lg)', padding: '1.5rem' }}>
-
-            {/* CABECERA */}
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '1rem' }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
-                <FileEdit size={20} color="var(--primary-color)" />
-                <h2 style={{ margin: 0, fontSize: '1.1rem', fontWeight: '700', color: 'var(--text-main)' }}>Editar Cliente</h2>
-              </div>
-              <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
-                <button type="button" className="btn btn-secondary" style={{ height: '36px', fontSize: '0.85rem', padding: '0 1rem' }}
-                  onClick={() => setShowEditClientModal(false)}>
-                  Cancelar
-                </button>
-                <button type="button" className="btn btn-primary"
-                  style={{ height: '36px', fontSize: '0.85rem', padding: '0 1rem',
-                    opacity: (!(editClientData.empresa || '').trim() || !(editClientData.contacto || '').trim() || !(editClientData.rif || '').trim() || !(editClientData.telefono || '').trim() || !(editClientData.correo || '').trim() || !(editClientData.ciudad || '').trim() || !(editClientData.estado || '').trim()) ? 0.5 : 1 }}
-                  disabled={!(editClientData.empresa || '').trim() || !(editClientData.contacto || '').trim() || !(editClientData.rif || '').trim() || !(editClientData.telefono || '').trim() || !(editClientData.correo || '').trim() || !(editClientData.ciudad || '').trim() || !(editClientData.estado || '').trim()}
-                  onClick={async () => {
-                    try {
-                      const { error } = await supabase.from('clients').update({
-                        name: editClientData.empresa, contact_name: editClientData.contacto,
-                        contact_phone: editClientData.telefono, contact_email: editClientData.correo,
-                        address: `${editClientData.direccion ? editClientData.direccion + ' | ' : ''}${editClientData.ciudad}, ${editClientData.estado}`
-                      }).eq('id', editClientData.id);
-                      if (error) throw error;
-                      setClientsList(prev => prev.map(c => c.id === editClientData.id ? {
-                        ...c, empresa: editClientData.empresa, contacto: editClientData.contacto,
-                        rif: editClientData.rif, telefono: editClientData.telefono, correo: editClientData.correo,
-                        ciudad: editClientData.ciudad, estado: editClientData.estado,
-                        direccion: editClientData.direccion, observaciones: editClientData.observaciones
-                      } : c));
-                    } catch (err) { console.error('Error updating client:', err); }
-                    setShowEditClientModal(false);
-                  }}>
-                  Guardar Cambios
-                </button>
-                <button type="button" onClick={() => setShowEditClientModal(false)}
-                  style={{ background: 'transparent', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', display: 'flex', padding: '0.25rem' }}>
-                  <X size={18} />
-                </button>
-              </div>
-            </div>
-
-            <hr style={{ border: 'none', borderBottom: '1px solid var(--border-color)', margin: '0 0 1rem 0' }} />
-
-            {/* SECCIÓN 1: EMPRESA */}
-            <p style={{ fontSize: '0.68rem', fontWeight: '700', textTransform: 'uppercase', letterSpacing: '0.08em', color: 'var(--primary-color)', margin: '0 0 0.6rem 0' }}>Datos de la Empresa</p>
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.6rem', marginBottom: '0.6rem' }}>
-              <div className="input-group" style={{ marginBottom: 0 }}>
-                <label>Empresa <span style={{ color: 'var(--error-color)' }}>*</span></label>
-                <div style={{ position: 'relative' }}>
-                  <Building2 size={14} style={{ position: 'absolute', left: '0.65rem', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)' }} />
-                  <input type="text" className="input-control" placeholder="Ej. Alimentos Polar, C.A."
-                    style={{ paddingLeft: '2rem', height: '38px', fontSize: '0.85rem' }}
-                    value={editClientData.empresa} onChange={e => setEditClientData({...editClientData, empresa: e.target.value})} />
-                </div>
-              </div>
-              <div className="input-group" style={{ marginBottom: 0 }}>
-                <label>RIF / NIT / RUT <span style={{ color: 'var(--error-color)' }}>*</span></label>
-                <div style={{ position: 'relative' }}>
-                  <CreditCard size={14} style={{ position: 'absolute', left: '0.65rem', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)' }} />
-                  <input type="text" className="input-control" placeholder="Ej. J-12345678-9"
-                    style={{ paddingLeft: '2rem', height: '38px', fontSize: '0.85rem' }}
-                    value={editClientData.rif || ''} onChange={e => setEditClientData({...editClientData, rif: e.target.value})} />
-                </div>
-              </div>
-            </div>
-
-            {/* SECCIÓN 2: CONTACTO */}
-            <hr style={{ border: 'none', borderBottom: '1px solid var(--border-color)', margin: '0.75rem 0 0.6rem 0' }} />
-            <p style={{ fontSize: '0.68rem', fontWeight: '700', textTransform: 'uppercase', letterSpacing: '0.08em', color: 'var(--primary-color)', margin: '0 0 0.6rem 0' }}>Datos del Contacto</p>
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.6rem', marginBottom: '0.6rem' }}>
-              <div className="input-group" style={{ marginBottom: 0 }}>
-                <label>Nombre del Contacto <span style={{ color: 'var(--error-color)' }}>*</span></label>
-                <div style={{ position: 'relative' }}>
-                  <User size={14} style={{ position: 'absolute', left: '0.65rem', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)' }} />
-                  <input type="text" className="input-control" placeholder="Ej. Juan Pérez"
-                    style={{ paddingLeft: '2rem', height: '38px', fontSize: '0.85rem' }}
-                    value={editClientData.contacto} onChange={e => setEditClientData({...editClientData, contacto: e.target.value})} />
-                </div>
-              </div>
-              <div className="input-group" style={{ marginBottom: 0 }}>
-                <label>Teléfono <span style={{ color: 'var(--error-color)' }}>*</span></label>
-                <div style={{ position: 'relative' }}>
-                  <Phone size={14} style={{ position: 'absolute', left: '0.65rem', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)' }} />
-                  <input type="text" className="input-control" placeholder="Ej. +58 412-1234567"
-                    style={{ paddingLeft: '2rem', height: '38px', fontSize: '0.85rem' }}
-                    value={editClientData.telefono || ''} onChange={e => setEditClientData({...editClientData, telefono: e.target.value})} />
-                </div>
-              </div>
-            </div>
-            <div className="input-group" style={{ marginBottom: '0.6rem' }}>
-              <label>Correo Electrónico <span style={{ color: 'var(--error-color)' }}>*</span></label>
-              <div style={{ position: 'relative' }}>
-                <Mail size={14} style={{ position: 'absolute', left: '0.65rem', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)' }} />
-                <input type="email" className="input-control" placeholder="Ej. contacto@empresa.com"
-                  style={{ paddingLeft: '2rem', height: '38px', fontSize: '0.85rem' }}
-                  value={editClientData.correo || ''} onChange={e => setEditClientData({...editClientData, correo: e.target.value})} />
-              </div>
-            </div>
-
-            {/* SECCIÓN 3: UBICACIÓN */}
-            <hr style={{ border: 'none', borderBottom: '1px solid var(--border-color)', margin: '0.75rem 0 0.6rem 0' }} />
-            <p style={{ fontSize: '0.68rem', fontWeight: '700', textTransform: 'uppercase', letterSpacing: '0.08em', color: 'var(--primary-color)', margin: '0 0 0.6rem 0' }}>Ubicación</p>
-            <div className="input-group" style={{ marginBottom: '0.6rem' }}>
-              <label>Dirección</label>
-              <div style={{ position: 'relative' }}>
-                <Navigation size={14} style={{ position: 'absolute', left: '0.65rem', top: '0.65rem', color: 'var(--text-muted)' }} />
-                <textarea className="input-control" rows="2" placeholder="Ej. Av. Principal, Edif. Centro, Piso 3..."
-                  style={{ paddingLeft: '2rem', paddingTop: '0.55rem', resize: 'vertical', fontSize: '0.85rem' }}
-                  value={editClientData.direccion || ''} onChange={e => setEditClientData({...editClientData, direccion: e.target.value})} />
-              </div>
-            </div>
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.6rem', marginBottom: '0.6rem' }}>
-              <div className="input-group" style={{ marginBottom: 0 }}>
-                <label>Ciudad <span style={{ color: 'var(--error-color)' }}>*</span></label>
-                <div style={{ position: 'relative' }}>
-                  <MapPin size={14} style={{ position: 'absolute', left: '0.65rem', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)' }} />
-                  <input type="text" className="input-control" placeholder="Ej. Caracas"
-                    style={{ paddingLeft: '2rem', height: '38px', fontSize: '0.85rem' }}
-                    value={editClientData.ciudad || ''} onChange={e => setEditClientData({...editClientData, ciudad: e.target.value})} />
-                </div>
-              </div>
-              <div className="input-group" style={{ marginBottom: 0 }}>
-                <label>Estado <span style={{ color: 'var(--error-color)' }}>*</span></label>
-                <div style={{ position: 'relative' }}>
-                  <Map size={14} style={{ position: 'absolute', left: '0.65rem', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)' }} />
-                  <input type="text" className="input-control" placeholder="Ej. Miranda"
-                    style={{ paddingLeft: '2rem', height: '38px', fontSize: '0.85rem' }}
-                    value={editClientData.estado || ''} onChange={e => setEditClientData({...editClientData, estado: e.target.value})} />
-                </div>
-              </div>
-            </div>
-
-            {/* SECCIÓN 4: OBSERVACIONES */}
-            <hr style={{ border: 'none', borderBottom: '1px solid var(--border-color)', margin: '0.75rem 0 0.6rem 0' }} />
-            <div className="input-group" style={{ marginBottom: 0 }}>
-              <label>Observaciones</label>
-              <div style={{ position: 'relative' }}>
-                <MessageSquare size={14} style={{ position: 'absolute', left: '0.65rem', top: '0.65rem', color: 'var(--text-muted)' }} />
-                <textarea className="input-control" rows="2" placeholder="Detalles u observaciones adicionales..."
-                  style={{ paddingLeft: '2rem', paddingTop: '0.55rem', fontSize: '0.85rem' }}
-                  value={editClientData.observaciones || ''} onChange={e => setEditClientData({...editClientData, observaciones: e.target.value})} />
-              </div>
-            </div>
-
-          </div>
-        </div>
-      )}
+      <ClientModal
+        isOpen={showEditClientModal}
+        onClose={() => setShowEditClientModal(false)}
+        onSave={handleSaveEditClient}
+        initialData={editClientData}
+        isEditing={true}
+      />
 
       {showConfirmModal && (
         <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.5)', display: 'flex', justifyContent: 'center', alignItems: 'center', zIndex: 1100, padding: '1rem' }}>
