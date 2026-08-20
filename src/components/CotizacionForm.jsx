@@ -169,19 +169,42 @@ export default function CotizacionForm({ initialData, onCancel, onSave, onDelete
         const { data, error } = await supabase.from('clients').select('*');
         if (error) throw error;
         let activeClients = [];
+        const parseAddress = (addr) => {
+          if (!addr) return { direccion: '', ciudad: '', estado: '' };
+          if (addr.includes(' | ')) {
+            const parts = addr.split(' | ');
+            const dir = parts[0] || '';
+            const loc = (parts[1] || '').split(',');
+            return {
+              direccion: dir,
+              ciudad: (loc[0] || '').trim(),
+              estado: (loc[1] || '').trim()
+            };
+          }
+          const loc = addr.split(',');
+          return {
+            direccion: '',
+            ciudad: (loc[0] || '').trim(),
+            estado: (loc[1] || '').trim()
+          };
+        };
+
         if (data && data.length > 0) {
-          activeClients = data.map(c => ({
-            id: c.id,
-            empresa: c.name,
-            contacto: c.contact_name,
-            rif: c.id,
-            telefono: c.contact_phone,
-            correo: c.contact_email,
-            ciudad: c.address ? c.address.split(',')[0] || '' : '',
-            estado: c.address ? c.address.split(',')[1] || '' : '',
-            direccion: c.address || '',
-            observaciones: ''
-          }));
+          activeClients = data.map(c => {
+            const parsed = parseAddress(c.address);
+            return {
+              id: c.id || '',
+              empresa: c.name || '',
+              contacto: c.contact_name || '',
+              rif: c.id || '',
+              telefono: c.contact_phone || '',
+              correo: c.contact_email || '',
+              ciudad: parsed.ciudad,
+              estado: parsed.estado,
+              direccion: parsed.direccion,
+              observaciones: ''
+            };
+          });
           setClientsList(activeClients);
         } else {
           const seedData = defaultClientsData.map(c => ({
@@ -196,18 +219,21 @@ export default function CotizacionForm({ initialData, onCancel, onSave, onDelete
             .insert(seedData)
             .select();
           if (!insertErr && inserted) {
-            activeClients = inserted.map(c => ({
-              id: c.id,
-              empresa: c.name,
-              contacto: c.contact_name,
-              rif: c.id,
-              telefono: c.contact_phone,
-              correo: c.contact_email,
-              ciudad: c.address.split(',')[0] || '',
-              estado: c.address.split(',')[1] || '',
-              direccion: c.address || '',
-              observaciones: ''
-            }));
+            activeClients = inserted.map(c => {
+              const parsed = parseAddress(c.address);
+              return {
+                id: c.id || '',
+                empresa: c.name || '',
+                contacto: c.contact_name || '',
+                rif: c.id || '',
+                telefono: c.contact_phone || '',
+                correo: c.contact_email || '',
+                ciudad: parsed.ciudad,
+                estado: parsed.estado,
+                direccion: parsed.direccion,
+                observaciones: ''
+              };
+            });
             setClientsList(activeClients);
           }
         }
