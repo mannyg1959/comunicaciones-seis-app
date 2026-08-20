@@ -50,13 +50,7 @@ export default function ClientModal({ isOpen, onClose, onSave, initialData = nul
 
   const isFormValid = () => {
     const e = (formData.empresa || '').trim();
-    const c = (formData.contacto || '').trim();
-    const r = (formData.rif || '').trim();
-    const t = (formData.telefono || '').trim();
-    const m = (formData.correo || '').trim();
-    const ci = (formData.ciudad || '').trim();
-    const es = (formData.estado || '').trim();
-    return e && c && r && t && m && ci && es;
+    return e.length > 0;
   };
 
   const handleSubmit = async (e) => {
@@ -66,9 +60,11 @@ export default function ClientModal({ isOpen, onClose, onSave, initialData = nul
     try {
       setLoading(true);
       await onSave(formData);
+      alert('Cliente guardado exitosamente.');
       onClose();
     } catch (err) {
       console.error('Error guardando cliente:', err);
+      alert('Ocurrió un error al guardar el cliente: ' + (err.message || 'Error desconocido'));
     } finally {
       setLoading(false);
     }
