@@ -414,7 +414,6 @@ export default function Dashboard({ user, onLogout }) {
         <div style={{ flex: 1 }}>
           <p style={{ margin: 0, fontWeight: 'bold', fontSize: '1.125rem', color: 'var(--text-main)' }}>{user?.name || 'Administrador'}</p>
           <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'center', marginTop: '0.35rem' }}>
-            <p className="dashboard-username">Usuario: @{user?.username || 'admin'}</p>
             <span className="dashboard-role">
               {user?.role === 'Admin' ? 'Administrador' : user?.role === 'Ventas' ? 'Ejecutivo de Ventas' : user?.role === 'Produccion' ? 'Jefe de Producción' : 'Administrador'}
             </span>

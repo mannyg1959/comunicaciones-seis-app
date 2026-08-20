@@ -34,9 +34,23 @@ import {
 } from 'recharts';
 import { supabase } from '../utils/supabaseClient';
 import { formatDate } from '../utils/formatters';
+import { usePermissions } from '../contexts/PermissionsContext';
 
 export default function Herramientas({ user }) {
-  const [activeTab, setActiveTab] = useState('reportes'); // 'reportes' or 'alertas'
+  const { permissions, loading: permsLoading } = usePermissions();
+  const perms = permissions?.herramientas_analiticas || {};
+
+  const [activeTab, setActiveTab] = useState('');
+
+  useEffect(() => {
+    if (!permsLoading && !activeTab) {
+      if (perms.ver_reportes) setActiveTab('reportes');
+      else if (perms.exportar_datos) setActiveTab('exportar');
+      else if (perms.ver_alertas) setActiveTab('alertas');
+      else if (perms.monitor) setActiveTab('monitor');
+    }
+  }, [permsLoading, perms, activeTab]);
+
   const [reportSubTab, setReportSubTab] = useState('cotizaciones');
   const [cotizaciones, setCotizaciones] = useState([]);
   const [ordenesTrabajo, setOrdenesTrabajo] = useState([]);
@@ -591,96 +605,95 @@ export default function Herramientas({ user }) {
         </div>
 
         {/* Tabs Selector */}
-        <div style={{ 
-          display: 'grid', 
-          gridTemplateColumns: '1fr 1fr',
-          gap: '0.5rem', 
-          marginBottom: '0', 
-          background: 'var(--surface-color)', 
-          padding: '0.5rem', 
-          borderRadius: '12px', 
-          border: '1px solid var(--border-color)'
-        }}>
-          <button 
-            onClick={() => setActiveTab('reportes')}
-            className="btn" 
-            style={{ 
-              height: '42px', 
-              fontSize: '0.9rem',
-              padding: '0 1rem',
-              background: activeTab === 'reportes' ? 'var(--primary-color)' : 'transparent',
-              color: activeTab === 'reportes' ? '#ffffff' : 'var(--text-muted)',
-              border: activeTab === 'reportes' ? '1px solid var(--primary-color)' : '1px solid var(--border-color)',
-              borderRadius: '8px'
-            }}
-          >
-            <BarChart2 size={16} /> Reportes
-          </button>
-          <button 
-            onClick={() => setActiveTab('exportar')}
-            className="btn" 
-            style={{ 
-              height: '42px', 
-              fontSize: '0.9rem',
-              padding: '0 1rem',
-              background: activeTab === 'exportar' ? 'var(--primary-color)' : 'transparent',
-              color: activeTab === 'exportar' ? '#ffffff' : 'var(--text-muted)',
-              border: activeTab === 'exportar' ? '1px solid var(--primary-color)' : '1px solid var(--border-color)',
-              borderRadius: '8px'
-            }}
-          >
-            <FileSpreadsheet size={16} /> Exportar
-          </button>
-          <button 
-            onClick={() => setActiveTab('alertas')}
-            className="btn" 
-            style={{ 
-              height: '42px', 
-              fontSize: '0.9rem',
-              padding: '0 1rem',
-              background: activeTab === 'alertas' ? 'var(--primary-color)' : 'transparent',
-              color: activeTab === 'alertas' ? '#ffffff' : 'var(--text-muted)',
-              border: activeTab === 'alertas' ? '1px solid var(--primary-color)' : '1px solid var(--border-color)',
-              borderRadius: '8px',
-              position: 'relative'
-            }}
-          >
-            <AlertTriangle size={16} /> Alertas 
-            {(cotizacionesAlertas.length + cotizacionesAlertasAprobadas.length + otAlertas.length + otPreventivas.length) > 0 && (
-              <span style={{ 
-                position: 'absolute', 
-                top: '4px', 
-                right: '4px', 
-                background: 'var(--error-color)', 
-                color: '#ffffff', 
-                fontSize: '0.7rem', 
-                width: '18px', 
-                height: '18px', 
-                borderRadius: '50%', 
-                display: 'flex', 
-                alignItems: 'center', 
-                justifyContent: 'center',
-                fontWeight: 'bold'
-              }}>
-                {cotizacionesAlertas.length + cotizacionesAlertasAprobadas.length + otAlertas.length + otPreventivas.length}
-              </span>
-            )}
-          </button>
-          <button 
-            onClick={() => setActiveTab('monitor')}
-            className="btn" 
-            style={{ 
-              height: '42px', 
-              fontSize: '0.9rem',
-              padding: '0 1rem',
-              background: activeTab === 'monitor' ? 'var(--primary-color)' : 'transparent',
-              color: activeTab === 'monitor' ? '#ffffff' : 'var(--text-muted)',
-              border: activeTab === 'monitor' ? '1px solid var(--primary-color)' : '1px solid var(--border-color)',
-              borderRadius: '8px'
-            }}
-          >
-            <Tv size={16} /> Monitor
-          </button>
+        <div className="herramientas-tabs-grid">
+          {perms.ver_reportes && (
+            <button 
+              onClick={() => setActiveTab('reportes')}
+              className="btn" 
+              style={{ 
+                height: '42px', 
+                fontSize: '0.9rem',
+                padding: '0 1rem',
+                background: activeTab === 'reportes' ? 'var(--primary-color)' : 'transparent',
+                color: activeTab === 'reportes' ? '#ffffff' : 'var(--text-muted)',
+                border: activeTab === 'reportes' ? '1px solid var(--primary-color)' : '1px solid var(--border-color)',
+                borderRadius: '8px'
+              }}
+            >
+              <BarChart2 size={16} /> Reportes
+            </button>
+          )}
+          {perms.exportar_datos && (
+            <button 
+              onClick={() => setActiveTab('exportar')}
+              className="btn" 
+              style={{ 
+                height: '42px', 
+                fontSize: '0.9rem',
+                padding: '0 1rem',
+                background: activeTab === 'exportar' ? 'var(--primary-color)' : 'transparent',
+                color: activeTab === 'exportar' ? '#ffffff' : 'var(--text-muted)',
+                border: activeTab === 'exportar' ? '1px solid var(--primary-color)' : '1px solid var(--border-color)',
+                borderRadius: '8px'
+              }}
+            >
+              <FileSpreadsheet size={16} /> Exportar
+            </button>
+          )}
+          {perms.ver_alertas && (
+            <button 
+              onClick={() => setActiveTab('alertas')}
+              className="btn" 
+              style={{ 
+                height: '42px', 
+                fontSize: '0.9rem',
+                padding: '0 1rem',
+                background: activeTab === 'alertas' ? 'var(--primary-color)' : 'transparent',
+                color: activeTab === 'alertas' ? '#ffffff' : 'var(--text-muted)',
+                border: activeTab === 'alertas' ? '1px solid var(--primary-color)' : '1px solid var(--border-color)',
+                borderRadius: '8px',
+                position: 'relative'
+              }}
+            >
+              <AlertTriangle size={16} /> Alertas 
+              {(cotizacionesAlertas.length + cotizacionesAlertasAprobadas.length + otAlertas.length + otPreventivas.length) > 0 && (
+                <span style={{ 
+                  position: 'absolute', 
+                  top: '4px', 
+                  right: '4px', 
+                  background: 'var(--error-color)', 
+                  color: '#ffffff', 
+                  fontSize: '0.7rem', 
+                  width: '18px', 
+                  height: '18px', 
+                  borderRadius: '50%', 
+                  display: 'flex', 
+                  alignItems: 'center', 
+                  justifyContent: 'center',
+                  fontWeight: 'bold'
+                }}>
+                  {cotizacionesAlertas.length + cotizacionesAlertasAprobadas.length + otAlertas.length + otPreventivas.length}
+                </span>
+              )}
+            </button>
+          )}
+          {perms.monitor && (
+            <button 
+              onClick={() => setActiveTab('monitor')}
+              className="btn" 
+              style={{ 
+                height: '42px', 
+                fontSize: '0.9rem',
+                padding: '0 1rem',
+                background: activeTab === 'monitor' ? 'var(--primary-color)' : 'transparent',
+                color: activeTab === 'monitor' ? '#ffffff' : 'var(--text-muted)',
+                border: activeTab === 'monitor' ? '1px solid var(--primary-color)' : '1px solid var(--border-color)',
+                borderRadius: '8px'
+              }}
+            >
+              <Tv size={16} /> Monitor
+            </button>
+          )}
         </div>
       </div>
 

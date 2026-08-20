@@ -1,5 +1,6 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { supabase } from '../utils/supabaseClient';
+import { defaultPermissions } from '../utils/permissions';
 
 const PermissionsContext = createContext();
 
@@ -16,7 +17,8 @@ export const PermissionsProvider = ({ children, user }) => {
       }
 
       try {
-        const userRole = user.role || 'Ventas'; // Default role if not set
+        let userRole = user.role || 'Ventas';
+        if (userRole === 'Administrador') userRole = 'Admin';
         const { data, error } = await supabase
           .from('roles_permissions')
           .select('permissions')
@@ -25,10 +27,23 @@ export const PermissionsProvider = ({ children, user }) => {
 
         if (error) {
           console.error('Error fetching permissions:', error);
-          // Fallback to basic structure to avoid crashing
           setPermissions({});
         } else if (data) {
-          setPermissions(data.permissions);
+          // Fusionar con los permisos por defecto para evitar que falten nuevas opciones agregadas al código pero que aún no están en Supabase
+          const defaultPerms = defaultPermissions[userRole] || {};
+          const mergedPerms = { ...defaultPerms };
+          Object.keys(data.permissions || {}).forEach(module => {
+            mergedPerms[module] = { ...defaultPerms[module], ...data.permissions[module] };
+            
+            // Regla de Negocio: El Administrador Principal SIEMPRE tiene acceso total.
+            // Esto previene que configuraciones erróneas en la base de datos bloqueen al admin.
+            if (userRole === 'Admin') {
+              Object.keys(mergedPerms[module]).forEach(action => {
+                mergedPerms[module][action] = true;
+              });
+            }
+          });
+          setPermissions(mergedPerms);
         }
       } catch (err) {
         console.error('Unexpected error fetching permissions:', err);

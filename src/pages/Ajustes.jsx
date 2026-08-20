@@ -2,7 +2,7 @@ import { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { 
   Settings, User, Bell, Shield, Moon, Sun, ChevronRight, ChevronLeft, LogOut, 
-  Users, Clock, History, Save, Trash2, Search, CheckCircle, AlertTriangle, ArrowLeft, UserPlus, X, SlidersHorizontal, Key, Edit2, Building2
+  Users, Clock, History, Save, Trash2, Search, CheckCircle, AlertTriangle, ArrowLeft, UserPlus, X, SlidersHorizontal, Key, Edit2, Building2, Tv
 } from 'lucide-react';
 import HelpDrawer from '../components/HelpDrawer';
 import { defaultPermissions } from '../utils/permissions';
@@ -26,7 +26,7 @@ const moduleMap = {
   },
   herramientas_analiticas: {
     title: 'Herramientas y Analíticas',
-    actions: { ver_reportes: 'Ver Reportes Avanzados', exportar_datos: 'Exportar a CSV', ver_alertas: 'Ver Panel de Alertas' }
+    actions: { ver_reportes: 'Ver Reportes Avanzados', exportar_datos: 'Exportar a CSV', ver_alertas: 'Ver Panel de Alertas', monitor: 'Monitor' }
   },
   ajustes: {
     title: 'Ajustes de Sistema',
@@ -61,7 +61,12 @@ export default function Ajustes({ user, onLogout }) {
         if (data && data.length > 0) {
           const permMap = {};
           data.forEach(row => {
-            permMap[row.role_name] = row.permissions;
+            const defaultRolePerms = defaultPermissions[row.role_name] || {};
+            const mergedRolePerms = { ...defaultRolePerms };
+            Object.keys(row.permissions || {}).forEach(module => {
+              mergedRolePerms[module] = { ...defaultRolePerms[module], ...row.permissions[module] };
+            });
+            permMap[row.role_name] = mergedRolePerms;
           });
           setPermissions(permMap);
         }
@@ -92,6 +97,51 @@ export default function Ajustes({ user, onLogout }) {
   const [filterLogTipo, setFilterLogTipo] = useState('');
   const [filterLogUsuario, setFilterLogUsuario] = useState('');
   const [isLogFilterOpen, setIsLogFilterOpen] = useState(false);
+
+  // State for Monitor TV Token
+  const [monitorToken, setMonitorToken] = useState('');
+  const [isLoadingToken, setIsLoadingToken] = useState(true);
+
+  useEffect(() => {
+    const fetchToken = async () => {
+      try {
+        const { data, error } = await supabase
+          .from('system_settings')
+          .select('setting_value')
+          .eq('setting_key', 'monitor_tv_token')
+          .maybeSingle();
+        if (data) {
+          setMonitorToken(data.setting_value);
+        }
+      } catch (err) {
+        console.error('Error fetching monitor token:', err);
+      } finally {
+        setIsLoadingToken(false);
+      }
+    };
+    fetchToken();
+  }, []);
+
+  const generateMonitorToken = async () => {
+    try {
+      const newToken = Math.random().toString(36).substring(2, 15) + Math.random().toString(36).substring(2, 15);
+      const { error } = await supabase
+        .from('system_settings')
+        .upsert({
+          setting_key: 'monitor_tv_token',
+          setting_value: newToken,
+          updated_at: new Date().toISOString()
+        }, { onConflict: 'setting_key' });
+      
+      if (error) throw error;
+      setMonitorToken(newToken);
+      showNotification('Enlace regenerado correctamente');
+      logEvent(currentUser, 'Regenerar Enlace de Monitor TV', 'Se invalidó el enlace anterior y se generó uno nuevo.');
+    } catch (err) {
+      console.error('Error al generar token:', err);
+      showNotification('Error al generar el nuevo enlace');
+    }
+  };
 
   // State for System Users
   const [usuarios, setUsuarios] = useState([]);
@@ -541,6 +591,7 @@ export default function Ajustes({ user, onLogout }) {
       case 'empresa': return 'Datos de la Empresa';
       case 'kpis': return 'Parámetros de Trazabilidad';
       case 'logs': return 'Log de Transacciones';
+      case 'monitor_tv': return 'Enlace Seguro de Monitor TV';
       default: return 'Ajustes';
     }
   };
@@ -669,6 +720,14 @@ export default function Ajustes({ user, onLogout }) {
             <ChevronRight size={32} style={{ color: 'var(--text-muted)' }} />
           </div>
 
+          <div onClick={() => setActiveTab('monitor_tv')} style={menuItemStyle}>
+            <div style={menuItemLeftStyle}>
+              <Tv size={38} style={{ color: 'var(--text-muted)' }} />
+              <span style={menuItemTextStyle}>Enlace de Monitor TV</span>
+            </div>
+            <ChevronRight size={32} style={{ color: 'var(--text-muted)' }} />
+          </div>
+
           <div onClick={toggleTheme} style={{ ...menuItemStyle, borderBottom: 'none' }}>
             <div style={menuItemLeftStyle}>
               {isLightMode ? <Sun size={38} style={{ color: 'var(--text-muted)' }} /> : <Moon size={38} style={{ color: 'var(--text-muted)' }} />}
@@ -678,6 +737,87 @@ export default function Ajustes({ user, onLogout }) {
           </div>
         </div>
         </>
+      )}
+
+      {/* Monitor TV Tab */}
+      {activeTab === 'monitor_tv' && (
+        <div className="card" style={{ padding: '1rem 1.5rem' }}>
+          <div style={{ textAlign: 'center', maxWidth: '600px', margin: '0 auto' }}>
+            <Tv size={48} color="var(--primary-color)" style={{ marginBottom: '0.5rem' }} />
+            <h3 style={{ fontSize: '1.1rem', marginBottom: '0.25rem', color: 'var(--text-main)' }}>
+              Monitor para Pantallas Desatendidas (Smart TV)
+            </h3>
+            <p style={{ color: 'var(--text-muted)', marginBottom: '1rem', lineHeight: '1.4', fontSize: '0.85rem' }}>
+              Este enlace permite abrir el Monitor Kanban en cualquier pantalla o televisor sin necesidad de introducir un usuario y contraseña. El acceso es de solo lectura y está aislado del resto del sistema.
+            </p>
+
+            {isLoadingToken ? (
+              <p style={{ fontSize: '0.9rem' }}>Cargando enlace...</p>
+            ) : monitorToken ? (
+              <div style={{ marginBottom: '1rem' }}>
+                <p style={{ fontSize: '0.85rem', color: 'var(--text-muted)', marginBottom: '0.25rem', textAlign: 'left' }}>URL del Monitor:</p>
+                <div style={{ 
+                  display: 'flex', 
+                  alignItems: 'center', 
+                  background: 'var(--bg-color)', 
+                  border: '1px solid var(--border-color)', 
+                  borderRadius: '8px', 
+                  padding: '0.75rem', 
+                  wordBreak: 'break-all',
+                  fontFamily: 'monospace',
+                  fontSize: '0.9rem',
+                  color: 'var(--text-main)'
+                }}>
+                  {window.location.origin}/monitor-kanban/{monitorToken}
+                </div>
+                <div style={{ display: 'flex', gap: '0.5rem', marginTop: '0.75rem', justifyContent: 'center', flexWrap: 'wrap' }}>
+                  <button 
+                    className="btn btn-secondary"
+                    style={{ flex: 1, minWidth: '120px', height: '40px', fontSize: '0.9rem' }}
+                    onClick={() => {
+                      navigator.clipboard.writeText(`${window.location.origin}/monitor-kanban/${monitorToken}`);
+                      showNotification('Enlace copiado al portapapeles');
+                    }}
+                  >
+                    Copiar Enlace
+                  </button>
+                  <a 
+                    href={`/monitor-kanban/${monitorToken}`} 
+                    target="_blank" 
+                    rel="noopener noreferrer" 
+                    className="btn btn-primary"
+                    style={{ flex: 1, minWidth: '120px', height: '40px', fontSize: '0.9rem', display: 'flex', alignItems: 'center', justifyContent: 'center', textDecoration: 'none' }}
+                  >
+                    Abrir Monitor
+                  </a>
+                </div>
+              </div>
+            ) : (
+              <div style={{ padding: '1rem', background: 'color-mix(in srgb, var(--warning-color) 10%, transparent)', borderRadius: '12px', border: '1px solid var(--warning-color)', marginBottom: '1rem' }}>
+                <AlertTriangle size={24} color="var(--warning-color)" style={{ marginBottom: '0.25rem' }} />
+                <p style={{ color: 'var(--text-main)', fontSize: '0.9rem', margin: 0 }}>Aún no se ha generado un enlace para el monitor.</p>
+              </div>
+            )}
+
+            <div style={{ borderTop: '1px solid var(--border-color)', paddingTop: '1rem', marginTop: '0.5rem' }}>
+              <h4 style={{ color: 'var(--error-color)', marginBottom: '0.25rem', fontSize: '0.95rem' }}>Zona de Peligro</h4>
+              <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)', marginBottom: '0.75rem', lineHeight: '1.4' }}>
+                Si crees que este enlace fue comprometido, puedes revocarlo. El enlace anterior dejará de funcionar inmediatamente en todos los televisores.
+              </p>
+              <button 
+                className="btn" 
+                style={{ backgroundColor: 'var(--error-color)', color: '#fff', height: '40px', fontSize: '0.9rem' }}
+                onClick={() => {
+                  if (window.confirm('¿Estás seguro de que quieres invalidar el enlace actual y generar uno nuevo?')) {
+                    generateMonitorToken();
+                  }
+                }}
+              >
+                {monitorToken ? 'Revocar y Regenerar Enlace' : 'Generar Enlace'}
+              </button>
+            </div>
+          </div>
+        </div>
       )}
 
       {/* Visual Roles & Permissions configuration screen */}
@@ -693,7 +833,7 @@ export default function Ajustes({ user, onLogout }) {
               </p>
 
               {/* Selector de Rol (Tabs) */}
-              <div style={{ display: 'flex', gap: '0.5rem', overflowX: 'auto', paddingBottom: '0.5rem' }}>
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.5rem', paddingBottom: '0.5rem' }}>
                 {rolesKeys.map((role, idx) => (
                   <button
                     key={role}
@@ -714,6 +854,24 @@ export default function Ajustes({ user, onLogout }) {
                     {role === 'Admin' ? 'Administrador' : role === 'Ventas' ? 'Ventas' : 'Producción'}
                   </button>
                 ))}
+              </div>
+
+              {/* Botones Guardar / Cancelar (Movidos aquí por solicitud del usuario) */}
+              <div style={{ display: 'flex', gap: '1rem', marginTop: '1rem' }}>
+                <button 
+                  onClick={savePermissions} 
+                  className="btn btn-solid" 
+                  style={{ flex: 1 }}
+                >
+                  <Save size={18} /> Guardar Permisos
+                </button>
+                <button 
+                  onClick={() => setActiveTab('menu')} 
+                  className="btn btn-secondary" 
+                  style={{ flex: 1 }}
+                >
+                  Cancelar
+                </button>
               </div>
             </div>
 
@@ -764,23 +922,6 @@ export default function Ajustes({ user, onLogout }) {
                   </div>
                 );
               })}
-            </div>
-
-            <div style={buttonContainerStyle}>
-              <button 
-                onClick={savePermissions} 
-                className="btn btn-solid" 
-                style={{ flex: 1 }}
-              >
-                <Save size={18} /> Guardar Permisos
-              </button>
-              <button 
-                onClick={() => setActiveTab('menu')} 
-                className="btn btn-secondary" 
-                style={{ flex: 1 }}
-              >
-                Cancelar
-              </button>
             </div>
           </div>
         );

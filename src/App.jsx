@@ -97,13 +97,14 @@ function App() {
         <Route path="/" element={!user ? <Login onLogin={setUser} /> : <Navigate to="/dashboard" replace />} />
         
         {/* Rutas Públicas */}
-        <Route path="/monitor-kanban" element={<MonitorKanban />} />
+        <Route path="/monitor-kanban/:token" element={<MonitorKanban />} />
+        <Route path="/monitor-kanban" element={<Navigate to="/" replace />} />
         
         <Route path="/dashboard" element={<AppLayout user={user} setUser={setUser}><Dashboard user={user} onLogout={handleLogout} /></AppLayout>} />
         <Route path="/cotizaciones" element={<AppLayout user={user} setUser={setUser}><Cotizaciones user={user} /></AppLayout>} />
         <Route path="/ordenes" element={<AppLayout user={user} setUser={setUser}><OrdenesTrabajo user={user} /></AppLayout>} />
         <Route path="/perfil" element={<AppLayout user={user} setUser={setUser}><Perfiles user={user} setUser={setUser} /></AppLayout>} />
-        <Route path="/herramientas" element={<AppLayout user={user} setUser={setUser}><Herramientas /></AppLayout>} />
+        <Route path="/herramientas" element={<AppLayout user={user} setUser={setUser}><Herramientas user={user} /></AppLayout>} />
         <Route path="/ajustes" element={<AppLayout user={user} setUser={setUser}><Ajustes user={user} onLogout={handleLogout} /></AppLayout>} />
         
         <Route path="*" element={<Navigate to="/" replace />} />

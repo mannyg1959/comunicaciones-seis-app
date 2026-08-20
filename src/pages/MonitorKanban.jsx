@@ -1,13 +1,45 @@
 import { useState, useEffect } from 'react';
+import { useParams } from 'react-router-dom';
 import { supabase } from '../utils/supabaseClient';
-import { Clock, AlertTriangle, Maximize, AlertCircle } from 'lucide-react';
+import { Clock, AlertTriangle, Maximize, AlertCircle, Lock } from 'lucide-react';
 import { formatDate, formatDateTime } from '../utils/formatters';
 import MonitorTicker from '../components/MonitorTicker';
 
 export default function MonitorKanban() {
+  const { token } = useParams();
+  const [isTokenValid, setIsTokenValid] = useState(null); // null = verifying, true = ok, false = denied
   const [ordenesTrabajo, setOrdenesTrabajo] = useState([]);
   const [loading, setLoading] = useState(true);
   const [currentTime, setCurrentTime] = useState(new Date());
+
+  // Validar el token de la URL
+  useEffect(() => {
+    const verifyToken = async () => {
+      try {
+        if (!token) {
+          setIsTokenValid(false);
+          return;
+        }
+        const { data, error } = await supabase
+          .from('system_settings')
+          .select('setting_value')
+          .eq('setting_key', 'monitor_tv_token')
+          .maybeSingle();
+        
+        if (error) throw error;
+        
+        if (data && data.setting_value === token) {
+          setIsTokenValid(true);
+        } else {
+          setIsTokenValid(false);
+        }
+      } catch (err) {
+        console.error('Error verificando token del monitor:', err);
+        setIsTokenValid(false);
+      }
+    };
+    verifyToken();
+  }, [token]);
 
   // Excluimos "Entregado" para optimizar el espacio en el TV.
   const stages = ['Programación', 'Producción', 'Revisión', 'Finalizado'];
@@ -149,6 +181,31 @@ export default function MonitorKanban() {
 
     return () => clearInterval(intervalId);
   }, [loading, ordenesTrabajo]);
+
+  if (isTokenValid === null) {
+    return (
+      <div style={{ minHeight: '100vh', background: 'var(--bg-color)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--text-muted)' }}>
+        <p>Verificando acceso...</p>
+      </div>
+    );
+  }
+
+  if (isTokenValid === false) {
+    return (
+      <div style={{ minHeight: '100vh', background: '#0f172a', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '1rem' }}>
+        <div style={{ textAlign: 'center', background: '#1e293b', padding: '3rem', borderRadius: '16px', border: '1px solid #334155', maxWidth: '500px', width: '100%' }}>
+          <Lock size={64} color="#f87171" style={{ marginBottom: '1rem' }} />
+          <h2 style={{ color: '#f87171', marginBottom: '1rem', fontSize: '1.75rem' }}>Acceso Denegado</h2>
+          <p style={{ color: '#94a3b8', lineHeight: '1.6', fontSize: '1.1rem' }}>
+            El enlace que has utilizado es inválido o ha sido revocado por el administrador.
+          </p>
+          <p style={{ color: '#64748b', fontSize: '0.9rem', marginTop: '2rem' }}>
+            Si eres el administrador, puedes generar un nuevo enlace desde la sección de Ajustes del sistema.
+          </p>
+        </div>
+      </div>
+    );
+  }
 
   const getOrdersByStage = (stage) => ordenesTrabajo.filter(ot => ot.estado === stage);
 
