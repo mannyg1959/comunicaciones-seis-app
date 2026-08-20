@@ -1248,13 +1248,20 @@ export default function CotizacionForm({ initialData, onCancel, onSave, onDelete
       )}
 
       {showCarouselModal && (() => {
-        const filteredClients = clientsList.filter(client => 
-          client.empresa.toLowerCase().includes(carouselSearch.toLowerCase()) ||
-          client.contacto.toLowerCase().includes(carouselSearch.toLowerCase()) ||
-          client.rif.toLowerCase().includes(carouselSearch.toLowerCase()) ||
-          client.ciudad.toLowerCase().includes(carouselSearch.toLowerCase()) ||
-          client.estado.toLowerCase().includes(carouselSearch.toLowerCase())
-        );
+        const searchLower = (carouselSearch || '').toLowerCase();
+        const filteredClients = clientsList.filter(client => {
+          if (!client) return false;
+          const empresa = (client.empresa || '').toLowerCase();
+          const contacto = (client.contacto || '').toLowerCase();
+          const rif = (client.rif || '').toLowerCase();
+          const ciudad = (client.ciudad || '').toLowerCase();
+          const estado = (client.estado || '').toLowerCase();
+          return empresa.includes(searchLower) ||
+                 contacto.includes(searchLower) ||
+                 rif.includes(searchLower) ||
+                 ciudad.includes(searchLower) ||
+                 estado.includes(searchLower);
+        });
 
         return (
           <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(3px)', display: 'flex', justifyContent: 'center', alignItems: 'center', zIndex: 1100, padding: '1rem' }}>
@@ -1372,7 +1379,13 @@ export default function CotizacionForm({ initialData, onCancel, onSave, onDelete
                       pointerVal = 'none';
                     }
 
-                    const initials = client.empresa.split(' ').map(n => n[0]).join('').substring(0, 2).toUpperCase();
+                    const initials = ((client && client.empresa) || 'CL')
+                      .split(' ')
+                      .filter(Boolean)
+                      .map(n => n[0])
+                      .join('')
+                      .substring(0, 2)
+                      .toUpperCase() || 'CL';
 
                     return (
                       <div 

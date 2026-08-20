@@ -230,7 +230,7 @@ export default function OrdenesTrabajo({ user }) {
   const isAnyFilterActive = filterCliente || filterFechaInicio || filterFechaFin || filterEstadoSelect || filterIncidencia;
 
   const filtered = ordenesTrabajo.filter(ot => {
-    const matchesSearch = ot.cliente.toLowerCase().includes(searchTerm.toLowerCase()) || ot.id.toLowerCase().includes(searchTerm.toLowerCase());
+    const matchesSearch = (ot.cliente || '').toLowerCase().includes((searchTerm || '').toLowerCase()) || (ot.id || '').toLowerCase().includes((searchTerm || '').toLowerCase());
     const matchesCliente = filterCliente ? ot.cliente === filterCliente : true;
     
     const itemDate = new Date(ot.fechaEntrega);

@@ -261,7 +261,7 @@ export default function Cotizaciones({ user }) {
   const filtered = cotizaciones.filter(c => {
     if (c.hasWorkOrder) return false;
     
-    const matchesSearch = c.cliente.toLowerCase().includes(searchTerm.toLowerCase()) || c.id.toLowerCase().includes(searchTerm.toLowerCase());
+    const matchesSearch = (c.cliente || '').toLowerCase().includes((searchTerm || '').toLowerCase()) || (c.id || '').toLowerCase().includes((searchTerm || '').toLowerCase());
     const matchesCliente = filterCliente ? c.cliente === filterCliente : true;
     
     const itemDate = new Date(c.fecha);
