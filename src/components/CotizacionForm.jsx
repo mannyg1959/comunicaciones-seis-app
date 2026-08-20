@@ -1587,8 +1587,8 @@ export default function CotizacionForm({ initialData, onCancel, onSave, onDelete
                 </button>
                 <button type="button" className="btn btn-primary"
                   style={{ height: '36px', fontSize: '0.85rem', padding: '0 1rem',
-                    opacity: (!newClientData.empresa.trim() || !newClientData.contacto.trim() || !newClientData.rif.trim() || !newClientData.telefono.trim() || !newClientData.correo.trim() || !newClientData.ciudad.trim() || !newClientData.estado.trim()) ? 0.5 : 1 }}
-                  disabled={!newClientData.empresa.trim() || !newClientData.contacto.trim() || !newClientData.rif.trim() || !newClientData.telefono.trim() || !newClientData.correo.trim() || !newClientData.ciudad.trim() || !newClientData.estado.trim()}
+                    opacity: (!(newClientData.empresa || '').trim() || !(newClientData.contacto || '').trim() || !(newClientData.rif || '').trim() || !(newClientData.telefono || '').trim() || !(newClientData.correo || '').trim() || !(newClientData.ciudad || '').trim() || !(newClientData.estado || '').trim()) ? 0.5 : 1 }}
+                  disabled={!(newClientData.empresa || '').trim() || !(newClientData.contacto || '').trim() || !(newClientData.rif || '').trim() || !(newClientData.telefono || '').trim() || !(newClientData.correo || '').trim() || !(newClientData.ciudad || '').trim() || !(newClientData.estado || '').trim()}
                   onClick={async () => {
                     const o = { ...newClientData };
                     try {
@@ -1746,8 +1746,8 @@ export default function CotizacionForm({ initialData, onCancel, onSave, onDelete
                 </button>
                 <button type="button" className="btn btn-primary"
                   style={{ height: '36px', fontSize: '0.85rem', padding: '0 1rem',
-                    opacity: (!editClientData.empresa.trim() || !editClientData.contacto.trim() || !editClientData.rif.trim() || !editClientData.telefono.trim() || !editClientData.correo.trim() || !editClientData.ciudad.trim() || !editClientData.estado.trim()) ? 0.5 : 1 }}
-                  disabled={!editClientData.empresa.trim() || !editClientData.contacto.trim() || !editClientData.rif.trim() || !editClientData.telefono.trim() || !editClientData.correo.trim() || !editClientData.ciudad.trim() || !editClientData.estado.trim()}
+                    opacity: (!(editClientData.empresa || '').trim() || !(editClientData.contacto || '').trim() || !(editClientData.rif || '').trim() || !(editClientData.telefono || '').trim() || !(editClientData.correo || '').trim() || !(editClientData.ciudad || '').trim() || !(editClientData.estado || '').trim()) ? 0.5 : 1 }}
+                  disabled={!(editClientData.empresa || '').trim() || !(editClientData.contacto || '').trim() || !(editClientData.rif || '').trim() || !(editClientData.telefono || '').trim() || !(editClientData.correo || '').trim() || !(editClientData.ciudad || '').trim() || !(editClientData.estado || '').trim()}
                   onClick={async () => {
                     try {
                       const { error } = await supabase.from('clients').update({
