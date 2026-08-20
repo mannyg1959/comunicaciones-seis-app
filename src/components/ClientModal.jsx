@@ -14,6 +14,7 @@ export default function ClientModal({ isOpen, onClose, onSave, initialData = nul
     observaciones: ''
   });
   const [loading, setLoading] = useState(false);
+  const [feedbackModal, setFeedbackModal] = useState({ show: false, type: '', message: '' });
 
   useEffect(() => {
     if (isOpen) {
@@ -49,22 +50,34 @@ export default function ClientModal({ isOpen, onClose, onSave, initialData = nul
   if (!isOpen) return null;
 
   const isFormValid = () => {
-    const e = (formData.empresa || '').trim();
-    return e.length > 0;
+    return (
+      (formData.empresa || '').trim() !== '' &&
+      (formData.rif || '').trim() !== '' &&
+      (formData.contacto || '').trim() !== '' &&
+      (formData.telefono || '').trim() !== '' &&
+      (formData.correo || '').trim() !== '' &&
+      (formData.direccion || '').trim() !== '' &&
+      (formData.ciudad || '').trim() !== '' &&
+      (formData.estado || '').trim() !== ''
+    );
   };
 
   const handleSubmit = async (e) => {
     if (e) e.preventDefault();
-    if (!isFormValid() || loading) return;
+    if (loading) return;
+
+    if (!isFormValid()) {
+      setFeedbackModal({ show: true, type: 'error', message: 'Por favor, complete todos los campos obligatorios marcados con un asterisco rojo (*).' });
+      return;
+    }
 
     try {
       setLoading(true);
       await onSave(formData);
-      alert('Cliente guardado exitosamente.');
-      onClose();
+      setFeedbackModal({ show: true, type: 'success', message: 'Cliente guardado exitosamente.' });
     } catch (err) {
       console.error('Error guardando cliente:', err);
-      alert('Ocurrió un error al guardar el cliente: ' + (err.message || 'Error desconocido'));
+      setFeedbackModal({ show: true, type: 'error', message: 'Ocurrió un error al guardar el cliente: ' + (err.message || 'Error desconocido') });
     } finally {
       setLoading(false);
     }
@@ -105,8 +118,8 @@ export default function ClientModal({ isOpen, onClose, onSave, initialData = nul
           <button 
             type="button"
             className="btn btn-primary" 
-            style={{ flex: 1, height: '48px', fontSize: '0.95rem', padding: '0 1.25rem', minWidth: '120px', opacity: isFormValid() ? 1 : 0.5 }} 
-            disabled={!isFormValid() || loading}
+            style={{ flex: 1, height: '48px', fontSize: '0.95rem', padding: '0 1.25rem', minWidth: '120px' }} 
+            disabled={loading}
             onClick={handleSubmit}
           >
             {loading ? 'Guardando...' : (isEditing ? 'Guardar Cambios' : 'Guardar')}
@@ -262,14 +275,39 @@ export default function ClientModal({ isOpen, onClose, onSave, initialData = nul
               </label>
               <div style={{ position: 'relative' }}>
                 <Map size={15} style={{ position: 'absolute', left: '0.75rem', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)' }} />
-                <input 
-                  type="text" 
-                  className="input-control" 
-                  placeholder="Ej. Miranda" 
-                  style={{ paddingLeft: '2.25rem', height: '40px', fontSize: '0.875rem' }} 
-                  value={formData.estado} 
-                  onChange={e => setFormData({ ...formData, estado: e.target.value })} 
-                />
+                <select
+                  className="input-control"
+                  style={{ paddingLeft: '2.25rem', height: '40px', fontSize: '0.875rem', appearance: 'none', backgroundColor: 'var(--bg-color)' }}
+                  value={formData.estado}
+                  onChange={e => setFormData({ ...formData, estado: e.target.value })}
+                >
+                  <option value="" disabled>Seleccione un estado...</option>
+                  <option value="Amazonas">Amazonas</option>
+                  <option value="Anzoátegui">Anzoátegui</option>
+                  <option value="Apure">Apure</option>
+                  <option value="Aragua">Aragua</option>
+                  <option value="Barinas">Barinas</option>
+                  <option value="Bolívar">Bolívar</option>
+                  <option value="Carabobo">Carabobo</option>
+                  <option value="Cojedes">Cojedes</option>
+                  <option value="Delta Amacuro">Delta Amacuro</option>
+                  <option value="Dependencias Federales">Dependencias Federales</option>
+                  <option value="Distrito Capital">Distrito Capital</option>
+                  <option value="Falcón">Falcón</option>
+                  <option value="Guárico">Guárico</option>
+                  <option value="La Guaira">La Guaira</option>
+                  <option value="Lara">Lara</option>
+                  <option value="Mérida">Mérida</option>
+                  <option value="Miranda">Miranda</option>
+                  <option value="Monagas">Monagas</option>
+                  <option value="Nueva Esparta">Nueva Esparta</option>
+                  <option value="Portuguesa">Portuguesa</option>
+                  <option value="Sucre">Sucre</option>
+                  <option value="Táchira">Táchira</option>
+                  <option value="Trujillo">Trujillo</option>
+                  <option value="Yaracuy">Yaracuy</option>
+                  <option value="Zulia">Zulia</option>
+                </select>
               </div>
             </div>
           </div>
@@ -295,6 +333,48 @@ export default function ClientModal({ isOpen, onClose, onSave, initialData = nul
 
         </form>
       </div>
+
+      {/* Modal de Validación / Feedback */}
+      {feedbackModal.show && (
+        <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.65)', backdropFilter: 'blur(3px)', display: 'flex', justifyContent: 'center', alignItems: 'center', zIndex: 9999, padding: '1rem' }}>
+          <div className="card glass-panel" style={{ width: '100%', maxWidth: '400px', margin: 0, border: '1px solid var(--border-color)', boxShadow: 'var(--shadow-lg)' }}>
+            <div style={{ padding: '1.5rem', display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center' }}>
+              <div style={{ marginBottom: '1rem' }}>
+                {feedbackModal.type === 'error' ? (
+                  <div style={{ width: '50px', height: '50px', borderRadius: '50%', backgroundColor: 'rgba(239,68,68,0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--error-color)' }}>
+                    <X size={28} />
+                  </div>
+                ) : (
+                  <div style={{ width: '50px', height: '50px', borderRadius: '50%', backgroundColor: 'rgba(34,197,94,0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--success-color)' }}>
+                    <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>
+                  </div>
+                )}
+              </div>
+              <h3 style={{ margin: '0 0 0.5rem 0', color: 'var(--text-main)', fontSize: '1.25rem', fontWeight: '700' }}>
+                {feedbackModal.type === 'error' ? 'Acción Incompleta' : '¡Éxito!'}
+              </h3>
+              <p style={{ marginBottom: '1.75rem', color: 'var(--text-main)', fontSize: '0.95rem', lineHeight: '1.5' }}>
+                {feedbackModal.message}
+              </p>
+              <button 
+                className="btn btn-primary" 
+                style={{ width: '100%', padding: '0.75rem', fontWeight: '600' }} 
+                onClick={() => {
+                  if (feedbackModal.type === 'success') {
+                    setFeedbackModal({ show: false, type: '', message: '' });
+                    onClose();
+                  } else {
+                    setFeedbackModal({ show: false, type: '', message: '' });
+                  }
+                }}
+              >
+                {feedbackModal.type === 'error' ? 'Entendido' : 'Continuar'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
     </div>
   );
 }

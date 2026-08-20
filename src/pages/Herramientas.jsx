@@ -63,6 +63,7 @@ export default function Herramientas({ user }) {
   // Alert modals state
   const [selectedAlertCotizacion, setSelectedAlertCotizacion] = useState(null);
   const [selectedAlertOT, setSelectedAlertOT] = useState(null);
+  const [filtroAlertaOT, setFiltroAlertaOT] = useState('Todas');
 
   // Export State
   const [exportType, setExportType] = useState('cotizaciones');
@@ -1267,54 +1268,95 @@ export default function Herramientas({ user }) {
             ) : otAlertas.length === 0 ? (
               <p style={{ fontSize: '0.85rem', color: 'var(--text-muted)', margin: 0 }}>No hay órdenes de trabajo operativas con fecha crítica de vencimiento.</p>
             ) : (
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
-                {otAlertas.map((ot, idx) => {
-                  const matchingCot = cotizaciones.find(c => c.id === ot.cotizacionId);
-                  const ejecutivoName = matchingCot?.ejecutivo || 'No Asignado';
+              <div>
+                <div style={{ marginBottom: '1rem' }}>
+                  <select 
+                    className="input-control" 
+                    value={filtroAlertaOT} 
+                    onChange={e => setFiltroAlertaOT(e.target.value)}
+                    style={{ padding: '0.5rem 2.25rem 0.5rem 0.75rem', height: '40px', borderRadius: '8px', border: '1px solid var(--border-color)', background: 'var(--bg-color)', color: 'var(--text-main)', width: '100%', fontSize: '0.85rem', fontWeight: 500 }}
+                  >
+                    <option value="Todas">Mostrar Todas las Alertas</option>
+                    <option value="Falta fecha">⚠️ Falta asignar fecha de fin</option>
+                    <option value="Vencidas">🚨 Vencidas</option>
+                    <option value="Próximas">⏳ Próximas a vencer (o vencen hoy)</option>
+                  </select>
+                </div>
+                {(() => {
+                  const getAlertaText = (ot) => {
+                    if (!ot.fechaFinTrabajo) return 'Falta fecha';
+                    const todayDate = new Date();
+                    todayDate.setHours(0,0,0,0);
+                    const targetDate = new Date(ot.fechaFinTrabajo + 'T12:00:00');
+                    targetDate.setHours(0,0,0,0);
+                    const diff = Math.ceil((targetDate - todayDate) / (1000 * 60 * 60 * 24));
+                    if (diff < 0) return 'Vencidas';
+                    if (diff === 0) return 'Próximas';
+                    return 'Próximas';
+                  };
+
+                  const filteredOTAlertas = otAlertas.filter(ot => {
+                    if (filtroAlertaOT === 'Todas') return true;
+                    return getAlertaText(ot) === filtroAlertaOT;
+                  });
+
+                  if (filteredOTAlertas.length === 0) {
+                    return <p style={{ fontSize: '0.85rem', color: 'var(--text-muted)', margin: 0, padding: '1rem 0', textAlign: 'center' }}>No hay órdenes que coincidan con este filtro.</p>;
+                  }
+
                   return (
-                    <div 
-                      key={idx} 
-                      onClick={() => setSelectedAlertOT(ot)}
-                      style={{ 
-                        padding: '0.75rem', 
-                        background: 'var(--surface-hover)', 
-                        borderRadius: '8px', 
-                        borderLeft: '4px solid var(--error-color)',
-                        display: 'flex',
-                        justifyContent: 'space-between',
-                        alignItems: 'center',
-                        fontSize: '0.85rem',
-                        cursor: 'pointer',
-                        transition: 'background 0.2s'
-                      }}
-                    >
-                      <div>
-                        <div style={{ fontWeight: 'bold', color: 'var(--text-main)' }}>{ot.cliente} ({ot.id})</div>
-                        <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>
-                          Estado: {ot.estado} • Progreso: {ot.progreso}% • Fin de Trabajo: {ot.fechaFinTrabajo ? formatDate(ot.fechaFinTrabajo) : 'No asignada'}
-                        </div>
-                        <div style={{ fontSize: '0.75rem', color: 'var(--ejecutivo-color)', fontWeight: 500, marginTop: '0.2rem' }}>
-                          Ejecutivo: {ejecutivoName}
-                        </div>
-                        <div style={{ fontSize: '0.75rem', color: 'var(--error-color)', fontWeight: 'bold', marginTop: '0.4rem', display: 'flex', alignItems: 'center', gap: '4px' }}>
-                          <AlertTriangle size={12} />
-                          {(() => {
-                            if (!ot.fechaFinTrabajo) return '⚠️ Falta asignar fecha de fin';
-                            const todayDate = new Date();
-                            todayDate.setHours(0,0,0,0);
-                            const targetDate = new Date(ot.fechaFinTrabajo + 'T12:00:00');
-                            targetDate.setHours(0,0,0,0);
-                            const diff = Math.ceil((targetDate - todayDate) / (1000 * 60 * 60 * 24));
-                            return diff < 0 ? `Vencida hace ${Math.abs(diff)} días` : (diff === 0 ? 'Vence hoy' : `Vence en ${diff} días`);
-                          })()}
-                        </div>
-                      </div>
-                      <span style={{ fontSize: '0.75rem', padding: '0.2rem 0.5rem', background: 'rgba(239, 68, 110, 0.1)', color: 'var(--error-color)', borderRadius: '4px', fontWeight: 'bold' }}>
-                        Urgente
-                      </span>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+                      {filteredOTAlertas.map((ot, idx) => {
+                        const matchingCot = cotizaciones.find(c => c.id === ot.cotizacionId);
+                        const ejecutivoName = matchingCot?.ejecutivo || 'No Asignado';
+                        return (
+                          <div 
+                            key={idx} 
+                            onClick={() => setSelectedAlertOT(ot)}
+                            style={{ 
+                              padding: '0.75rem', 
+                              background: 'var(--surface-hover)', 
+                              borderRadius: '8px', 
+                              borderLeft: '4px solid var(--error-color)',
+                              display: 'flex',
+                              justifyContent: 'space-between',
+                              alignItems: 'center',
+                              fontSize: '0.85rem',
+                              cursor: 'pointer',
+                              transition: 'background 0.2s',
+                              animation: 'pulse-primary 3s infinite'
+                            }}
+                          >
+                            <div>
+                              <div style={{ fontWeight: 'bold', color: 'var(--text-main)' }}>{ot.cliente} ({ot.id})</div>
+                              <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>
+                                Estado: {ot.estado} • Progreso: {ot.progreso}% • Fin de Trabajo: {ot.fechaFinTrabajo ? formatDate(ot.fechaFinTrabajo) : 'No asignada'}
+                              </div>
+                              <div style={{ fontSize: '0.75rem', color: 'var(--ejecutivo-color)', fontWeight: 500, marginTop: '0.2rem' }}>
+                                Ejecutivo: {ejecutivoName}
+                              </div>
+                              <div style={{ fontSize: '0.75rem', color: 'var(--error-color)', fontWeight: 'bold', marginTop: '0.4rem', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                                <AlertTriangle size={12} />
+                                {(() => {
+                                  if (!ot.fechaFinTrabajo) return '⚠️ Falta asignar fecha de fin';
+                                  const todayDate = new Date();
+                                  todayDate.setHours(0,0,0,0);
+                                  const targetDate = new Date(ot.fechaFinTrabajo + 'T12:00:00');
+                                  targetDate.setHours(0,0,0,0);
+                                  const diff = Math.ceil((targetDate - todayDate) / (1000 * 60 * 60 * 24));
+                                  return diff < 0 ? `Vencida hace ${Math.abs(diff)} días` : (diff === 0 ? 'Vence hoy' : `Vence en ${diff} días`);
+                                })()}
+                              </div>
+                            </div>
+                            <span style={{ fontSize: '0.75rem', padding: '0.2rem 0.5rem', background: 'rgba(239, 68, 110, 0.1)', color: 'var(--error-color)', borderRadius: '4px', fontWeight: 'bold' }}>
+                              Urgente
+                            </span>
+                          </div>
+                        );
+                      })}
                     </div>
                   );
-                })}
+                })()}
               </div>
             )}
           </div>

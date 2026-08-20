@@ -81,11 +81,13 @@ export default function MonitorKanban() {
         incidentes: incidentCounts[ot.id] || 0,
       }));
 
-      // Ordenar: pausadas al final, luego por progreso
+      // Ordenar: pausadas al final, luego de menor a mayor por ID (facilitando lectura)
       mappedOts.sort((a, b) => {
         if (a.isPaused && !b.isPaused) return 1;
         if (!a.isPaused && b.isPaused) return -1;
-        return b.progreso - a.progreso;
+        
+        // Orden alfanumérico inteligente (ej. OT-9 vs OT-10)
+        return String(a.id).localeCompare(String(b.id), undefined, { numeric: true });
       });
 
       setOrdenesTrabajo(mappedOts);

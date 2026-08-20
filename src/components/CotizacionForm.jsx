@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { ArrowLeft, Save, Plus, Trash2, FileEdit, FilePlus, User, Package, FileDown, Expand, X, AlertTriangle, ArrowUp, Building2, CreditCard, Phone, Mail, UserPlus, MapPin, Map, MessageSquare, Users, Layers, Search, List } from 'lucide-react';
+import { ArrowLeft, Save, Plus, Trash2, FileEdit, FilePlus, User, Package, FileDown, Expand, X, AlertTriangle, ArrowUp, Building2, CreditCard, Phone, Mail, UserPlus, MapPin, Map, MessageSquare, Users, Layers, Search, List, ArrowUpAZ, ArrowDownAZ } from 'lucide-react';
 import { supabase } from '../utils/supabaseClient';
 import { mockOrdenesTrabajo, mockOrderStatusData } from '../data/mockData';
 import ClientModal from './ClientModal';
@@ -143,6 +143,7 @@ export default function CotizacionForm({ initialData, onCancel, onSave, onDelete
   const [catalogViewMode, setCatalogViewMode] = useState('carousel');
   const [carouselIndex, setCarouselIndex] = useState(0);
   const [carouselSearch, setCarouselSearch] = useState('');
+  const [clientSortOrder, setClientSortOrder] = useState('asc');
   const [showEditClientModal, setShowEditClientModal] = useState(false);
   const [showDeleteClientConfirmModal, setShowDeleteClientConfirmModal] = useState(false);
   const [showDeleteClientWarningModal, setShowDeleteClientWarningModal] = useState(false);
@@ -171,7 +172,7 @@ export default function CotizacionForm({ initialData, onCancel, onSave, onDelete
         if (error) throw error;
         let activeClients = [];
         const parseAddress = (addr) => {
-          if (!addr) return { direccion: '', ciudad: '', estado: '' };
+          if (!addr || typeof addr !== 'string') return { direccion: '', ciudad: '', estado: '' };
           if (addr.includes(' | ')) {
             const parts = addr.split(' | ');
             const dir = parts[0] || '';
@@ -191,21 +192,46 @@ export default function CotizacionForm({ initialData, onCancel, onSave, onDelete
         };
 
         if (data && data.length > 0) {
-          activeClients = data.map(c => {
-            const parsed = parseAddress(c.address);
-            return {
-              id: c.id || '',
-              empresa: c.name || '',
-              contacto: c.contact_name || '',
-              rif: c.id || '',
-              telefono: c.contact_phone || '',
-              correo: c.contact_email || '',
-              ciudad: parsed.ciudad,
-              estado: parsed.estado,
-              direccion: parsed.direccion,
-              observaciones: ''
-            };
+          const uniqueClientsMap = new window.Map();
+          const duplicateIdsToDelete = [];
+
+          data.forEach(c => {
+            if (!c) return;
+            const nameStr = typeof c.name === 'string' ? c.name : (c.name ? String(c.name) : '');
+            if (!nameStr.trim()) return;
+            
+            const normName = nameStr.trim().toLowerCase();
+            if (!uniqueClientsMap.has(normName)) {
+              const parsed = parseAddress(c.address);
+              uniqueClientsMap.set(normName, {
+                id: c.id || '',
+                empresa: nameStr,
+                contacto: typeof c.contact_name === 'string' ? c.contact_name : (c.contact_name ? String(c.contact_name) : ''),
+                rif: c.id || '',
+                telefono: typeof c.contact_phone === 'string' ? c.contact_phone : (c.contact_phone ? String(c.contact_phone) : ''),
+                correo: typeof c.contact_email === 'string' ? c.contact_email : (c.contact_email ? String(c.contact_email) : ''),
+                ciudad: parsed.ciudad,
+                estado: parsed.estado,
+                direccion: parsed.direccion,
+                observaciones: ''
+              });
+            } else {
+              if (c.id) duplicateIdsToDelete.push(c.id);
+            }
           });
+
+          if (duplicateIdsToDelete.length > 0) {
+            supabase
+              .from('clients')
+              .delete()
+              .in('id', duplicateIdsToDelete)
+              .then(({ error }) => {
+                if (error) console.warn('No se pudieron eliminar registros duplicados:', error);
+                else console.log('Registros de clientes duplicados eliminados de la base de datos:', duplicateIdsToDelete);
+              });
+          }
+
+          activeClients = Array.from(uniqueClientsMap.values());
           setClientsList(activeClients);
         } else {
           const seedData = defaultClientsData.map(c => ({
@@ -236,6 +262,9 @@ export default function CotizacionForm({ initialData, onCancel, onSave, onDelete
               };
             });
             setClientsList(activeClients);
+          } else if (insertErr) {
+            console.error("Error inserting seed data:", insertErr);
+            setFetchError("Error de permisos en Supabase (RLS): " + insertErr.message);
           }
         }
 
@@ -308,14 +337,40 @@ export default function CotizacionForm({ initialData, onCancel, onSave, onDelete
   });
 
   const handleSaveNewClient = async (clientData) => {
+    const normName = (clientData.empresa || '').trim().toLowerCase();
+    const normRif = (clientData.rif || '').trim().toLowerCase();
+
+    // 1. Verificación local inmediata contra clientes en memoria
+    const duplicateInList = clientsList.find(c => {
+      const existingName = (c.empresa || '').trim().toLowerCase();
+      const existingRif = (c.rif || '').trim().toLowerCase();
+      return (normName && existingName === normName) || (normRif && existingRif && existingRif === normRif);
+    });
+
+    if (duplicateInList) {
+      throw new Error(`El cliente "${duplicateInList.empresa}" ya se encuentra registrado. No es posible crear clientes duplicados.`);
+    }
+
+    // 2. Verificación directa en base de datos Supabase
+    if (normName) {
+      const { data: existingDbClients, error: checkError } = await supabase
+        .from('clients')
+        .select('id, name')
+        .ilike('name', clientData.empresa.trim());
+
+      if (!checkError && existingDbClients && existingDbClients.length > 0) {
+        throw new Error(`El cliente "${clientData.empresa.trim()}" ya existe en la base de datos.`);
+      }
+    }
+
     const fullAddress = `${clientData.direccion ? clientData.direccion + ' | ' : ''}${clientData.ciudad}, ${clientData.estado}`;
     const { data, error } = await supabase
       .from('clients')
       .insert([{
-        name: clientData.empresa,
-        contact_name: clientData.contacto,
-        contact_phone: clientData.telefono,
-        contact_email: clientData.correo,
+        name: clientData.empresa.trim(),
+        contact_name: clientData.contacto.trim(),
+        contact_phone: clientData.telefono.trim(),
+        contact_email: clientData.correo.trim(),
         address: fullAddress
       }])
       .select();
@@ -347,14 +402,25 @@ export default function CotizacionForm({ initialData, onCancel, onSave, onDelete
   };
 
   const handleSaveEditClient = async (clientData) => {
+    const normName = (clientData.empresa || '').trim().toLowerCase();
+
+    // Verificación de duplicado al editar (excluyendo el propio registro)
+    const duplicateInList = clientsList.find(c => 
+      c.id !== clientData.id && (c.empresa || '').trim().toLowerCase() === normName
+    );
+
+    if (duplicateInList) {
+      throw new Error(`Ya existe otro cliente registrado con el nombre "${duplicateInList.empresa}".`);
+    }
+
     const fullAddress = `${clientData.direccion ? clientData.direccion + ' | ' : ''}${clientData.ciudad}, ${clientData.estado}`;
     const { error } = await supabase
       .from('clients')
       .update({
-        name: clientData.empresa,
-        contact_name: clientData.contacto,
-        contact_phone: clientData.telefono,
-        contact_email: clientData.correo,
+        name: clientData.empresa.trim(),
+        contact_name: clientData.contacto.trim(),
+        contact_phone: clientData.telefono.trim(),
+        contact_email: clientData.correo.trim(),
         address: fullAddress
       })
       .eq('id', clientData.id);
@@ -363,11 +429,11 @@ export default function CotizacionForm({ initialData, onCancel, onSave, onDelete
 
     setClientsList(prev => prev.map(c => c.id === clientData.id ? {
       ...c,
-      empresa: clientData.empresa,
-      contacto: clientData.contacto,
+      empresa: clientData.empresa.trim(),
+      contacto: clientData.contacto.trim(),
       rif: clientData.rif,
-      telefono: clientData.telefono,
-      correo: clientData.correo,
+      telefono: clientData.telefono.trim(),
+      correo: clientData.correo.trim(),
       ciudad: clientData.ciudad,
       estado: clientData.estado,
       direccion: clientData.direccion,
@@ -1352,7 +1418,7 @@ export default function CotizacionForm({ initialData, onCancel, onSave, onDelete
 
       {showCarouselModal && (() => {
         const searchLower = (carouselSearch || '').toLowerCase();
-        const filteredClients = clientsList.filter(client => {
+        let filteredClients = clientsList.filter(client => {
           if (!client) return false;
           const empresa = (client.empresa || '').toLowerCase();
           const contacto = (client.contacto || '').toLowerCase();
@@ -1366,6 +1432,16 @@ export default function CotizacionForm({ initialData, onCancel, onSave, onDelete
                  estado.includes(searchLower);
         });
 
+        filteredClients = [...filteredClients].sort((a, b) => {
+          const nameA = (a.empresa || '').toLowerCase();
+          const nameB = (b.empresa || '').toLowerCase();
+          if (clientSortOrder === 'asc') {
+            return nameA.localeCompare(nameB, 'es', { sensitivity: 'base' });
+          } else {
+            return nameB.localeCompare(nameA, 'es', { sensitivity: 'base' });
+          }
+        });
+
         return (
           <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(3px)', display: 'flex', justifyContent: 'center', alignItems: 'center', zIndex: 1100, padding: '1rem' }}>
             <div className="card glass-panel" style={{ width: '100%', maxWidth: '480px', margin: 0, border: '1px solid var(--border-color)', display: 'flex', flexDirection: 'column', gap: '1.25rem', padding: '1.5rem', boxShadow: 'var(--shadow-lg)' }}>
@@ -1375,7 +1451,18 @@ export default function CotizacionForm({ initialData, onCancel, onSave, onDelete
                   <Layers size={22} color="var(--primary-color)" />
                   <h2 style={{ margin: 0, color: 'var(--text-main)', fontSize: '1.25rem', fontWeight: '700' }}>Catálogo de Clientes</h2>
                 </div>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                  <button 
+                    type="button" 
+                    onClick={() => {
+                      setClientSortOrder(prev => prev === 'asc' ? 'desc' : 'asc');
+                      setCarouselIndex(0);
+                    }}
+                    title={clientSortOrder === 'asc' ? "Orden A-Z (Clic para Z-A)" : "Orden Z-A (Clic para A-Z)"}
+                    style={{ background: 'transparent', border: 'none', color: 'var(--primary-color)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '0.4rem', borderRadius: 'var(--radius-md)', backgroundColor: 'rgba(255,255,255,0.05)' }}
+                  >
+                    {clientSortOrder === 'asc' ? <ArrowUpAZ size={20} /> : <ArrowDownAZ size={20} />}
+                  </button>
                   <button 
                     type="button" 
                     onClick={() => setCatalogViewMode(prev => prev === 'carousel' ? 'list' : 'carousel')}

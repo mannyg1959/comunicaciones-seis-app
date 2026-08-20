@@ -274,6 +274,7 @@ export default function OrdenesTrabajo({ user }) {
   const [authStep, setAuthStep] = useState('none');
   const [adminPasswordInput, setAdminPasswordInput] = useState('');
   const [authError, setAuthError] = useState('');
+  const [feedbackModal, setFeedbackModal] = useState({ show: false, type: '', message: '' });
 
   const getAlertStatus = (ot) => {
     if (ot.estado === 'Entregado') return 'normal';
@@ -1108,6 +1109,10 @@ export default function OrdenesTrabajo({ user }) {
                   className="btn btn-secondary" 
                   style={{ height: '48px', fontSize: '0.95rem', width: '100%', justifyContent: 'center', display: 'flex', alignItems: 'center', gap: '0.5rem' }}
                   onClick={() => {
+                    if (!selectedOT.fechaFinTrabajo) {
+                      setFeedbackModal({ show: true, type: 'error', message: 'No puedes cambiar el estatus de esta Orden de Trabajo (ni avanzar ni retroceder) porque aún no se le ha asignado una "Fecha de Fin de Trabajo" (Target). Por favor, usa el Panel de Asignación primero.' });
+                      return;
+                    }
                     setTempEstado(selectedOT.estado);
                     setActiveModalView('estatus');
                   }}
@@ -1800,6 +1805,34 @@ export default function OrdenesTrabajo({ user }) {
           </div>
         );
       })()}
+
+      {/* Modal de Validación / Feedback (Mismo diseño que la app) */}
+      {feedbackModal.show && (
+        <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.65)', backdropFilter: 'blur(3px)', display: 'flex', justifyContent: 'center', alignItems: 'center', zIndex: 9999, padding: '1rem' }}>
+          <div className="card glass-panel" style={{ width: '100%', maxWidth: '400px', margin: 0, border: '1px solid var(--border-color)', boxShadow: 'var(--shadow-lg)' }}>
+            <div style={{ padding: '1.5rem', display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center' }}>
+              <div style={{ marginBottom: '1rem' }}>
+                <div style={{ width: '50px', height: '50px', borderRadius: '50%', backgroundColor: 'rgba(239,68,68,0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--error-color)' }}>
+                  <X size={28} />
+                </div>
+              </div>
+              <h3 style={{ margin: '0 0 0.5rem 0', color: 'var(--text-main)', fontSize: '1.25rem', fontWeight: '700' }}>
+                Acción Bloqueada
+              </h3>
+              <p style={{ marginBottom: '1.75rem', color: 'var(--text-main)', fontSize: '0.95rem', lineHeight: '1.5' }}>
+                {feedbackModal.message}
+              </p>
+              <button 
+                className="btn btn-primary" 
+                style={{ width: '100%', padding: '0.75rem', fontWeight: '600' }} 
+                onClick={() => setFeedbackModal({ show: false, type: '', message: '' })}
+              >
+                Entendido
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
