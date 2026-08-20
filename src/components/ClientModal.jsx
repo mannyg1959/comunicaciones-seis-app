@@ -128,7 +128,7 @@ export default function ClientModal({ isOpen, onClose, onSave, initialData = nul
           </p>
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem', marginBottom: '0.75rem' }}>
             <div className="input-group" style={{ marginBottom: 0 }}>
-              <label style={{ fontSize: '0.85rem', fontWeight: '700', marginBottom: '0.35rem', display: 'block' }}>
+              <label style={{ fontSize: '0.85rem', fontWeight: '700', marginBottom: '0.35rem', display: 'block', color: '#ffffff' }}>
                 Empresa <span style={{ color: 'var(--error-color)' }}>*</span>
               </label>
               <div style={{ position: 'relative' }}>
@@ -145,7 +145,7 @@ export default function ClientModal({ isOpen, onClose, onSave, initialData = nul
             </div>
 
             <div className="input-group" style={{ marginBottom: 0 }}>
-              <label style={{ fontSize: '0.85rem', fontWeight: '700', marginBottom: '0.35rem', display: 'block' }}>
+              <label style={{ fontSize: '0.85rem', fontWeight: '700', marginBottom: '0.35rem', display: 'block', color: '#ffffff' }}>
                 RIF / NIT / RUT <span style={{ color: 'var(--error-color)' }}>*</span>
               </label>
               <div style={{ position: 'relative' }}>
@@ -169,7 +169,7 @@ export default function ClientModal({ isOpen, onClose, onSave, initialData = nul
           </p>
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem', marginBottom: '0.75rem' }}>
             <div className="input-group" style={{ marginBottom: 0 }}>
-              <label style={{ fontSize: '0.85rem', fontWeight: '700', marginBottom: '0.35rem', display: 'block' }}>
+              <label style={{ fontSize: '0.85rem', fontWeight: '700', marginBottom: '0.35rem', display: 'block', color: '#ffffff' }}>
                 Nombre del Contacto <span style={{ color: 'var(--error-color)' }}>*</span>
               </label>
               <div style={{ position: 'relative' }}>
@@ -186,7 +186,7 @@ export default function ClientModal({ isOpen, onClose, onSave, initialData = nul
             </div>
 
             <div className="input-group" style={{ marginBottom: 0 }}>
-              <label style={{ fontSize: '0.85rem', fontWeight: '700', marginBottom: '0.35rem', display: 'block' }}>
+              <label style={{ fontSize: '0.85rem', fontWeight: '700', marginBottom: '0.35rem', display: 'block', color: '#ffffff' }}>
                 Teléfono <span style={{ color: 'var(--error-color)' }}>*</span>
               </label>
               <div style={{ position: 'relative' }}>
@@ -204,7 +204,7 @@ export default function ClientModal({ isOpen, onClose, onSave, initialData = nul
           </div>
 
           <div className="input-group" style={{ marginBottom: '0.75rem' }}>
-            <label style={{ fontSize: '0.85rem', fontWeight: '700', marginBottom: '0.35rem', display: 'block' }}>
+            <label style={{ fontSize: '0.85rem', fontWeight: '700', marginBottom: '0.35rem', display: 'block', color: '#ffffff' }}>
               Correo Electrónico <span style={{ color: 'var(--error-color)' }}>*</span>
             </label>
             <div style={{ position: 'relative' }}>
@@ -226,7 +226,7 @@ export default function ClientModal({ isOpen, onClose, onSave, initialData = nul
             Ubicación
           </p>
           <div className="input-group" style={{ marginBottom: '0.75rem' }}>
-            <label style={{ fontSize: '0.85rem', fontWeight: '700', marginBottom: '0.35rem', display: 'block' }}>
+            <label style={{ fontSize: '0.85rem', fontWeight: '700', marginBottom: '0.35rem', display: 'block', color: '#ffffff' }}>
               Dirección
             </label>
             <div style={{ position: 'relative' }}>
@@ -244,7 +244,7 @@ export default function ClientModal({ isOpen, onClose, onSave, initialData = nul
 
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem', marginBottom: '0.75rem' }}>
             <div className="input-group" style={{ marginBottom: 0 }}>
-              <label style={{ fontSize: '0.85rem', fontWeight: '700', marginBottom: '0.35rem', display: 'block' }}>
+              <label style={{ fontSize: '0.85rem', fontWeight: '700', marginBottom: '0.35rem', display: 'block', color: '#ffffff' }}>
                 Ciudad <span style={{ color: 'var(--error-color)' }}>*</span>
               </label>
               <div style={{ position: 'relative' }}>
@@ -261,7 +261,7 @@ export default function ClientModal({ isOpen, onClose, onSave, initialData = nul
             </div>
 
             <div className="input-group" style={{ marginBottom: 0 }}>
-              <label style={{ fontSize: '0.85rem', fontWeight: '700', marginBottom: '0.35rem', display: 'block' }}>
+              <label style={{ fontSize: '0.85rem', fontWeight: '700', marginBottom: '0.35rem', display: 'block', color: '#ffffff' }}>
                 Estado <span style={{ color: 'var(--error-color)' }}>*</span>
               </label>
               <div style={{ position: 'relative' }}>
@@ -281,7 +281,7 @@ export default function ClientModal({ isOpen, onClose, onSave, initialData = nul
           {/* Sección 4: Observaciones */}
           <hr style={{ border: 'none', borderBottom: '1px solid var(--border-color)', margin: '0.75rem 0' }} />
           <div className="input-group" style={{ marginBottom: 0 }}>
-            <label style={{ fontSize: '0.85rem', fontWeight: '700', marginBottom: '0.35rem', display: 'block' }}>
+            <label style={{ fontSize: '0.85rem', fontWeight: '700', marginBottom: '0.35rem', display: 'block', color: '#ffffff' }}>
               Observaciones
             </label>
             <div style={{ position: 'relative' }}>
