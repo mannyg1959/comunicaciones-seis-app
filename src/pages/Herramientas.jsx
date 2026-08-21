@@ -78,6 +78,7 @@ export default function Herramientas({ user }) {
   const [tickerExpiry, setTickerExpiry] = useState('never');
   const [tickerSending, setTickerSending] = useState(false);
   const [tickerSuccess, setTickerSuccess] = useState(false);
+  const [tickerSuccessMessage, setTickerSuccessMessage] = useState('');
   const [deleteConfirmId, setDeleteConfirmId] = useState(null);
   const [editingMessage, setEditingMessage] = useState(null); // mensaje que se edita/reenvía
   const [showDeleteTickerConfirm, setShowDeleteTickerConfirm] = useState(false);
@@ -217,6 +218,7 @@ export default function Herramientas({ user }) {
       const payload = {
         message:     tickerText.trim(),
         sender_name: user?.name || user?.username || 'Usuario',
+        sent_by:     user?.id || null,
         priority:    tickerPriority,
         is_active:   true,
         expires_at,
@@ -235,6 +237,7 @@ export default function Herramientas({ user }) {
       setTickerExpiry('never');
       setTickerModalOpen(false);
       setEditingMessage(null);
+      setTickerSuccessMessage(editingMessage ? 'Mensaje modificado correctamente.' : 'Mensaje enviado al Monitor TV correctamente.');
       setTickerSuccess(true);
       setTimeout(() => setTickerSuccess(false), 3000);
       fetchTickerMessages();
@@ -246,11 +249,33 @@ export default function Herramientas({ user }) {
     }
   };
 
-  // ── Desactivar / eliminar mensaje del ticker ──
-  const handleDeactivateTicker = async (id) => {
-    await supabase.from('monitor_ticker').update({ is_active: false }).eq('id', id);
-    setDeleteConfirmId(null);
-    fetchTickerMessages();
+  // ── Desactivar mensaje del ticker ──
+  const handleDeactivateEditingTicker = async () => {
+    if (!editingMessage) return;
+    try {
+      setTickerSending(true);
+      const { error } = await supabase
+        .from('monitor_ticker')
+        .update({ is_active: false })
+        .eq('id', editingMessage.id);
+
+      if (error) throw error;
+
+      setTickerModalOpen(false);
+      setEditingMessage(null);
+      
+      // Mostrar feedback visual de éxito
+      setTickerSuccessMessage('Mensaje desactivado correctamente.');
+      setTickerSuccess(true);
+      setTimeout(() => setTickerSuccess(false), 3000);
+      
+      fetchTickerMessages();
+    } catch (err) {
+      console.error('Error al desactivar mensaje del ticker:', err);
+      alert('Error al desactivar: ' + err.message);
+    } finally {
+      setTickerSending(false);
+    }
   };
 
   // ── Eliminar mensaje del ticker (borrado permanente) ──
@@ -258,11 +283,22 @@ export default function Herramientas({ user }) {
     if (!editingMessage) return;
     try {
       setTickerSending(true);
-      const { error } = await supabase.from('monitor_ticker').delete().eq('id', editingMessage.id);
+      const { error } = await supabase
+        .from('monitor_ticker')
+        .delete()
+        .eq('id', editingMessage.id);
+
       if (error) throw error;
+
       setTickerModalOpen(false);
       setEditingMessage(null);
       setShowDeleteTickerConfirm(false);
+      
+      // Mostrar feedback visual de éxito
+      setTickerSuccessMessage('Mensaje eliminado correctamente.');
+      setTickerSuccess(true);
+      setTimeout(() => setTickerSuccess(false), 3000);
+      
       fetchTickerMessages();
     } catch (err) {
       console.error('Error al eliminar mensaje del ticker:', err);
@@ -1661,7 +1697,7 @@ export default function Herramientas({ user }) {
               borderRadius: '10px', padding: '0.9rem 1.2rem',
               display: 'flex', alignItems: 'center', gap: '0.6rem', color: 'var(--success-color)', fontWeight: 600
             }}>
-              ✅ Mensaje enviado al Monitor TV correctamente.
+              ✅ {tickerSuccessMessage}
             </div>
           )}
 
@@ -1681,7 +1717,13 @@ export default function Herramientas({ user }) {
             <button
               className="btn btn-solid"
               style={{ height: 48, fontSize: '0.95rem', display: 'flex', alignItems: 'center', gap: '0.5rem', flexShrink: 0 }}
-              onClick={() => setTickerModalOpen(true)}
+              onClick={() => {
+                setTickerText('');
+                setTickerPriority('normal');
+                setTickerExpiry('never');
+                setEditingMessage(null);
+                setTickerModalOpen(true);
+              }}
             >
               <Megaphone size={18} /> Nuevo Mensaje
             </button>
@@ -1862,31 +1904,86 @@ export default function Herramientas({ user }) {
             </div>
 
             {/* Acciones */}
-            <div style={{ display: 'flex', gap: '0.75rem', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap-reverse' }}>
-              <div>
-                {editingMessage && (
-                  <button
-                    className="btn"
-                    style={{ height: 48, background: 'transparent', color: 'var(--error-color)', border: '1px solid var(--error-color)' }}
-                    onClick={() => setShowDeleteTickerConfirm(true)}
+            <div style={{ marginTop: '1.5rem', borderTop: '1px solid var(--border-color)', paddingTop: '1.5rem' }}>
+              <style>{`
+                @media (max-width: 480px) {
+                  .ticker-modal-actions {
+                    grid-template-columns: 1fr !important;
+                  }
+                  .ticker-modal-col {
+                    gap: 0.5rem !important;
+                  }
+                }
+              `}</style>
+              {editingMessage ? (
+                /* Modo Edición: Dos columnas (Izquierda: Peligro/Secundario, Derecha: Principal/Cancelar) */
+                <div className="ticker-modal-actions" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem' }}>
+                  {/* Columna Izquierda */}
+                  <div className="ticker-modal-col" style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+                    <button
+                      type="button"
+                      className="btn"
+                      style={{ width: '100%', height: 48, fontSize: '0.95rem', background: 'transparent', color: 'var(--error-color)', border: '1px solid var(--error-color)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+                      onClick={() => setShowDeleteTickerConfirm(true)}
+                    >
+                      <Trash2 size={16} style={{ marginRight: '0.5rem' }} /> Eliminar
+                    </button>
+                    {editingMessage.is_active && (
+                      <button
+                        type="button"
+                        className="btn btn-secondary"
+                        style={{ width: '100%', height: 48, fontSize: '0.95rem', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem' }}
+                        onClick={handleDeactivateEditingTicker}
+                        disabled={tickerSending}
+                      >
+                        Desactivar
+                      </button>
+                    )}
+                  </div>
+
+                  {/* Columna Derecha */}
+                  <div className="ticker-modal-col" style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+                    <button
+                      type="button"
+                      className="btn btn-solid"
+                      style={{ width: '100%', height: 48, fontSize: '0.95rem', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem', opacity: !tickerText.trim() || tickerSending ? 0.6 : 1 }}
+                      disabled={!tickerText.trim() || tickerSending}
+                      onClick={handleSendTicker}
+                    >
+                      <Send size={16} /> {tickerSending ? 'Enviando...' : 'Reenviar Mensaje'}
+                    </button>
+                    <button 
+                      type="button" 
+                      className="btn btn-secondary" 
+                      style={{ width: '100%', height: 48, fontSize: '0.95rem' }} 
+                      onClick={() => { setTickerModalOpen(false); setEditingMessage(null); }}
+                    >
+                      Cancelar
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                /* Modo Creación: Dos columnas simples lado a lado */
+                <div className="ticker-modal-actions" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem' }}>
+                  <button 
+                    type="button" 
+                    className="btn btn-secondary" 
+                    style={{ width: '100%', height: 48, fontSize: '0.95rem' }} 
+                    onClick={() => { setTickerModalOpen(false); setEditingMessage(null); }}
                   >
-                    <Trash2 size={16} style={{ marginRight: '0.5rem' }} /> Eliminar
+                    Cancelar
                   </button>
-                )}
-              </div>
-              <div style={{ display: 'flex', gap: '0.75rem', flexWrap: 'wrap' }}>
-                <button className="btn btn-secondary" style={{ height: 48 }} onClick={() => { setTickerModalOpen(false); setEditingMessage(null); }}>
-                  Cancelar
-                </button>
-                <button
-                  className="btn btn-solid"
-                  style={{ height: 48, display: 'flex', alignItems: 'center', gap: '0.5rem', opacity: !tickerText.trim() || tickerSending ? 0.6 : 1 }}
-                  disabled={!tickerText.trim() || tickerSending}
-                  onClick={handleSendTicker}
-                >
-                  <Send size={16} /> {tickerSending ? 'Enviando...' : editingMessage ? 'Reenviar Mensaje' : 'Enviar al Monitor'}
-                </button>
-              </div>
+                  <button
+                    type="button"
+                    className="btn btn-solid"
+                    style={{ width: '100%', height: 48, fontSize: '0.95rem', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem', opacity: !tickerText.trim() || tickerSending ? 0.6 : 1 }}
+                    disabled={!tickerText.trim() || tickerSending}
+                    onClick={handleSendTicker}
+                  >
+                    <Send size={16} /> {tickerSending ? 'Enviando...' : 'Enviar al Monitor'}
+                  </button>
+                </div>
+              )}
             </div>
           </div>
         </div>
@@ -1908,6 +2005,7 @@ export default function Herramientas({ user }) {
             </p>
             <div style={{ display: 'flex', gap: '1rem', justifyContent: 'center' }}>
               <button 
+                type="button"
                 className="btn btn-secondary" 
                 onClick={() => setShowDeleteTickerConfirm(false)}
                 disabled={tickerSending}
@@ -1915,6 +2013,7 @@ export default function Herramientas({ user }) {
                 Cancelar
               </button>
               <button 
+                type="button"
                 className="btn"
                 style={{ background: 'var(--error-color)', color: '#fff', border: 'none' }}
                 onClick={handleDeleteTicker}

@@ -59,7 +59,7 @@ export default function MonitorTicker() {
     <div className={`monitor-ticker-bar ${hasUrgent ? 'urgent' : ''}`}>
       {/* Icono identificador */}
       <div className="ticker-icon">
-        <Megaphone size={16} />
+        <Megaphone size={20} />
         <span>AVISOS</span>
       </div>
 
