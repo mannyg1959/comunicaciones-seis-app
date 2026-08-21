@@ -44,7 +44,7 @@ export default function Cotizaciones({ user }) {
           client:clients (id, name, contact_name, address),
           seller:profiles (name),
           items:quote_items (*),
-          work_orders:work_orders(id)
+          work_orders:work_orders(id, created_at, status)
         `)
         .order('created_at', { ascending: false });
 
@@ -65,6 +65,11 @@ export default function Cotizaciones({ user }) {
           ejecutivo: q.seller?.name || 'Desconocido',
           sellerId: q.seller_id,
           hasWorkOrder: q.work_orders && q.work_orders.length > 0,
+          workOrderDetails: q.work_orders && q.work_orders.length > 0 ? {
+            id: q.work_orders[0].id,
+            fecha: q.work_orders[0].created_at ? q.work_orders[0].created_at.split('T')[0] : 'N/A',
+            estado: q.work_orders[0].status
+          } : null,
           items: q.items.map(item => ({
             id: item.id,
             lineaNegocio: item.line_of_business,
@@ -143,8 +148,15 @@ export default function Cotizaciones({ user }) {
       const senderAddr = empresa?.direccion || "Av. Francisco de Miranda, Edif. Centro Seguros Sudamérica, El Rosal, Caracas, Venezuela";
       const clientAddr = quote.direccionCliente || "Dirección por definir, Venezuela";
 
+      const formatToMMDDYYYY = (dateStr) => {
+        if (!dateStr || dateStr === 'N/A') return 'N/A';
+        const parts = dateStr.split('-');
+        if (parts.length === 3) return `${parts[1]}/${parts[2]}/${parts[0]}`;
+        return dateStr;
+      };
+
       htmlText = htmlText.replace(/\[campo1\]/gi, quote.id || 'N/A');
-      htmlText = htmlText.replace(/\[campo2\]/gi, quote.fecha || 'N/A');
+      htmlText = htmlText.replace(/\[campo2\]/gi, formatToMMDDYYYY(quote.fecha));
       htmlText = htmlText.replace(/\[campo3\]/gi, empresa?.razon_social || 'Comunicaciones 6');
       htmlText = htmlText.replace(/\[campo4\]/gi, senderAddr);
       htmlText = htmlText.replace(/\[campo5\]/gi, quote.cliente || 'Sin Cliente');
@@ -275,6 +287,31 @@ export default function Cotizaciones({ user }) {
     
     return matchesSearch && matchesCliente && matchesFechaInicio && matchesFechaFin && matchesEstado;
   });
+
+  const [modalSearchTerm, setModalSearchTerm] = useState('');
+  const [modalFilterCliente, setModalFilterCliente] = useState('');
+  const [modalFilterFechaInicio, setModalFilterFechaInicio] = useState(null);
+  const [modalFilterFechaFin, setModalFilterFechaFin] = useState(null);
+  const [modalFilterEstadoSelect, setModalFilterEstadoSelect] = useState('');
+  const [isModalFilterDrawerOpen, setIsModalFilterDrawerOpen] = useState(false);
+
+  const modalFilteredCotizaciones = cotizaciones.filter(c => {
+    const matchesSearch = (c.cliente || '').toLowerCase().includes((modalSearchTerm || '').toLowerCase()) || (c.id || '').toLowerCase().includes((modalSearchTerm || '').toLowerCase());
+    const matchesCliente = modalFilterCliente ? c.cliente === modalFilterCliente : true;
+    
+    const itemDate = new Date(c.fecha);
+    itemDate.setHours(0,0,0,0);
+    const filterStart = modalFilterFechaInicio ? new Date(modalFilterFechaInicio).setHours(0,0,0,0) : null;
+    const filterEnd = modalFilterFechaFin ? new Date(modalFilterFechaFin).setHours(23,59,59,999) : null;
+
+    const matchesFechaInicio = filterStart ? itemDate >= filterStart : true;
+    const matchesFechaFin = filterEnd ? itemDate <= filterEnd : true;
+    const matchesEstado = modalFilterEstadoSelect ? c.estado === modalFilterEstadoSelect : true;
+    
+    return matchesSearch && matchesCliente && matchesFechaInicio && matchesFechaFin && matchesEstado;
+  });
+
+  const isAnyModalFilterActive = modalFilterCliente || modalFilterFechaInicio || modalFilterFechaFin || modalFilterEstadoSelect;
 
   const handleEdit = (cotizacion) => {
     setEditingCotizacion({
@@ -550,10 +587,32 @@ export default function Cotizaciones({ user }) {
               type="text" 
               className="input-control" 
               placeholder="Buscar cotización..." 
-              style={{ paddingLeft: '2.5rem' }}
+              style={{ paddingLeft: '2.5rem', paddingRight: '2.5rem' }}
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
             />
+            {searchTerm && (
+              <button 
+                onClick={() => setSearchTerm('')}
+                style={{ 
+                  position: 'absolute', 
+                  right: '0.5rem', 
+                  top: '50%', 
+                  transform: 'translateY(-50%)', 
+                  background: 'none', 
+                  border: 'none', 
+                  cursor: 'pointer',
+                  color: 'var(--text-muted)',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  padding: '0.5rem'
+                }}
+                title="Limpiar búsqueda"
+              >
+                <X size={16} />
+              </button>
+            )}
           </div>
         </div>
       </div>
@@ -694,7 +753,102 @@ export default function Cotizaciones({ user }) {
         </>
       )}
 
-
+      {/* Modal de Filtros flotante y centrado para Modal de Reporte */}
+      {isModalFilterDrawerOpen && (
+        <>
+          <div className="modal-overlay" style={{ zIndex: 1300 }} onClick={() => setIsModalFilterDrawerOpen(false)}>
+            <div className="modal-container" onClick={e => e.stopPropagation()}>
+              <div className="modal-header">
+                <h3 style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', margin: 0 }}>
+                  <SlidersHorizontal size={20} color="var(--primary-color)" />
+                  <span>Filtros de Cotizaciones (Reporte)</span>
+                </h3>
+                <button className="modal-close-btn" onClick={() => setIsModalFilterDrawerOpen(false)}>
+                  <X size={20} />
+                </button>
+              </div>
+              <div className="modal-body">
+                <div className="input-group">
+                  <label>Cliente</label>
+                  <select className="input-control" value={modalFilterCliente} onChange={e => setModalFilterCliente(e.target.value)}>
+                    <option value="">Todos los Clientes</option>
+                    {[...new Set(cotizaciones.map(c => c.cliente))].map(cliente => (
+                      <option key={cliente} value={cliente}>{cliente}</option>
+                    ))}
+                  </select>
+                </div>
+                
+                <div className="input-group">
+                  <label>Rango de Fechas</label>
+                  <div style={{ display: 'flex', gap: '0.5rem' }}>
+                    <div style={{ flex: 1 }}>
+                      <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginBottom: '0.25rem', display: 'block' }}>Desde</span>
+                      <DatePicker
+                        selected={modalFilterFechaInicio}
+                        onChange={(date) => setModalFilterFechaInicio(date)}
+                        selectsStart
+                        startDate={modalFilterFechaInicio}
+                        endDate={modalFilterFechaFin}
+                        className="input-control"
+                        placeholderText="dd/mm/aaaa"
+                        dateFormat="dd/MM/yyyy"
+                        isClearable
+                        withPortal
+                      />
+                    </div>
+                    <div style={{ flex: 1 }}>
+                      <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginBottom: '0.25rem', display: 'block' }}>Hasta</span>
+                      <DatePicker
+                        selected={modalFilterFechaFin}
+                        onChange={(date) => setModalFilterFechaFin(date)}
+                        selectsEnd
+                        startDate={modalFilterFechaInicio}
+                        endDate={modalFilterFechaFin}
+                        minDate={modalFilterFechaInicio}
+                        className="input-control"
+                        placeholderText="dd/mm/aaaa"
+                        dateFormat="dd/MM/yyyy"
+                        isClearable
+                        withPortal
+                      />
+                    </div>
+                  </div>
+                </div>
+                
+                <div className="input-group">
+                  <label>Estatus</label>
+                  <select className="input-control" value={modalFilterEstadoSelect} onChange={e => setModalFilterEstadoSelect(e.target.value)}>
+                    <option value="">Cualquier Estatus</option>
+                    <option value="Borrador">Borrador</option>
+                    <option value="Pendiente">Pendiente</option>
+                    <option value="Enviada">Enviada</option>
+                    <option value="En Negociación">En Negociación</option>
+                    <option value="Aprobada">Aprobada</option>
+                    <option value="Rechazada">Rechazada</option>
+                    <option value="Anulada">Anulada</option>
+                  </select>
+                </div>
+              </div>
+              <div className="modal-footer">
+                <button 
+                  className="btn btn-secondary" 
+                  onClick={() => {
+                    setModalFilterCliente('');
+                    setModalFilterFechaInicio(null);
+                    setModalFilterFechaFin(null);
+                    setModalFilterEstadoSelect('');
+                  }}
+                >
+                  Limpiar
+                </button>
+                <button className="btn btn-primary" onClick={() => setIsModalFilterDrawerOpen(false)}>
+                  Aplicar
+                </button>
+              </div>
+            </div>
+          </div>
+        </>
+      )}
 
       {isReportModalOpen && (
         <div style={{ 
@@ -714,20 +868,68 @@ export default function Cotizaciones({ user }) {
           <div className="modal-header" style={{ padding: '1.5rem', borderBottom: '1px solid var(--border-color)', borderRadius: 0 }}>
             <h3 style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', margin: 0 }}>
               <FileDown size={20} color="var(--primary-color)" />
-              <span>Cotizaciones Generadas (Con OT)</span>
+              <span>Reporte de Cotizaciones Generadas</span>
             </h3>
             <button className="modal-close-btn" onClick={() => setIsReportModalOpen(false)}>
               <X size={20} />
             </button>
           </div>
+          
+          {/* Modal Filter UI */}
+          <div style={{ padding: '1.5rem 1.5rem 0.5rem 1.5rem', borderBottom: '1px solid var(--border-color)' }}>
+            <div style={{ display: 'flex', gap: '0.75rem', marginBottom: '1rem', width: '100%' }}>
+              <button 
+                className={`btn ${isAnyModalFilterActive ? 'btn-primary' : 'btn-secondary'}`} 
+                style={{ height: '48px', width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem', fontSize: '0.95rem' }} 
+                onClick={() => setIsModalFilterDrawerOpen(true)}
+              >
+                <SlidersHorizontal size={18} />
+                <span>Filtros {isAnyModalFilterActive ? '(Activo)' : ''}</span>
+              </button>
+            </div>
+            <div className="input-group" style={{ position: 'relative', margin: 0 }}>
+              <Search size={18} style={{ position: 'absolute', left: '1rem', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)' }} />
+              <input 
+                type="text" 
+                className="input-control" 
+                placeholder="Buscar cotización..." 
+                style={{ paddingLeft: '2.5rem', paddingRight: '2.5rem' }}
+                value={modalSearchTerm}
+                onChange={(e) => setModalSearchTerm(e.target.value)}
+              />
+              {modalSearchTerm && (
+                <button 
+                  onClick={() => setModalSearchTerm('')}
+                  style={{ 
+                    position: 'absolute', 
+                    right: '0.5rem', 
+                    top: '50%', 
+                    transform: 'translateY(-50%)', 
+                    background: 'none', 
+                    border: 'none', 
+                    cursor: 'pointer',
+                    color: 'var(--text-muted)',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    padding: '0.5rem'
+                  }}
+                  title="Limpiar búsqueda"
+                >
+                  <X size={16} />
+                </button>
+              )}
+            </div>
+          </div>
+
           <div className="modal-body" style={{ flex: 1, overflowY: 'auto', padding: 0 }}>
-            {cotizaciones.length === 0 ? (
+            {modalFilteredCotizaciones.length === 0 ? (
               <div style={{ textAlign: 'center', padding: '3rem 2rem', color: 'var(--text-muted)' }}>
-                No hay cotizaciones registradas.
+                No hay cotizaciones registradas con estos filtros.
               </div>
             ) : (
               <div style={{ display: 'flex', flexDirection: 'column' }}>
-                {cotizaciones.map(c => (
+                {modalFilteredCotizaciones.map(c => (
                   <div 
                     key={c.id} 
                     className="report-list-row"
@@ -751,9 +953,18 @@ export default function Cotizaciones({ user }) {
                         )}
                       </div>
                       <p style={{ margin: '0 0 0.25rem 0', fontWeight: 'bold', color: 'var(--text-main)' }}>{c.cliente}</p>
-                      <p style={{ margin: 0, fontSize: '0.8rem', color: 'var(--text-muted)' }}>
+                      <p style={{ margin: '0 0 0.25rem 0', fontSize: '0.8rem', color: 'var(--text-muted)' }}>
                         Emisión: {formatDate(c.fecha)} • Ejecutivo: {c.ejecutivo}
                       </p>
+                      {c.workOrderDetails ? (
+                        <p style={{ margin: 0, fontSize: '0.8rem', color: 'var(--secondary-color)' }}>
+                          OT: <strong>{c.workOrderDetails.id}</strong> • Fecha OT: {formatDate(c.workOrderDetails.fecha)} • Estatus: {c.workOrderDetails.estado}
+                        </p>
+                      ) : (
+                        <p style={{ margin: 0, fontSize: '0.8rem', color: 'var(--warning-color)' }}>
+                          No tiene OT asignada
+                        </p>
+                      )}
                     </div>
                     <div style={{ textAlign: 'right', display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '0.25rem' }}>
                       <strong style={{ color: 'var(--primary-color)', fontSize: '1.1rem' }}>{formatCurrencyDisplay(c.total)}</strong>

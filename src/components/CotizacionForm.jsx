@@ -754,8 +754,15 @@ export default function CotizacionForm({ initialData, onCancel, onSave, onDelete
       const clientAddr = clientObj?.direccion || "Dirección por definir, Venezuela";
       const senderAddr = empresa?.direccion || "Av. Francisco de Miranda, Edif. Centro Seguros Sudamérica, El Rosal, Caracas, Venezuela";
 
+      const formatToMMDDYYYY = (dateStr) => {
+        if (!dateStr || dateStr === 'N/A') return 'N/A';
+        const parts = dateStr.split('-');
+        if (parts.length === 3) return `${parts[1]}/${parts[2]}/${parts[0]}`;
+        return dateStr;
+      };
+
       htmlText = htmlText.replace(/\[campo1\]/gi, formData.id || 'N/A');
-      htmlText = htmlText.replace(/\[campo2\]/gi, formData.fechaEmision || 'N/A');
+      htmlText = htmlText.replace(/\[campo2\]/gi, formatToMMDDYYYY(formData.fechaEmision));
       htmlText = htmlText.replace(/\[campo3\]/gi, empresa?.razon_social || 'Comunicaciones 6');
       htmlText = htmlText.replace(/\[campo4\]/gi, senderAddr);
       htmlText = htmlText.replace(/\[campo5\]/gi, formData.cliente || 'Sin Cliente');
