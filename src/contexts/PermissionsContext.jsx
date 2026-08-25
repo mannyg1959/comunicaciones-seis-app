@@ -27,7 +27,7 @@ export const PermissionsProvider = ({ children, user }) => {
 
         if (error) {
           console.error('Error fetching permissions:', error);
-          setPermissions({});
+          setPermissions(defaultPermissions[userRole] || {});
         } else if (data) {
           // Fusionar con los permisos por defecto para evitar que falten nuevas opciones agregadas al código pero que aún no están en Supabase
           const defaultPerms = defaultPermissions[userRole] || {};

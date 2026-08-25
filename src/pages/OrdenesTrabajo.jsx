@@ -10,6 +10,9 @@ import { formatDate, formatDateTime } from '../utils/formatters';
 
 export default function OrdenesTrabajo({ user }) {
   const { hasPermission } = usePermissions();
+  const canEdit = hasPermission('ordenes_trabajo', 'editar');
+  const canAssign = hasPermission('ordenes_trabajo', 'asignar_tecnicos');
+  const canChangeStatus = hasPermission('ordenes_trabajo', 'cambiar_estatus');
   const [searchTerm, setSearchTerm] = useState('');
   const [filterCliente, setFilterCliente] = useState('');
   const [filterFechaInicio, setFilterFechaInicio] = useState(null);
@@ -360,6 +363,10 @@ export default function OrdenesTrabajo({ user }) {
 
   const handleUpdateIncident = async (incidentId) => {
     if (!selectedOT || !editingText.trim()) return;
+    if (!canEdit) {
+      showNotification('No tienes permiso para actualizar incidencias.', 'error');
+      return;
+    }
     
     try {
       const descriptionPayload = JSON.stringify({
@@ -404,6 +411,10 @@ export default function OrdenesTrabajo({ user }) {
   const executeSaveEstado = async (targetEstado, isRetroceder = false) => {
     const index = ordenesTrabajo.findIndex(o => o.id === selectedOT.id);
     if (index !== -1) {
+      if (!canChangeStatus) {
+        showNotification('No tienes permiso para cambiar el estatus de la orden.', 'error');
+        return;
+      }
       let progreso = 0;
       switch(targetEstado) {
         case 'Programación': progreso = 0; break;
@@ -499,6 +510,10 @@ export default function OrdenesTrabajo({ user }) {
 
   const handleSaveEstado = () => {
     if (!selectedOT) return;
+    if (!canChangeStatus) {
+      showNotification('No tienes permiso para cambiar el estatus de la orden.', 'error');
+      return;
+    }
     const currentIndex = stages.indexOf(selectedOT.estado);
     const tempIndex = stages.indexOf(tempEstado);
 
@@ -536,6 +551,10 @@ export default function OrdenesTrabajo({ user }) {
 
   const executeSaveEstadoRechazo = async () => {
     if (!selectedOT || !rechazoMotivoInput.trim()) return;
+    if (!canChangeStatus) {
+      showNotification('No tienes permiso para registrar rechazos de calidad.', 'error');
+      return;
+    }
     
     try {
         const { error: updateError } = await supabase
@@ -580,6 +599,10 @@ export default function OrdenesTrabajo({ user }) {
 
   const handleTogglePause = async (pauseValue, reason = '') => {
       if (!selectedOT) return;
+      if (!canEdit) {
+          showNotification('No tienes permiso para pausar o reanudar la orden.', 'error');
+          return;
+      }
       try {
           const { error: updateError } = await supabase
               .from('work_orders')
@@ -623,6 +646,10 @@ export default function OrdenesTrabajo({ user }) {
 
   const handleSaveAsignacion = async () => {
     if (!selectedOT) return;
+    if (!canAssign) {
+      showNotification('No tienes permiso para realizar asignaciones.', 'error');
+      return;
+    }
     setAsignacionError('');
 
     if (asignacionFechaFin) {
@@ -670,6 +697,10 @@ export default function OrdenesTrabajo({ user }) {
 
   const handleSaveIncident = async () => {
     if (!selectedOT || !newIncidentText.trim()) return;
+    if (!canEdit) {
+      showNotification('No tienes permiso para registrar incidencias.', 'error');
+      return;
+    }
     try {
       const nowStr = new Date().toISOString();
       const incidentId = crypto.randomUUID();
@@ -876,7 +907,13 @@ export default function OrdenesTrabajo({ user }) {
           }
 
           return (
-            <div key={ot.id} className="card hoverable" style={cardStyle} onClick={() => handleOpenOT(ot)}>
+            <div key={ot.id} className="card hoverable" style={cardStyle} onClick={() => {
+              if (!canEdit && !canAssign && !canChangeStatus) {
+                setSelectedOTForSummary(ot);
+              } else {
+                handleOpenOT(ot);
+              }
+            }}>
               <div className="flex-row-between" style={{ marginBottom: '0.5rem', alignItems: 'center' }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flexWrap: 'wrap' }}>
                   <strong>{ot.id}</strong>
@@ -1059,7 +1096,7 @@ export default function OrdenesTrabajo({ user }) {
             {activeModalView === 'menu' && (
               <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem', margin: '1.5rem 0' }}>
                 
-                {(selectedOT.estado === 'Programación' || selectedOT.estado === 'Producción' || selectedOT.estado === 'Revisión') && (
+                {canAssign && (selectedOT.estado === 'Programación' || selectedOT.estado === 'Producción' || selectedOT.estado === 'Revisión') && (
                   <div style={{ backgroundColor: 'rgba(59, 130, 246, 0.05)', padding: '1rem', borderRadius: 'var(--radius-md)', border: '1px solid rgba(59, 130, 246, 0.2)', marginBottom: '1rem' }}>
                     <h3 style={{ fontSize: '0.95rem', margin: '0 0 1rem 0', color: 'var(--primary-color)' }}>Panel de Asignación</h3>
                     
@@ -1105,27 +1142,31 @@ export default function OrdenesTrabajo({ user }) {
                   </div>
                 )}
 
-                <button 
-                  className="btn btn-secondary" 
-                  style={{ height: '48px', fontSize: '0.95rem', width: '100%', justifyContent: 'center', display: 'flex', alignItems: 'center', gap: '0.5rem' }}
-                  onClick={() => {
-                    if (!selectedOT.fechaFinTrabajo) {
-                      setFeedbackModal({ show: true, type: 'error', message: 'No puedes cambiar el estatus de esta Orden de Trabajo (ni avanzar ni retroceder) porque aún no se le ha asignado una "Fecha de Fin de Trabajo" (Target). Por favor, usa el Panel de Asignación primero.' });
-                      return;
-                    }
-                    setTempEstado(selectedOT.estado);
-                    setActiveModalView('estatus');
-                  }}
-                >
-                  ⚙️ Cambiar Estatus
-                </button>
-                <button 
-                  className="btn btn-secondary" 
-                  style={{ height: '48px', fontSize: '0.95rem', width: '100%', justifyContent: 'center', display: 'flex', alignItems: 'center', gap: '0.5rem' }}
-                  onClick={() => setActiveModalView('incidencia')}
-                >
-                  ⚠️ Registrar Incidencia
-                </button>
+                {canChangeStatus && (
+                  <button 
+                    className="btn btn-secondary" 
+                    style={{ height: '48px', fontSize: '0.95rem', width: '100%', justifyContent: 'center', display: 'flex', alignItems: 'center', gap: '0.5rem' }}
+                    onClick={() => {
+                      if (!selectedOT.fechaFinTrabajo) {
+                        setFeedbackModal({ show: true, type: 'error', message: 'No puedes cambiar el estatus de esta Orden de Trabajo (ni avanzar ni retroceder) porque aún no se le ha asignado una "Fecha de Fin de Trabajo" (Target). Por favor, usa el Panel de Asignación primero.' });
+                        return;
+                      }
+                      setTempEstado(selectedOT.estado);
+                      setActiveModalView('estatus');
+                    }}
+                  >
+                    ⚙️ Cambiar Estatus
+                  </button>
+                )}
+                {canEdit && (
+                  <button 
+                    className="btn btn-secondary" 
+                    style={{ height: '48px', fontSize: '0.95rem', width: '100%', justifyContent: 'center', display: 'flex', alignItems: 'center', gap: '0.5rem' }}
+                    onClick={() => setActiveModalView('incidencia')}
+                  >
+                    ⚠️ Registrar Incidencia
+                  </button>
+                )}
                 <button 
                   className="btn btn-secondary" 
                   style={{ height: '48px', fontSize: '0.95rem', width: '100%', justifyContent: 'center', display: 'flex', alignItems: 'center', gap: '0.5rem' }}
@@ -1134,20 +1175,22 @@ export default function OrdenesTrabajo({ user }) {
                   ⏳ Ver Historial / Trazabilidad
                 </button>
                 
-                <button 
-                  className={`btn ${selectedOT.isPaused ? 'btn-primary' : 'btn-secondary'}`}
-                  style={{ height: '48px', fontSize: '0.95rem', width: '100%', justifyContent: 'center', display: 'flex', alignItems: 'center', gap: '0.5rem', backgroundColor: selectedOT.isPaused ? 'var(--success-color)' : '', borderColor: selectedOT.isPaused ? 'var(--success-color)' : '' }}
-                  onClick={() => {
-                    if (selectedOT.isPaused) {
-                      handleTogglePause(false);
-                    } else {
-                      setBloqueoMotivo('');
-                      setActiveModalView('bloqueo');
-                    }
-                  }}
-                >
-                  {selectedOT.isPaused ? '▶️ Reanudar Producción' : '⏸️ Pausar / Bloquear OT'}
-                </button>
+                {canEdit && (
+                  <button 
+                    className={`btn ${selectedOT.isPaused ? 'btn-primary' : 'btn-secondary'}`}
+                    style={{ height: '48px', fontSize: '0.95rem', width: '100%', justifyContent: 'center', display: 'flex', alignItems: 'center', gap: '0.5rem', backgroundColor: selectedOT.isPaused ? 'var(--success-color)' : '', borderColor: selectedOT.isPaused ? 'var(--success-color)' : '' }}
+                    onClick={() => {
+                      if (selectedOT.isPaused) {
+                        handleTogglePause(false);
+                      } else {
+                        setBloqueoMotivo('');
+                        setActiveModalView('bloqueo');
+                      }
+                    }}
+                  >
+                    {selectedOT.isPaused ? '▶️ Reanudar Producción' : '⏸️ Pausar / Bloquear OT'}
+                  </button>
+                )}
                 
                 <div style={{ marginTop: '1rem', borderTop: '1px solid var(--border-color)', paddingTop: '1rem' }}>
                   <button 
@@ -1435,7 +1478,7 @@ export default function OrdenesTrabajo({ user }) {
                           const logStage = getStageForLog(log.id, logs);
                           const incidentStageIndex = stages.indexOf(logStage);
                           const currentStageIndex = stages.indexOf(selectedOT.estado);
-                          const isEditableIncident = isIncident && currentStageIndex <= incidentStageIndex;
+                          const isEditableIncident = isIncident && canEdit && currentStageIndex <= incidentStageIndex;
 
                           const incidentData = isIncident ? (otIncidents[selectedOT.id] || []).find(inc => inc.id === log.id) : null;
                           const rawText = incidentData ? incidentData.text : '';

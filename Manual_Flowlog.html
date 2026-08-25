@@ -1,0 +1,899 @@
+<!DOCTYPE html>
+<html lang="es" class="scroll-smooth">
+<head>
+  <script type="module" src="/@vite/client"></script>
+
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Manual Oficial Flowlog · Comunicación 6</title>
+  
+  <!-- Tailwind CSS via CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  
+  <!-- Google Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+  
+  <!-- FontAwesome Icons for clean SVG icons -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" />
+
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          fontFamily: {
+            sans: ['"Plus Jakarta Sans"', 'sans-serif'],
+            mono: ['"JetBrains Mono"', 'monospace'],
+          },
+          colors: {
+            brand: {
+              blue: '#0047BA',
+              cyan: '#00B4D8',
+              teal: '#0096C7',
+            }
+          }
+        }
+      }
+    }
+  </script>
+
+  <style>
+    @media print {
+      body {
+        background: #ffffff !important;
+        color: #0f172a !important;
+        font-size: 10pt;
+        line-height: 1.5;
+      }
+      .no-print {
+        display: none !important;
+      }
+      .print-only {
+        display: block !important;
+      }
+      .page-break {
+        page-break-before: always;
+        break-before: page;
+      }
+      .avoid-break {
+        page-break-inside: avoid;
+        break-inside: avoid;
+      }
+      .card-box {
+        border: 1px solid #cbd5e1 !important;
+        box-shadow: none !important;
+      }
+      #interactive-layout {
+        display: none !important;
+      }
+      #complete-print-container {
+        display: block !important;
+        width: 100% !important;
+        max-width: 100% !important;
+      }
+    }
+
+    @media screen {
+      #complete-print-container {
+        display: none;
+      }
+    }
+    
+    /* Custom subtle scrollbar */
+    ::-webkit-scrollbar {
+      width: 6px;
+      height: 6px;
+    }
+    ::-webkit-scrollbar-track {
+      background: #f1f5f9;
+    }
+    ::-webkit-scrollbar-thumb {
+      background: #cbd5e1;
+      border-radius: 9999px;
+    }
+    ::-webkit-scrollbar-thumb:hover {
+      background: #94a3b8;
+    }
+  </style>
+<script src="/_aistudio-iframe.js?v=2f1c016a"></script></head>
+
+<body class="bg-slate-50 text-slate-800 font-sans antialiased min-h-screen flex flex-col selection:bg-blue-100 selection:text-blue-900">
+
+  <!-- ================= TOP STICKY HEADER ================= -->
+  <header class="sticky top-0 z-40 bg-white border-b border-slate-200 shadow-xs no-print">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
+      
+      <!-- Brand & Flowlog Logo -->
+      <div class="flex items-center gap-3 sm:gap-4">
+        <!-- Logo SVG -->
+        <div class="inline-flex items-center select-none">
+          <svg viewBox="0 0 280 64" height="34" class="w-auto h-auto max-h-9" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <g id="flowlog-wave">
+              <path d="M8 36C18 36 28 20 42 20C54 20 62 28 72 28C80 28 86 24 92 18C86 28 76 34 64 34C50 34 42 26 34 26C24 26 16 38 8 36Z" fill="#00B4D8"/>
+              <path d="M4 44C16 44 26 30 40 30C52 30 60 38 72 38C82 38 88 34 94 28C88 38 78 44 66 44C52 44 44 36 34 36C22 36 14 46 4 44Z" fill="#0096C7"/>
+              <path d="M6 40C16 40 24 24 38 24C50 24 58 32 68 32C76 32 82 28 88 22C82 32 72 38 60 38C48 38 40 30 30 30C18 30 12 42 6 40Z" fill="#00C49F" opacity="0.85"/>
+            </g>
+            <g id="flowlog-text" transform="translate(98, 45)">
+              <text font-family="system-ui, -apple-system, sans-serif" font-size="40" font-weight="800" letter-spacing="-1px" fill="#0047BA">Flowlog</text>
+            </g>
+          </svg>
+        </div>
+
+        <div class="h-7 w-px bg-slate-200 hidden xs:block"></div>
+
+        <div>
+          <span class="text-sm sm:text-base font-bold text-slate-900 tracking-tight block leading-none">
+            COMUNICACIÓN 6
+          </span>
+          <span class="text-[10px] sm:text-[11px] text-blue-600 font-semibold tracking-wider uppercase">
+            Estudio Creativo & Producción · Manual y Guía del Sistema
+          </span>
+        </div>
+      </div>
+
+      <!-- Right Header Actions -->
+      <div class="flex items-center gap-2">
+        <button onclick="printCompleteManual()" class="px-3.5 py-1.5 rounded-lg border border-blue-200 bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold flex items-center gap-1.5 transition-colors shadow-2xs">
+          <i class="fa-solid fa-print text-white"></i>
+          <span>Imprimir Manual Completo (PDF)</span>
+        </button>
+        <span class="hidden md:inline-flex items-center gap-1.5 text-xs font-semibold text-slate-500 bg-slate-50 px-3 py-1.5 rounded-lg border border-slate-200">
+          <i class="fa-solid fa-book-bookmark text-blue-600"></i>
+          <span>Versión HTML Autónoma</span>
+        </span>
+      </div>
+
+    </div>
+  </header>
+
+  <!-- ================= PRINT CONTAINER (All 11 Modules rendered in Print/PDF) ================= -->
+  <div id="complete-print-container" class="print-only">
+    <!-- Populated dynamically with all 11 modules before print -->
+  </div>
+
+  <!-- ================= MAIN INTERACTIVE LAYOUT CONTAINER ================= -->
+  <div id="interactive-layout" class="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6 md:py-8">
+    <div class="flex flex-col lg:flex-row gap-8 items-start w-full">
+      
+      <!-- ================= SIDEBAR NAVIGATION ================= -->
+      <aside class="w-full lg:w-80 bg-white border border-slate-200 rounded-2xl shadow-xs flex flex-col shrink-0 lg:sticky lg:top-24 overflow-hidden no-print">
+        
+        <!-- Search bar -->
+        <div class="p-4 border-b border-slate-100 bg-slate-50/50">
+          <div class="relative">
+            <i class="fa-solid fa-magnifying-glass text-slate-400 absolute left-3 top-1/2 -translate-y-1/2 text-xs"></i>
+            <input
+              id="manual-search-input"
+              type="text"
+              placeholder="Buscar en el manual..."
+              oninput="filterModules(this.value)"
+              class="w-full pl-8 pr-7 py-2 bg-white border border-slate-200 rounded-lg text-xs text-slate-900 placeholder-slate-400 focus:outline-none focus:border-blue-600 transition-colors"
+            />
+            <button onclick="clearSearch()" id="clear-search-btn" class="hidden absolute right-2.5 top-1/2 -translate-y-1/2 text-xs text-slate-400 hover:text-slate-600">
+              ✕
+            </button>
+          </div>
+          <div class="flex items-center justify-between mt-2.5 text-[11px] text-slate-500 px-1">
+            <span id="module-count-badge">11 módulos disponibles</span>
+            <span class="text-blue-600 font-semibold">Flowlog v2.4</span>
+          </div>
+        </div>
+
+        <!-- Module buttons list -->
+        <nav id="module-nav-list" class="p-2 space-y-1 max-h-[calc(100vh-16rem)] overflow-y-auto">
+          <!-- Populated by JavaScript -->
+        </nav>
+
+        <!-- Sidebar footer -->
+        <div class="p-3.5 border-t border-slate-100 bg-slate-50/50 text-[11px] text-slate-500 text-center">
+          Guía de Operación · Comunicación 6
+        </div>
+      </aside>
+
+      <!-- ================= MAIN CONTENT PANE ================= -->
+      <main id="main-content-pane" class="flex-1 w-full max-w-4xl min-w-0">
+        
+        <!-- Active Module Header Card -->
+        <div id="module-header-card" class="rounded-2xl bg-white border border-slate-200 p-6 md:p-8 mb-6 shadow-xs">
+          <!-- Populated by JavaScript -->
+        </div>
+
+        <!-- Active Module Body Card -->
+        <div id="module-content-card" class="bg-white border border-slate-200 rounded-2xl p-6 md:p-8 shadow-xs">
+          <!-- Populated by JavaScript -->
+        </div>
+
+        <!-- Next / Prev Pagination -->
+        <div class="flex items-center justify-between mt-6 pt-4 no-print">
+          <button id="btn-prev-module" onclick="navigateModule(-1)" class="flex items-center gap-2 text-xs font-semibold text-slate-700 hover:text-slate-900 px-4 py-2 rounded-lg bg-white border border-slate-200 hover:bg-slate-50 shadow-xs transition-colors">
+            <i class="fa-solid fa-chevron-left text-xs"></i>
+            <span id="prev-module-title">Anterior</span>
+          </button>
+
+          <button id="btn-next-module" onclick="navigateModule(1)" class="flex items-center gap-2 text-xs font-semibold text-white px-4 py-2 rounded-lg bg-blue-600 hover:bg-blue-700 shadow-xs transition-colors ml-auto">
+            <span id="next-module-title">Siguiente</span>
+            <i class="fa-solid fa-chevron-right text-xs"></i>
+          </button>
+        </div>
+
+      </main>
+
+    </div>
+  </div>
+
+  <!-- ================= FOOTER ================= -->
+  <footer class="mt-auto border-t border-slate-200 bg-white py-6 text-center text-xs text-slate-500 no-print">
+    <div class="max-w-7xl mx-auto px-4 flex flex-col sm:flex-row items-center justify-between gap-3">
+      <div>
+        <span class="font-bold text-slate-800">Flowlog</span> · Sistema de Gestión y Producción
+      </div>
+      <div>
+        © 2026 Comunicación 6 · Todos los derechos reservados
+      </div>
+    </div>
+  </footer>
+
+  <!-- ================= DATA & JAVASCRIPT ================= -->
+  <script>
+    // 11 Complete Modules Data
+    const manualModules = [
+      {
+        id: 1,
+        title: "1. Autenticación y Acceso al Sistema",
+        shortTitle: "Autenticación y Acceso",
+        badge: "Seguridad y Cuentas",
+        summary: "Procedimiento oficial para iniciar sesión, roles predefinidos, cambio de contraseña y recuperación de acceso.",
+        content: `### 1.1 Inicio de Sesión
+Para ingresar a Flowlog, dirígete a la URL corporativa e ingresa tu correo electrónico corporativo junto con tu contraseña asignada por el Administrador del Sistema.
+
+> [!NOTA]
+> Flowlog restringe el acceso simultáneo desde múltiples pestañas con credenciales distintas para proteger la integridad de las transacciones y la sesión activa.
+
+### 1.2 Roles y Perfiles Disponibles
+El sistema cuenta con cuatro perfiles de usuario predeterminados:
+- **Administrador General**: Control total del sistema, configuración, usuarios, tarifas y reportes financieros.
+- **Ejecutivo de Ventas**: Creación y edición de presupuestos, cotizaciones, gestión de clientes y aprobación comercial.
+- **Jefe de Producción**: Asignación de tareas, control de Kanban, actualización de estado en taller y consumo de insumos.
+- **Operario de Taller / Diseñador**: Visualización de órdenes asignadas, registro de avances y tiempos de ejecución.
+
+| Rol de Usuario | Dashboard | Cotizaciones | Órdenes de Trabajo | Ajustes del Sistema |
+| :--- | :--- | :--- | :--- | :--- |
+| **Administrador** | ✅ Acceso Total | ✅ Crear / Aprobar | ✅ Gestión Completa | ✅ Configuración Total |
+| **Ventas** | ✅ Métricas Ventas | ✅ Crear / Enviar | 👁️ Solo Lectura | ❌ Sin Acceso |
+| **Producción** | ✅ Métricas Taller | ❌ Sin Acceso | ✅ Cambiar Estados | ❌ Sin Acceso |
+| **Operario** | ❌ Sin Acceso | ❌ Sin Acceso | 👁️ Ver Asignadas | ❌ Sin Acceso |
+
+### 1.3 Seguridad y Recuperación de Contraseña
+- En caso de olvidar tu contraseña, utiliza el enlace **"¿Olvidaste tu contraseña?"** en la pantalla de ingreso.
+- El sistema enviará un código de verificación de 6 dígitos a tu bandeja de correo corporativo.
+- Si no recibes el correo en 5 minutos, contacta al Administrador para un restablecimiento manual.
+
+> [!ADVERTENCIA]
+> Después de 5 intentos fallidos consecutivos de inicio de sesión, la cuenta se bloqueará temporalmente durante 15 minutos como medida de protección ante accesos no autorizados.`
+      },
+      {
+        id: 2,
+        title: "2. Estructura de Navegación y Barra Lateral",
+        shortTitle: "Navegación y Menú",
+        badge: "Interfaz de Usuario",
+        summary: "Distribución visual, menú lateral principal, accesos directos, atajos de teclado y buscador global.",
+        content: `### 2.1 Menú Lateral Principal
+La barra lateral izquierda contiene los accesos directos a todos los módulos autorizados según tu rol:
+- **Inicio**: Panel central con indicadores de desempeño, órdenes urgentes y tareas pendientes.
+- **Cotizaciones**: Generador de presupuestos, lista de cotizaciones y control de estados comerciales.
+- **Órdenes de Trabajo**: Seguimiento operativo desde la aprobación hasta la entrega del producto terminado.
+- **Herramientas**: Calculadoras técnicas, conversor de unidades de impresión y utilidades de taller.
+- **Ajustes**: Configuración corporativa, catálogo de materiales, tarifas por m2 y gestión de usuarios.
+
+### 2.2 Accesos Rápidos y Atajos de Teclado
+Para agilizar el flujo de trabajo diario, Flowlog soporta atajos de teclado universales:
+- \`Ctrl + K\` o \`Cmd + K\`: Abre la barra de búsqueda global inteligente.
+- \`Alt + N\`: Crea una nueva Cotización rápida desde cualquier pantalla.
+- \`Alt + O\`: Acceso directo al monitor Kanban de Órdenes de Trabajo.
+- \`Esc\`: Cierra modales, ventanas emergentes y selectores activos.
+
+> [!CONSEJO]
+> Puedes colapsar la barra lateral izquierda haciendo clic en el botón con el ícono de menú en la esquina superior para maximizar el área de trabajo en pantallas pequeñas.`
+      },
+      {
+        id: 3,
+        title: "3. Dashboard Principal e Indicadores Clave",
+        shortTitle: "Dashboard y Métricas",
+        badge: "Analítica Operativa",
+        summary: "Interpretación de métricas en tiempo real, KPIs financieros, órdenes en riesgo y gráficos de rendimiento.",
+        content: `### 3.1 Tarjetas de Rendimiento Principal (KPIs)
+El tablero inicial resume la actividad operativa del mes en curso:
+1. **Facturación Total del Mes**: Monto acumulado de cotizaciones aprobadas y órdenes finalizadas.
+2. **Órdenes Activas en Taller**: Conteo de proyectos en estado de impresión, corte, confección o montaje.
+3. **Cotizaciones Pendientes**: Presupuestos emitidos en espera de confirmación por el cliente.
+4. **Eficiencia en Entregas**: Porcentaje de trabajos entregados dentro de la fecha pactada (Meta objetivo: >95%).
+
+### 3.2 Gráficos de Producción y Filtros de Tiempo
+- **Distribución de Carga por Máquina**: Visualiza horas de uso de Plotters UV, Solvente, Láser y Router CNC.
+- **Selector de Período**: Permite filtrar las métricas por **Hoy**, **Esta Semana**, **Este Mes** o **Año en Curso**.
+
+> [!PELIGRO]
+> Si el indicador de **"Órdenes Atrasadas"** aparece en color rojo con un triángulo de advertencia, requiere atención prioritaria por parte del Jefe de Producción para reprogramar turnos.`
+      },
+      {
+        id: 4,
+        title: "4. Módulo de Cotizaciones y Presupuestos",
+        shortTitle: "Cotizaciones",
+        badge: "Ventas y Comercial",
+        summary: "Creación paso a paso de presupuestos, desglose de materiales, cálculo automático de márgenes y exportación.",
+        content: `### 4.1 Creación de una Nueva Cotización
+Para generar una cotización formal:
+1. Haz clic en el botón **"+ Nueva Cotización"** en el módulo de Cotizaciones.
+2. Selecciona el **Cliente existente** o ingresa los datos de un nuevo contacto (Razón Social, NIT/RUT, Teléfono, Correo).
+3. Agrega las líneas de producto especificando:
+   - **Categoría**: Gran Formato, Vinilos, Acrílicos, Corpóreos, Display o Impresión Digital.
+   - **Dimensiones**: Base y Altura en centímetros o metros.
+   - **Cantidad de unidades**: Multiplicador de piezas idénticas.
+   - **Material Base**: Lona Front, Backlight, Vinil Adhesivo, Acrílico 3mm, MDF, etc.
+   - **Acabados**: Ojalillos, sellado perimetral, laminado mate/brillante, corte a registro o estructura metálica.
+
+### 4.2 Desglose de Costos y Margen de Utilidad
+Flowlog calcula automáticamente:
+- **Costo Directo de Materiales**: Área neta multiplicada por el costo por m2 del material configurado en Ajustes.
+- **Mano de Obra y Maquinaria**: Horas estimadas según la complejidad del acabado.
+- **Margen de Ganancia**: Porcentaje sugerido (por defecto 45%) con opción de ajuste según negociación autorizada.
+- **Impuestos**: Cálculo automático de IVA aplicable.
+
+| Estado de Cotización | Significado | Acciones Permitidas |
+| :--- | :--- | :--- |
+| **Borrador** | Presupuesto en edición | Modificar items, cambiar precios, eliminar |
+| **Enviada** | Enviada formalmente al cliente | Registrar seguimiento, reenviar por correo |
+| **Aprobada** | Cliente confirmó el trabajo | Convertir automáticamente en Orden de Trabajo |
+| **Rechazada** | Cliente declinó la propuesta | Archivar y registrar motivo de rechazo |
+
+### 4.3 Acciones Rápidas en la Lista
+- **Editar**: Modifica cantidades y especificaciones de presupuestos en borrador.
+- **PDF**: Descarga la propuesta formal con membrete y términos comerciales.
+- **Eliminar**: Borra cotizaciones en borrador (requiere rol de Administrador o Ventas).
+
+> [!CONSEJO]
+> Al presionar el botón **"Convertir a OT"**, el sistema genera la Orden de Trabajo vinculando todos los archivos de diseño y especificaciones técnicas sin necesidad de redigitar la información.`
+      },
+      {
+        id: 5,
+        title: "5. Módulo de Órdenes de Trabajo (OT)",
+        shortTitle: "Órdenes de Trabajo",
+        badge: "Taller y Producción",
+        summary: "Flujo operativo de taller, estados de producción, asignación de responsables, adjuntos y control de entrega.",
+        content: `### 5.1 Ciclo de Vida de una Orden de Trabajo (OT)
+Toda OT transita por cinco fases consecutivas obligatorias:
+1. **Programación**: Revisión de archivos de impresión, confirmación de stock de insumos y asignación de maquinaria.
+2. **En Producción**: Proceso activo en taller (impresión, troquelado, armado o confección).
+3. **Control de Calidad**: Verificación de medidas, colores de prueba y acabado según la ficha técnica.
+4. **Listo para Entrega / Instalación**: Producto embalado y rotulado en zona de despacho.
+5. **Finalizado y Entregado**: Firma de acta de entrega o guía de remisión por parte del cliente.
+
+### 5.2 Ficha Técnica y Archivos Adjuntos
+Cada orden incluye un expediente digital con:
+- Enlaces a archivos de producción de alta resolución (Google Drive / WeTransfer / Servidor Local).
+- Comentarios y notas de taller con registro de fecha, hora y usuario.
+- Historial de cambios de estado (Auditoría interna).
+
+> [!ADVERTENCIA]
+> Ninguna orden puede pasar al estado **"Listo para Entrega"** sin antes haber completado la lista de chequeo de Control de Calidad por el supervisor de taller.`
+      },
+      {
+        id: 6,
+        title: "6. Herramientas y Calculadoras Técnicas",
+        shortTitle: "Herramientas Técnicas",
+        badge: "Utilidades de Taller",
+        summary: "Calculadora de áreas, optimizador de corte en bobina, conversor de unidades y estimador de tinta.",
+        content: `### 6.1 Calculadora de Metros Cuadrados y Bobinas
+Esta herramienta permite estimar el aprovechamiento de material en rollos estándar (1.20m, 1.50m, 1.80m, 2.20m, 3.20m):
+- Ingresa las medidas de las piezas a imprimir y el ancho del rollo disponible.
+- La herramienta calculará el desperdicio estimado (scrap) y la orientación óptima de corte para minimizar mermas.
+
+### 6.2 Estimador de Consumo de Tintas
+Calcula los mililitros aproximados por metro cuadrado según el tipo de tecnología:
+- **Plotter Solvente / Ecosolvente**: Promedio de 8 a 12 ml/m2.
+- **Plotter UV Curable**: Promedio de 6 a 10 ml/m2.
+- **Sublimación Textil**: Promedio de 10 a 14 ml/m2.
+
+> [!CONSEJO]
+> Utiliza el conversor rápido integrado para transformar milímetros, pulgadas y píxeles a resolución de 150/300 DPI antes de enviar a RIP.`
+      },
+      {
+        id: 7,
+        title: "7. Ajustes, Tarifas y Catálogo de Materiales",
+        shortTitle: "Ajustes y Tarifas",
+        badge: "Administración",
+        summary: "Configuración de precios por m2, catálogo de insumos, gestión de clientes y datos de la empresa.",
+        content: `### 7.1 Gestión de Materiales y Costos Base
+En la pestaña **"Catálogo de Materiales"** el Administrador puede:
+- Crear nuevos sustratos y definir el costo de compra por rollo, plancha o unidad.
+- Configurar el precio de venta sugerido por metro cuadrado.
+- Establecer el stock mínimo de seguridad para alertas automáticas de compra.
+
+### 7.2 Tarifas de Mano de Obra y Acabados
+Define los valores unitarios para servicios adicionales:
+- Costo por ojalillo metálico colocado.
+- Costo por metro lineal de confección de bolsillo / dobladillo térmico.
+- Costo por metro cuadrado de laminado protector UV.
+- Tarifa base de instalación local y viáticos foráneos.
+
+> [!PELIGRO]
+> Modificar las tarifas base en Ajustes NO altera cotizaciones previamente emitidas o aprobadas; los nuevos valores solo aplicarán a cotizaciones generadas a partir de la fecha de actualización.`
+      },
+      {
+        id: 8,
+        title: "8. Mi Perfil y Preferencias de Usuario",
+        shortTitle: "Perfil y Cuenta",
+        badge: "Configuración Personal",
+        summary: "Gestión de datos de contacto del usuario, cambio de clave, firma digital y preferencias de visualización.",
+        content: `### 8.1 Actualización de Datos Personales
+Dentro de tu perfil puedes consultar y actualizar:
+- Nombre y Apellidos completos.
+- Cargo y Departamento asignado dentro de Comunicación 6.
+- Número de WhatsApp corporativo para notificaciones de órdenes urgentes.
+
+### 8.2 Cambio Periódico de Contraseña
+- Se recomienda actualizar tu clave de acceso cada 90 días.
+- La contraseña debe contener un mínimo de 8 caracteres, incluyendo al menos una mayúscula, un número y un símbolo.
+
+### 8.3 Notificaciones por Correo
+Puedes activar o desactivar las alertas automáticas para:
+- Nueva cotización asignada a tu cartera.
+- Cambio de estado en una orden que tú gestionas.
+- Mensaje o comentario nuevo en una OT.`
+      },
+      {
+        id: 9,
+        title: "9. Monitor Kanban y Tablero de Producción",
+        shortTitle: "Monitor Kanban",
+        badge: "Supervisión Visual",
+        summary: "Gestión visual interactiva mediante columnas de arrastre, filtros por máquina y códigos de prioridad.",
+        content: `### 9.1 Columnas del Tablero Kanban
+El monitor organiza las órdenes en columnas visuales:
+1. **Pendiente de Programar**: Trabajos aprobados en espera de asignación de insumo o turno de máquina.
+2. **En Impresión / Corte**: Trabajos activos actualmente en la línea de producción.
+3. **En Confección / Armado**: Trabajos en proceso manual de acabado, ensamble o estructura.
+4. **Revisión de Calidad**: Inspección final previa al empaque.
+5. **Listo para Despacho**: Órdenes terminadas listas para entrega en mostrador o ruta de despacho.
+
+### 9.2 Códigos de Color de Prioridad
+Las tarjetas de las órdenes cuentan con una franja lateral de color:
+- 🟢 **Prioridad Normal**: Entrega en más de 48 horas.
+- 🟡 **Prioridad Media**: Entrega en las próximas 24 a 48 horas.
+- 🔴 **Prioridad Alta / Urgente**: Entrega el mismo día (Turno prioritario en máquina).
+
+> [!CONSEJO]
+> En pantallas táctiles de taller, el operario puede tocar la tarjeta y seleccionar el botón de avance rápido para trasladar la orden a la siguiente fase sin necesidad de teclado.`
+      },
+      {
+        id: 10,
+        title: "10. Roles, Permisos y Matriz de Responsabilidades",
+        shortTitle: "Roles y Permisos",
+        badge: "Gobernanza",
+        summary: "Matriz detallada de privilegios, aprobaciones especiales, auditoría de cambios y accesos por cargo.",
+        content: `### 10.1 Matriz General de Permisos por Rol
+La siguiente tabla define las acciones autorizadas para cada perfil del sistema:
+
+| Acción en el Sistema | Administrador | Ventas | Producción | Operario |
+| :--- | :--- | :--- | :--- | :--- |
+| **Crear / Editar Cotización** | ✅ Total | ✅ Total | ❌ No | ❌ No |
+| **Aplicar Descuentos > 15%** | ✅ Total | ❌ Requiere Admin | ❌ No | ❌ No |
+| **Aprobar Cotización a OT** | ✅ Total | ✅ Total | ❌ No | ❌ No |
+| **Mover Columnas Kanban** | ✅ Total | ❌ Solo Lectura | ✅ Total | ✅ Solo Asignadas |
+| **Modificar Tarifas / Precios** | ✅ Total | ❌ No | ❌ No | ❌ No |
+| **Crear / Eliminar Usuarios** | ✅ Total | ❌ No | ❌ No | ❌ No |
+| **Ver Reportes Financieros** | ✅ Total | ❌ No | ❌ No | ❌ No |
+
+### 10.2 Registro de Auditoría de Acciones
+Flowlog almacena un registro inmutable con fecha, hora, dirección IP y usuario para las siguientes acciones críticas:
+- Creación y edición de presupuestos.
+- Anulación de órdenes de trabajo.
+- Modificación de tarifas por m2 en el módulo de Ajustes.
+- Creación o desactivación de cuentas de usuario.`
+      },
+      {
+        id: 11,
+        title: "11. Preguntas Frecuentes y Solución de Problemas (FAQ)",
+        shortTitle: "Preguntas Frecuentes (FAQ)",
+        badge: "Soporte y Ayuda",
+        summary: "Resolución de incidencias comunes, errores frecuentes, copias de seguridad y canales de soporte.",
+        content: `### 11.1 Preguntas Frecuentes de Uso Diario
+
+#### ¿Qué debo hacer si una cotización fue aprobada pero el cliente solicita cambios de medida?
+Si la cotización ya fue convertida en Orden de Trabajo:
+1. El Jefe de Producción debe colocar la OT en estado **"Pausada"**.
+2. El Ejecutivo de Ventas debe ingresar a la orden, generar un anexo o adenda de modificación y solicitar aprobación del cliente.
+3. Si el trabajo ya ingresó a máquina de impresión, se deberá registrar el desperdicio de material antes de emitir la nueva orden.
+
+#### ¿Cómo reimprimo una orden de trabajo o ficha técnica de taller?
+Ingresa al módulo de **Órdenes de Trabajo**, localiza la orden en la tabla o en el Kanban y haz clic en el botón de **Acciones -> "Ver Ficha PDF"**. Luego presiona el botón **Imprimir**.
+
+#### ¿Qué ocurre si un material no aparece en el listado de cotización?
+Solicita al **Administrador General** que ingrese a **Ajustes -> Catálogo de Materiales** y registre el nuevo sustrato con su respectivo costo de compra y precio de venta por m2.
+
+### 11.2 Soporte Técnico y Contacto
+Si experimentas lentitud o fallas en la plataforma:
+- Realiza una limpieza de caché del navegador presionando \`Ctrl + F5\` o \`Cmd + Shift + R\`.
+- Si el problema persiste, contacta al soporte técnico interno de **Comunicación 6** mediante el correo de soporte corporativo.`
+      }
+    ];
+
+    // App State
+    let currentModuleId = 1;
+
+    // Helper: Parse Markdown for HTML Display
+    function parseMarkdownToHTML(markdown) {
+      const lines = markdown.split('\n');
+      let html = '';
+      let tableBuffer = [];
+      let inCode = false;
+      let codeBuffer = [];
+      let calloutBuffer = null;
+
+      function flushTable() {
+        if (tableBuffer.length < 2) {
+          tableBuffer = [];
+          return;
+        }
+        const rows = tableBuffer.map(line => 
+          line.split('|').filter((_, idx, arr) => idx > 0 && idx < arr.length - 1).map(c => c.trim())
+        );
+        tableBuffer = [];
+
+        const header = rows[0];
+        const body = rows.slice(2);
+
+        html += `<div class="my-6 overflow-x-auto rounded-xl border border-slate-200 bg-white shadow-xs">
+          <table class="w-full text-left text-xs md:text-sm border-collapse">
+            <thead>
+              <tr class="bg-slate-50 text-slate-700 border-b border-slate-200 font-bold">
+                ${header.map(col => `<th class="py-3 px-4 text-slate-800 font-semibold tracking-wide">${formatInline(col)}</th>`).join('')}
+              </tr>
+            </thead>
+            <tbody class="divide-y divide-slate-100">
+              ${body.map(row => `
+                <tr class="hover:bg-slate-50/70 transition-colors">
+                  ${row.map(cell => {
+                    let val = formatInline(cell);
+                    if (cell.includes('✅')) val = '<span class="text-emerald-600 font-bold inline-flex items-center gap-1"><i class="fa-solid fa-check"></i> SÍ</span>';
+                    if (cell.includes('❌')) val = '<span class="text-rose-500 font-bold inline-flex items-center gap-1"><i class="fa-solid fa-xmark"></i> NO</span>';
+                    return `<td class="py-3 px-4 text-slate-600">${val}</td>`;
+                  }).join('')}
+                </tr>
+              `).join('')}
+            </tbody>
+          </table>
+        </div>`;
+      }
+
+      function flushCallout() {
+        if (!calloutBuffer) return;
+        const { type, lines: cLines } = calloutBuffer;
+        const text = formatInline(cLines.join(' '));
+        calloutBuffer = null;
+
+        let icon = '<i class="fa-solid fa-circle-info text-blue-600 mt-0.5"></i>';
+        let styles = 'bg-blue-50/70 border-blue-200 text-blue-900';
+        let badge = 'NOTA';
+
+        if (type === 'ADVERTENCIA' || type === 'WARNING') {
+          icon = '<i class="fa-solid fa-triangle-exclamation text-amber-600 mt-0.5"></i>';
+          styles = 'bg-amber-50/70 border-amber-200 text-amber-900';
+          badge = 'ADVERTENCIA';
+        } else if (type === 'PELIGRO' || type === 'ERROR') {
+          icon = '<i class="fa-solid fa-shield-halved text-rose-600 mt-0.5"></i>';
+          styles = 'bg-rose-50/70 border-rose-200 text-rose-900';
+          badge = 'IMPORTANTE';
+        } else if (type === 'TIP' || type === 'CONSEJO') {
+          icon = '<i class="fa-solid fa-circle-check text-emerald-600 mt-0.5"></i>';
+          styles = 'bg-emerald-50/70 border-emerald-200 text-emerald-900';
+          badge = 'RECOMENDACIÓN';
+        }
+
+        html += `<div class="my-5 p-4 rounded-xl border flex items-start gap-3.5 shadow-xs ${styles}">
+          <div class="text-base shrink-0">${icon}</div>
+          <div class="text-xs md:text-sm leading-relaxed">
+            <span class="font-bold uppercase tracking-wider text-[11px] block mb-1">${badge}</span>
+            <p class="opacity-95">${text}</p>
+          </div>
+        </div>`;
+      }
+
+      function formatInline(str) {
+        return str
+          .replace(/\*\*(.*?)\*\*/g, '<strong class="text-slate-900 font-semibold">$1</strong>')
+          .replace(/`(.*?)`/g, '<code class="px-1.5 py-0.5 mx-0.5 bg-slate-100 text-blue-700 rounded font-mono text-[11px] border border-slate-200 font-semibold">$1</code>');
+      }
+
+      for (let i = 0; i < lines.length; i++) {
+        const line = lines[i];
+
+        // Code block
+        if (line.trim().startsWith('```')) {
+          if (inCode) {
+            html += `<div class="my-4 p-4 rounded-xl bg-slate-900 border border-slate-800 font-mono text-xs text-emerald-400 overflow-x-auto shadow-xs"><pre>${codeBuffer.join('\n')}</pre></div>`;
+            codeBuffer = [];
+            inCode = false;
+          } else {
+            inCode = true;
+          }
+          continue;
+        }
+
+        if (inCode) {
+          codeBuffer.push(line);
+          continue;
+        }
+
+        // Callout start
+        if (line.trim().startsWith('> [!')) {
+          if (calloutBuffer) flushCallout();
+          const match = line.match(/> \[!([A-ZÁÉÍÓÚÑ]+)\]/);
+          calloutBuffer = { type: match ? match[1] : 'NOTA', lines: [] };
+          continue;
+        } else if (calloutBuffer) {
+          if (line.trim().startsWith('>')) {
+            calloutBuffer.lines.push(line.replace(/^>\s?/, ''));
+            continue;
+          } else {
+            flushCallout();
+          }
+        }
+
+        // Table lines
+        if (line.trim().startsWith('|') && line.trim().endsWith('|')) {
+          tableBuffer.push(line);
+          continue;
+        } else if (tableBuffer.length > 0) {
+          flushTable();
+        }
+
+        // Headings
+        if (line.startsWith('##### ')) {
+          html += `<h5 class="text-xs font-bold text-blue-600 mt-5 mb-2 uppercase tracking-wider">${formatInline(line.replace('##### ', ''))}</h5>`;
+        } else if (line.startsWith('#### ')) {
+          html += `<h4 class="text-base md:text-lg font-bold text-slate-900 mt-6 mb-2.5 flex items-center gap-2">
+            <span class="w-2 h-2 rounded-full bg-blue-600 inline-block"></span>
+            ${formatInline(line.replace('#### ', ''))}
+          </h4>`;
+        } else if (line.startsWith('### ')) {
+          html += `<h3 class="text-lg md:text-xl font-bold text-slate-900 mt-7 mb-3 pb-2 border-b border-slate-200">${formatInline(line.replace('### ', ''))}</h3>`;
+        } else if (line.startsWith('- ')) {
+          html += `<li class="text-xs md:text-sm text-slate-700 ml-4 list-disc marker:text-blue-600 leading-relaxed my-1.5">${formatInline(line.replace('- ', ''))}</li>`;
+        } else if (/^\d+\.\s/.test(line)) {
+          const num = line.match(/^(\d+)\.\s/)[1];
+          const text = line.replace(/^\d+\.\s/, '');
+          html += `<div class="flex items-start gap-3 my-2 text-xs md:text-sm text-slate-700">
+            <span class="w-5 h-5 rounded-full bg-blue-50 border border-blue-200 text-blue-700 font-bold text-xs flex items-center justify-center shrink-0 mt-0.5">${num}</span>
+            <p class="leading-relaxed">${formatInline(text)}</p>
+          </div>`;
+        } else if (line.trim().length > 0) {
+          html += `<p class="text-xs md:text-sm text-slate-700 leading-relaxed my-2.5">${formatInline(line)}</p>`;
+        }
+      }
+
+      if (tableBuffer.length > 0) flushTable();
+      if (calloutBuffer) flushCallout();
+
+      return html;
+    }
+
+    // Render Sidebar List
+    function renderSidebar(filteredList = manualModules) {
+      const container = document.getElementById('module-nav-list');
+      container.innerHTML = '';
+
+      filteredList.forEach(mod => {
+        const isActive = mod.id === currentModuleId;
+        const btn = document.createElement('button');
+        btn.id = `sidebar-btn-${mod.id}`;
+        btn.onclick = () => selectModule(mod.id);
+        btn.className = `w-full text-left p-2.5 rounded-xl transition-all flex items-center justify-between group ${
+          isActive
+            ? 'bg-blue-50 border border-blue-200 text-blue-900 shadow-xs'
+            : 'hover:bg-slate-50 text-slate-700 border border-transparent'
+        }`;
+
+        btn.innerHTML = `
+          <div class="flex items-center gap-2.5 min-w-0 pr-2">
+            <span class="w-6 h-6 rounded-lg text-xs font-bold flex items-center justify-center shrink-0 ${
+              isActive
+                ? 'bg-blue-600 text-white shadow-xs'
+                : 'bg-slate-100 text-slate-600 group-hover:bg-slate-200'
+            }">
+              ${mod.id}
+            </span>
+            <div class="min-w-0">
+              <p class="text-xs font-bold truncate ${isActive ? 'text-blue-700' : 'text-slate-800'}">
+                ${mod.shortTitle}
+              </p>
+              <span class="text-[10px] text-slate-500 block truncate">
+                ${mod.badge}
+              </span>
+            </div>
+          </div>
+          <i class="fa-solid fa-chevron-right text-xs transition-transform ${
+            isActive ? 'text-blue-600 translate-x-0.5' : 'text-slate-300 group-hover:text-slate-500'
+          }"></i>
+        `;
+        container.appendChild(btn);
+      });
+
+      document.getElementById('module-count-badge').innerText = `${filteredList.length} módulos disponibles`;
+    }
+
+    // Select and Render Active Module
+    function selectModule(id) {
+      currentModuleId = id;
+      const mod = manualModules.find(m => m.id === id) || manualModules[0];
+
+      // Update Header Card
+      const headerCard = document.getElementById('module-header-card');
+      headerCard.innerHTML = `
+        <div class="flex flex-wrap items-center justify-between gap-3 mb-3">
+          <span class="inline-flex items-center gap-1.5 px-3 py-1 rounded-md text-xs font-bold bg-blue-50 border border-blue-200 text-blue-700 uppercase tracking-wide">
+            <i class="fa-solid fa-sparkles text-blue-600"></i>
+            ${mod.badge}
+          </span>
+          <div class="flex items-center gap-2 no-print">
+            <button onclick="window.print()" class="px-3 py-1.5 rounded-lg border border-blue-200 bg-blue-50/70 hover:bg-blue-100 text-blue-700 text-xs font-semibold flex items-center gap-1.5 transition-colors shadow-2xs">
+              <i class="fa-solid fa-print text-blue-600"></i>
+              <span>Imprimir Módulo</span>
+            </button>
+          </div>
+        </div>
+        <h1 class="text-2xl md:text-3xl font-bold text-slate-900 tracking-tight mb-2">
+          ${mod.title}
+        </h1>
+        <p class="text-sm text-slate-600 leading-relaxed">
+          ${mod.summary}
+        </p>
+      `;
+
+      // Update Body Card
+      const contentCard = document.getElementById('module-content-card');
+      contentCard.innerHTML = parseMarkdownToHTML(mod.content);
+
+      // Update Pagination Buttons
+      const prevBtn = document.getElementById('btn-prev-module');
+      const nextBtn = document.getElementById('btn-next-module');
+      
+      if (mod.id > 1) {
+        prevBtn.classList.remove('invisible');
+        const prevMod = manualModules.find(m => m.id === mod.id - 1);
+        document.getElementById('prev-module-title').innerText = prevMod.shortTitle;
+      } else {
+        prevBtn.classList.add('invisible');
+      }
+
+      if (mod.id < manualModules.length) {
+        nextBtn.classList.remove('invisible');
+        const nextMod = manualModules.find(m => m.id === mod.id + 1);
+        document.getElementById('next-module-title').innerText = nextMod.shortTitle;
+      } else {
+        nextBtn.classList.add('invisible');
+      }
+
+      // Re-render sidebar to update active state
+      renderSidebar();
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+
+    // Filter Search
+    function filterModules(query) {
+      const clearBtn = document.getElementById('clear-search-btn');
+      if (query.trim()) {
+        clearBtn.classList.remove('hidden');
+      } else {
+        clearBtn.classList.add('hidden');
+      }
+
+      const q = query.toLowerCase().trim();
+      const filtered = manualModules.filter(m => 
+        m.title.toLowerCase().includes(q) ||
+        m.summary.toLowerCase().includes(q) ||
+        m.content.toLowerCase().includes(q)
+      );
+
+      renderSidebar(filtered);
+    }
+
+    function clearSearch() {
+      const input = document.getElementById('manual-search-input');
+      input.value = '';
+      filterModules('');
+    }
+
+    // Navigate Next/Prev
+    function navigateModule(direction) {
+      const targetId = currentModuleId + direction;
+      if (targetId >= 1 && targetId <= manualModules.length) {
+        selectModule(targetId);
+      }
+    }
+
+    // Populate Complete 11 Modules for Print/PDF
+    function renderCompletePrintView() {
+      const printContainer = document.getElementById('complete-print-container');
+      if (!printContainer) return;
+
+      let html = `
+        <!-- PORTADA OFICIAL PARA IMPRESIÓN / PDF -->
+        <div class="p-8 mb-8 border-b-2 border-slate-300">
+          <div class="bg-blue-700 text-white p-8 rounded-xl">
+            <div class="text-xs uppercase tracking-widest text-blue-200 font-bold mb-2">Manual Oficial de Operación</div>
+            <h1 class="text-3xl font-extrabold tracking-tight">FLOWLOG · COMUNICACIÓN 6</h1>
+            <p class="text-sm text-blue-100 mt-1">SISTEMA INTEGRAL DE GESTIÓN Y PRODUCCIÓN</p>
+            <div class="h-0.5 bg-blue-500/60 my-6"></div>
+            <h2 class="text-xl font-bold">MANUAL COMPLETO DE USUARIO (11 MÓDULOS)</h2>
+            <p class="text-xs text-blue-200 mt-1">Guía completa de usuario, reglas de negocio, tablas de permisos y flujos de trabajo.</p>
+            <div class="mt-8 pt-4 border-t border-blue-600/60 flex justify-between text-[11px] text-blue-200">
+              <span>Versión del Sistema: 2.4</span>
+              <span>Fecha de Emisión: 2026 · Comunicación 6</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- ÍNDICE DE CONTENIDOS -->
+        <div class="p-6 mb-8 border border-slate-200 rounded-xl bg-slate-50/50 avoid-break">
+          <h3 class="text-base font-bold text-slate-900 mb-4 pb-2 border-b border-slate-200 uppercase tracking-wider text-xs">
+            Índice de Módulos
+          </h3>
+          <div class="grid grid-cols-2 gap-x-6 gap-y-2 text-xs">
+            ${manualModules.map(m => `
+              <div class="flex items-center justify-between py-1 border-b border-slate-100">
+                <span class="font-medium text-slate-800">${m.id}. ${m.shortTitle}</span>
+                <span class="text-slate-400 font-mono text-[10px]">${m.badge}</span>
+              </div>
+            `).join('')}
+          </div>
+        </div>
+      `;
+
+      // Render each of the 11 modules
+      manualModules.forEach((mod, idx) => {
+        html += `
+          <div class="${idx > 0 ? 'page-break' : ''} pt-4 mb-8">
+            <div class="border-b-2 border-blue-600 pb-3 mb-4 flex items-center justify-between">
+              <div>
+                <span class="text-[10px] uppercase font-bold tracking-wider text-blue-600 bg-blue-50 px-2 py-0.5 rounded border border-blue-200">
+                  ${mod.badge}
+                </span>
+                <h2 class="text-xl font-bold text-slate-900 mt-1">
+                  ${mod.title}
+                </h2>
+              </div>
+              <span class="text-xs font-mono font-bold text-slate-400">
+                Módulo ${mod.id} de 11
+              </span>
+            </div>
+
+            <p class="text-xs italic text-slate-600 mb-6 bg-slate-50 p-3 rounded-lg border border-slate-200">
+              <strong>Resumen:</strong> ${mod.summary}
+            </p>
+
+            <div class="text-slate-800 text-xs leading-relaxed">
+              ${parseMarkdownToHTML(mod.content)}
+            </div>
+          </div>
+        `;
+      });
+
+      printContainer.innerHTML = html;
+    }
+
+    // Print all modules handler
+    function printCompleteManual() {
+      renderCompletePrintView();
+      window.print();
+    }
+
+    // Initialize on Load
+    document.addEventListener('DOMContentLoaded', () => {
+      renderSidebar();
+      selectModule(1);
+      renderCompletePrintView();
+    });
+  </script>
+</body>
+</html>

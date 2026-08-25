@@ -12,7 +12,9 @@ import { formatDate } from '../utils/formatters';
 
 export default function Cotizaciones({ user }) {
   const { hasPermission } = usePermissions();
+  const canSee = hasPermission('cotizaciones', 'ver');
   const canCreate = hasPermission('cotizaciones', 'crear');
+  const canEdit = hasPermission('cotizaciones', 'editar');
   const canDelete = hasPermission('cotizaciones', 'eliminar');
 
   const [searchTerm, setSearchTerm] = useState('');
@@ -335,6 +337,17 @@ export default function Cotizaciones({ user }) {
   };
 
   const handleSave = async (nuevaCotizacion) => {
+    if (nuevaCotizacion._isNew || nuevaCotizacion.id === 'NEW') {
+      if (!canCreate) {
+        showNotification('No tienes permiso para crear cotizaciones.', 'error');
+        return;
+      }
+    } else {
+      if (!canEdit) {
+        showNotification('No tienes permiso para editar cotizaciones.', 'error');
+        return;
+      }
+    }
     try {
       let finalId = nuevaCotizacion.id;
 
@@ -462,6 +475,10 @@ export default function Cotizaciones({ user }) {
   };
 
   const handleDelete = async (id) => {
+    if (!canDelete) {
+      showNotification('No tienes permiso para eliminar cotizaciones.', 'error');
+      return;
+    }
     try {
       const { error } = await supabase
         .from('quotes')
@@ -480,6 +497,15 @@ export default function Cotizaciones({ user }) {
     }
   };
 
+  if (!canSee) {
+    return (
+      <div className="page-content" style={{ padding: '2rem', textAlign: 'center' }}>
+        <h2 style={{ color: 'var(--error-color)', marginBottom: '1rem' }}>Acceso Denegado</h2>
+        <p style={{ color: 'var(--text-muted)' }}>No tienes permisos para acceder a esta sección.</p>
+      </div>
+    );
+  }
+
   if (editingCotizacion) {
     return <CotizacionForm 
       initialData={editingCotizacion.id !== 'NEW' ? editingCotizacion : null} 
@@ -487,6 +513,7 @@ export default function Cotizaciones({ user }) {
       onSave={handleSave} 
       onDelete={handleDelete}
       user={user}
+      isReadOnly={editingCotizacion.id === 'NEW' ? !canCreate : !canEdit}
     />;
   }
 

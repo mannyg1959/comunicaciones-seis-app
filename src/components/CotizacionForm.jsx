@@ -102,7 +102,7 @@ const parseMaskedValueToNumber = (value) => {
 };
 
 
-export default function CotizacionForm({ initialData, onCancel, onSave, onDelete, user }) {
+export default function CotizacionForm({ initialData, onCancel, onSave, onDelete, user, isReadOnly = false }) {
   const isNew = !initialData;
   const [formData, setFormData] = useState(() => {
     if (initialData) {
@@ -967,7 +967,7 @@ export default function CotizacionForm({ initialData, onCancel, onSave, onDelete
 
         {/* Right Side: Action Buttons */}
         <div className="form-header-actions">
-          {initialData && (
+          {initialData && !isReadOnly && (
             <button 
               type="button" 
               className="btn form-header-btn" 
@@ -982,7 +982,7 @@ export default function CotizacionForm({ initialData, onCancel, onSave, onDelete
               <span>Eliminar</span>
             </button>
           )}
-          {initialData && (
+          {initialData && !isReadOnly && (
             <button 
               type="button" 
               className="btn btn-secondary form-header-btn" 
@@ -992,14 +992,16 @@ export default function CotizacionForm({ initialData, onCancel, onSave, onDelete
               <span>Convertir a OT</span>
             </button>
           )}
-          <button 
-            type="button" 
-            className="btn btn-primary form-header-btn form-header-btn-save" 
-            onClick={handleSaveClick}
-          >
-            <Save size={16} />
-            <span>Guardar</span>
-          </button>
+          {!isReadOnly && (
+            <button 
+              type="button" 
+              className="btn btn-primary form-header-btn form-header-btn-save" 
+              onClick={handleSaveClick}
+            >
+              <Save size={16} />
+              <span>Guardar</span>
+            </button>
+          )}
         </div>
       </div>
 
@@ -1144,7 +1146,7 @@ export default function CotizacionForm({ initialData, onCancel, onSave, onDelete
                 }}
                 value={formData.estado} 
                 onChange={e => setFormData({...formData, estado: e.target.value})}
-                disabled={isNew}
+                disabled={isNew || isReadOnly}
               >
                 <option value="Borrador">Borrador</option>
                 <option value="Pendiente">Pendiente</option>
@@ -1163,7 +1165,7 @@ export default function CotizacionForm({ initialData, onCancel, onSave, onDelete
             </div>
             <div className="input-group" style={{ flex: 1 }}>
               <label>Validez (Días)</label>
-              <input type="number" className="input-control" value={formData.fechaValidez} onChange={e => setFormData({...formData, fechaValidez: e.target.value})} />
+              <input type="number" className="input-control" value={formData.fechaValidez} onChange={e => setFormData({...formData, fechaValidez: e.target.value})} disabled={isReadOnly} />
             </div>
           </div>
 
@@ -1183,37 +1185,41 @@ export default function CotizacionForm({ initialData, onCancel, onSave, onDelete
                     clientId: matched ? matched.id : null
                   });
                 }}
-
+                disabled={isReadOnly}
               >
                 <option value="">Seleccione un cliente...</option>
                 {[...new Set([...clientsList.map(c => c.empresa), ...customClients])].map(cliente => (
                   <option key={cliente} value={cliente}>{cliente}</option>
                 ))}
               </select>
-              <button 
-                type="button" 
-                className="btn btn-secondary" 
-                style={{ padding: '0 1rem', width: 'auto', display: 'flex', alignItems: 'center', gap: '0.4rem', height: '48px', fontSize: '0.95rem' }}
-                onClick={() => setShowCarouselModal(true)}
-                title="Ver Catálogo de Clientes"
-              >
-                <Users size={20} />
-                <span>Ver Clientes</span>
-              </button>
-              <button 
-                type="button" 
-                className="btn btn-secondary" 
-                style={{ padding: '0 1.25rem', width: 'auto', height: '48px', fontSize: '0.95rem' }}
-                onClick={handleAddClient}
-                title="Agregar nuevo cliente"
-              >
-                <Plus size={20} />
-              </button>
+              {!isReadOnly && (
+                <>
+                  <button 
+                    type="button" 
+                    className="btn btn-secondary" 
+                    style={{ padding: '0 1rem', width: 'auto', display: 'flex', alignItems: 'center', gap: '0.4rem', height: '48px', fontSize: '0.95rem' }}
+                    onClick={() => setShowCarouselModal(true)}
+                    title="Ver Catálogo de Clientes"
+                  >
+                    <Users size={20} />
+                    <span>Ver Clientes</span>
+                  </button>
+                  <button 
+                    type="button" 
+                    className="btn btn-secondary" 
+                    style={{ padding: '0 1.25rem', width: 'auto', height: '48px', fontSize: '0.95rem' }}
+                    onClick={handleAddClient}
+                    title="Agregar nuevo cliente"
+                  >
+                    <Plus size={20} />
+                  </button>
+                </>
+              )}
             </div>
           </div>
           <div className="input-group">
             <label>Contacto del Cliente</label>
-            <input type="text" className="input-control" value={formData.contacto} onChange={e => setFormData({...formData, contacto: e.target.value})} />
+            <input type="text" className="input-control" value={formData.contacto} onChange={e => setFormData({...formData, contacto: e.target.value})} disabled={isReadOnly} />
           </div>
           <div className="input-group">
             <label>Ejecutivo de Ventas</label>
@@ -1233,20 +1239,22 @@ export default function CotizacionForm({ initialData, onCancel, onSave, onDelete
                 borderLeft: '4px solid var(--primary-color)'
               }}
             >
-              <button 
-                type="button"
-                onClick={() => setItemToDelete(item.id)}
-                style={{ position: 'absolute', top: '1rem', right: '1rem', background: 'transparent', border: 'none', color: 'var(--error-color)', cursor: 'pointer' }}
-              >
-                <Trash2 size={24} />
-              </button>
+              {!isReadOnly && (
+                <button 
+                  type="button"
+                  onClick={() => setItemToDelete(item.id)}
+                  style={{ position: 'absolute', top: '1rem', right: '1rem', background: 'transparent', border: 'none', color: 'var(--error-color)', cursor: 'pointer' }}
+                >
+                  <Trash2 size={24} />
+                </button>
+              )}
               
               <h3 style={{ marginBottom: '1rem', fontSize: '1.125rem' }}>Línea {index + 1}</h3>
               <hr style={{ border: 'none', borderTop: '1px solid #4b5563', marginBottom: '1.25rem' }} />
               
               <div className="input-group">
                 <label>Línea de Negocio</label>
-                <select className="input-control" value={item.lineaNegocio} onChange={e => updateItem(item.id, 'lineaNegocio', e.target.value)}>
+                <select className="input-control" value={item.lineaNegocio} onChange={e => updateItem(item.id, 'lineaNegocio', e.target.value)} disabled={isReadOnly}>
                   <option value="Corte">Corte</option>
                   <option value="Impresión">Impresión</option>
                   <option value="Diseño">Diseño</option>
@@ -1280,13 +1288,13 @@ export default function CotizacionForm({ initialData, onCancel, onSave, onDelete
                     <Expand size={14} /> Ampliar
                   </button>
                 </div>
-                <textarea className="input-control" rows="3" value={item.descripcion} onChange={e => updateItem(item.id, 'descripcion', e.target.value)} placeholder="Ej. Aviso luminoso para fachada..." />
+                <textarea className="input-control" rows="3" value={item.descripcion} onChange={e => updateItem(item.id, 'descripcion', e.target.value)} placeholder="Ej. Aviso luminoso para fachada..." disabled={isReadOnly} />
               </div>
 
               <div className="flex-row-between" style={{ gap: '1rem' }}>
                 <div className="input-group" style={{ flex: 1 }}>
                   <label>Cantidad</label>
-                  <input type="number" className="input-control" value={item.cantidad} onChange={e => updateItem(item.id, 'cantidad', e.target.value)} />
+                  <input type="number" className="input-control" value={item.cantidad} onChange={e => updateItem(item.id, 'cantidad', e.target.value)} disabled={isReadOnly} />
                 </div>
                 <div className="input-group" style={{ flex: 1 }}>
                   <label>Costo Unitario ($)</label>
@@ -1299,15 +1307,15 @@ export default function CotizacionForm({ initialData, onCancel, onSave, onDelete
                       updateItem(item.id, 'costoUnitario', formatted);
                     }} 
                     placeholder="$0.00"
+                    disabled={isReadOnly}
                   />
                 </div>
               </div>
 
               <div className="input-group">
                 <label>Archivos Adjuntos (URLs)</label>
-                <input type="text" className="input-control" value={item.adjuntos} onChange={e => updateItem(item.id, 'adjuntos', e.target.value)} placeholder="Enlaces a Drive, Dropbox..." />
+                <input type="text" className="input-control" value={item.adjuntos} onChange={e => updateItem(item.id, 'adjuntos', e.target.value)} placeholder="Enlaces a Drive, Dropbox..." disabled={isReadOnly} />
               </div>
-
 
               
             </div>
@@ -1319,9 +1327,11 @@ export default function CotizacionForm({ initialData, onCancel, onSave, onDelete
             </div>
           )}
 
-          <button className="btn btn-secondary" onClick={addItem} style={{ borderStyle: 'dashed', borderWidth: '2px', borderColor: 'var(--border-color)', background: 'transparent', marginTop: '0.5rem', marginBottom: '100px' }}>
-            <Plus size={20} /> Añadir Ítem
-          </button>
+          {!isReadOnly && (
+            <button className="btn btn-secondary" onClick={addItem} style={{ borderStyle: 'dashed', borderWidth: '2px', borderColor: 'var(--border-color)', background: 'transparent', marginTop: '0.5rem', marginBottom: '100px' }}>
+              <Plus size={20} /> Añadir Ítem
+            </button>
+          )}
         </div>
       )}
 
@@ -1348,12 +1358,13 @@ export default function CotizacionForm({ initialData, onCancel, onSave, onDelete
               value={formData.fechaEntrega || ''} 
               onChange={e => setFormData({...formData, fechaEntrega: e.target.value})} 
               min={new Date().toISOString().split('T')[0]}
+              disabled={isReadOnly}
             />
           </div>
 
           <div className="input-group">
             <label>Condiciones de Pago</label>
-            <select className="input-control" value={formData.condicionesPago} onChange={e => setFormData({...formData, condicionesPago: e.target.value})}>
+            <select className="input-control" value={formData.condicionesPago} onChange={e => setFormData({...formData, condicionesPago: e.target.value})} disabled={isReadOnly}>
               <option value="50% anticipo / 50% contra entrega">50% anticipo / 50% contra entrega</option>
               <option value="100% anticipo">100% anticipo</option>
               <option value="Crédito 15 días">Crédito 15 días</option>
@@ -1370,6 +1381,7 @@ export default function CotizacionForm({ initialData, onCancel, onSave, onDelete
               rows="3"
               value={formData.description || ''}
               onChange={e => setFormData({...formData, description: e.target.value})}
+              disabled={isReadOnly}
             />
           </div>
 
@@ -1975,6 +1987,7 @@ export default function CotizacionForm({ initialData, onCancel, onSave, onDelete
               onChange={e => updateItem(expandedItem.id, 'descripcion', e.target.value)}
               placeholder="Escribe la descripción detallada aquí..."
               autoFocus
+              disabled={isReadOnly}
             />
             <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
               <button 
