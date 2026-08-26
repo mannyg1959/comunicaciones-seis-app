@@ -58,6 +58,9 @@ export default function Cotizaciones({ user }) {
           cliente: q.client?.name || 'Sin Cliente',
           clientId: q.client_id,
           contacto: q.contact_name || q.client?.contact_name || '',
+          contactoId: q.contact_id || null,
+          correo: q.contact_email || '',
+          telefono: q.contact_phone || '',
           direccionCliente: q.client?.address || '',
           tipo: q.items && q.items.length > 0 ? q.items[0].line_of_business + (q.items.length > 1 ? ' y otros' : '') : 'Varios',
           monto: q.total,
@@ -84,6 +87,7 @@ export default function Cotizaciones({ user }) {
           impuestos: q.taxes,
           total: q.total,
           condicionesPago: q.payment_terms,
+          fechaValidez: q.validity_days ? String(q.validity_days) : '15',
           description: q.description || '',
           motivoRechazo: q.rejection_reason || '',
           detalleRechazo: q.rejection_details || ''
@@ -163,6 +167,9 @@ export default function Cotizaciones({ user }) {
       htmlText = htmlText.replace(/\[campo4\]/gi, senderAddr);
       htmlText = htmlText.replace(/\[campo5\]/gi, quote.cliente || 'Sin Cliente');
       htmlText = htmlText.replace(/\[campo6\]/gi, clientAddr);
+      htmlText = htmlText.replace(/\[campo7\]/gi, quote.contacto || 'Sin Contacto');
+      htmlText = htmlText.replace(/\[campo8\]/gi, quote.fechaValidez || 15);
+      htmlText = htmlText.replace(/\[campo9\]/gi, quote.condicionesPago || 'No especificadas');
       htmlText = htmlText.replace(/src="\/logo\.png"/gi, `src="${window.location.origin}/logo.png"`);
 
       const parser = new DOMParser();
@@ -362,22 +369,24 @@ export default function Cotizaciones({ user }) {
       if (nuevaCotizacion.clientId) {
         const { data: clientData } = await supabase
           .from('clients')
-          .select('contact_email, contact_phone, address')
+          .select('address')
           .eq('id', nuevaCotizacion.clientId)
           .single();
           
         if (clientData) {
-          client_email = clientData.contact_email;
-          client_phone = clientData.contact_phone;
           client_address = clientData.address;
         }
       }
+
+      client_email = nuevaCotizacion.correo || null;
+      client_phone = nuevaCotizacion.telefono || null;
 
       if (nuevaCotizacion._isNew) {
         const { data: insertedQuote, error: insertError } = await supabase
           .from('quotes')
           .insert([{
             client_id: nuevaCotizacion.clientId,
+            contact_id: nuevaCotizacion.contactoId,
             contact_name: nuevaCotizacion.contacto,
             contact_email: client_email,
             contact_phone: client_phone,
@@ -389,6 +398,7 @@ export default function Cotizaciones({ user }) {
             taxes: nuevaCotizacion.impuestos,
             total: nuevaCotizacion.total,
             payment_terms: nuevaCotizacion.condicionesPago,
+            validity_days: parseInt(nuevaCotizacion.fechaValidez) || 15,
             estimated_delivery_date: nuevaCotizacion.fechaEntrega,
             description: nuevaCotizacion.description || '',
             rejection_reason: rejectionReason,
@@ -408,6 +418,7 @@ export default function Cotizaciones({ user }) {
           .from('quotes')
           .update({
             client_id: nuevaCotizacion.clientId,
+            contact_id: nuevaCotizacion.contactoId,
             contact_name: nuevaCotizacion.contacto,
             contact_email: client_email,
             contact_phone: client_phone,
@@ -418,6 +429,7 @@ export default function Cotizaciones({ user }) {
             taxes: nuevaCotizacion.impuestos,
             total: nuevaCotizacion.total,
             payment_terms: nuevaCotizacion.condicionesPago,
+            validity_days: parseInt(nuevaCotizacion.fechaValidez) || 15,
             estimated_delivery_date: nuevaCotizacion.fechaEntrega,
             description: nuevaCotizacion.description || '',
             rejection_reason: rejectionReason,
@@ -470,7 +482,7 @@ export default function Cotizaciones({ user }) {
       setEditingCotizacion(null);
     } catch (err) {
       console.error('Error saving quote:', err);
-      showNotification(`Error al guardar la cotización: ${err.message || 'Error desconocido'}`, 'error');
+      alert(`Error crítico al guardar en base de datos: ${err.message || 'Error desconocido'}`);
     }
   };
 

@@ -41,6 +41,7 @@ export default function Ajustes({ user, onLogout }) {
   const [currentRoleIndex, setCurrentRoleIndex] = useState(0);
   const [isLightMode, setIsLightMode] = useState(false);
   const [message, setMessage] = useState('');
+  const [messageType, setMessageType] = useState('success');
   const [showConfirmClearLogs, setShowConfirmClearLogs] = useState(false);
   const { permissions: userPermissions } = usePermissions();
 
@@ -342,12 +343,36 @@ export default function Ajustes({ user, onLogout }) {
     }
   };
 
-  const handleDeleteUser = () => {
+  const handleDeleteUser = async () => {
     if (!showConfirmDeleteUser) return;
-    setUsuarios(prev => prev.filter(u => u.id !== showConfirmDeleteUser));
-    logEvent(currentUser, 'Eliminación de Usuario', `Se eliminó un usuario del sistema`);
-    setShowConfirmDeleteUser(null);
-    showNotification('Usuario eliminado exitosamente');
+    
+    try {
+      const userId = showConfirmDeleteUser;
+      
+      const { data, error } = await supabase.functions.invoke('delete-user', {
+        body: { userId }
+      });
+      
+      // La Edge Function devuelve el error dentro de data.error o en el objeto error
+      if (error) throw error;
+      if (data && data.error) throw new Error(data.error);
+      
+      setUsuarios(prev => prev.filter(u => u.id !== userId));
+      logEvent(currentUser, 'Eliminación de Usuario', `Se eliminó el usuario con ID ${userId} del sistema`);
+      setShowConfirmDeleteUser(null);
+      showNotification('Usuario eliminado exitosamente');
+    } catch (err) {
+      console.error('Error al eliminar usuario:', err);
+      // Intentar extraer el mensaje de error de la respuesta del servidor o usar uno genérico
+      let msg = 'Hubo un error al eliminar el usuario.';
+      if (err.message) {
+         // Si el error parece ser un JSON escapado o anidado de Supabase
+         msg = err.message;
+      }
+      
+      // Mostrar el error amigable en caso de restricción de llave foránea (23503) o similar
+      showNotification(msg, 'error');
+    }
   };
 
   const handleResetPassword = async (userId) => {
@@ -478,8 +503,9 @@ export default function Ajustes({ user, onLogout }) {
     }
   };
 
-  const showNotification = (text) => {
+  const showNotification = (text, type = 'success') => {
     setMessage(text);
+    setMessageType(type);
   };
 
   // ── Handlers: Datos de la Empresa ───────────────────────
@@ -654,14 +680,23 @@ export default function Ajustes({ user, onLogout }) {
         <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(3px)', display: 'flex', justifyContent: 'center', alignItems: 'center', zIndex: 1100, padding: '1rem' }}>
           <div className="card glass-panel" style={{ width: '100%', maxWidth: '400px', margin: 0, textAlign: 'center' }}>
             <div style={{ display: 'flex', justifyContent: 'center', marginBottom: '1rem' }}>
-              <CheckCircle size={48} color="var(--success-color)" />
+              {messageType === 'error' ? (
+                <AlertTriangle size={48} color="var(--danger-color)" />
+              ) : (
+                <CheckCircle size={48} color="var(--success-color)" />
+              )}
             </div>
-            <h3 style={{ margin: '0 0 1rem 0', color: 'var(--text-main)', fontSize: '1.25rem' }}>¡Operación Exitosa!</h3>
+            <h3 style={{ margin: '0 0 1rem 0', color: 'var(--text-main)', fontSize: '1.25rem' }}>
+              {messageType === 'error' ? '¡Atención!' : '¡Operación Exitosa!'}
+            </h3>
             <p style={{ margin: '0 0 1.5rem 0', color: 'var(--text-muted)' }}>{message}</p>
             <button 
               className="btn btn-primary" 
               style={{ width: '100%', justifyContent: 'center', color: isLightMode ? '#ffffff' : '#000000' }}
-              onClick={() => setMessage('')}
+              onClick={() => {
+                setMessage('');
+                setMessageType('success');
+              }}
             >
               Aceptar
             </button>

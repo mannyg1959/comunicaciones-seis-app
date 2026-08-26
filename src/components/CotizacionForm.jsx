@@ -109,7 +109,8 @@ export default function CotizacionForm({ initialData, onCancel, onSave, onDelete
       return {
         ...initialData,
         motivoRechazo: initialData.motivoRechazo || '',
-        detalleRechazo: initialData.detalleRechazo || ''
+        detalleRechazo: initialData.detalleRechazo || '',
+        condicionesPago: initialData.condicionesPago || '50% anticipo / 50% contra entrega'
       };
     }
     return {
@@ -124,7 +125,7 @@ export default function CotizacionForm({ initialData, onCancel, onSave, onDelete
       subtotal: 0,
       impuestos: 0,
       total: 0,
-      condicionesPago: '',
+      condicionesPago: '50% anticipo / 50% contra entrega',
       fechaEntrega: new Date(Date.now() + 5 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
       motivoRechazo: '',
       detalleRechazo: ''
@@ -140,7 +141,7 @@ export default function CotizacionForm({ initialData, onCancel, onSave, onDelete
   const [showDeleteConfirmModal, setShowDeleteConfirmModal] = useState(false);
   const [showRechazoModal, setShowRechazoModal] = useState(false);
   const [showCarouselModal, setShowCarouselModal] = useState(false);
-  const [catalogViewMode, setCatalogViewMode] = useState('carousel');
+  const [catalogViewMode, setCatalogViewMode] = useState('list');
   const [carouselIndex, setCarouselIndex] = useState(0);
   const [carouselSearch, setCarouselSearch] = useState('');
   const [clientSortOrder, setClientSortOrder] = useState('asc');
@@ -163,12 +164,40 @@ export default function CotizacionForm({ initialData, onCancel, onSave, onDelete
     observaciones: ''
   });
   const [clientsList, setClientsList] = useState([]);
+  const [clientContacts, setClientContacts] = useState([]);
   const [empresa, setEmpresa] = useState(null);
+
+  useEffect(() => {
+    const fetchContacts = async () => {
+      if (formData.clientId) {
+        const { data, error } = await supabase
+          .from('client_contacts')
+          .select('*')
+          .eq('client_id', formData.clientId);
+        if (!error && data) {
+          setClientContacts(data);
+          // Si no hay contacto seleccionado y hay contactos disponibles, autoseleccionar el primero
+          if (!formData.contactoId && data.length > 0) {
+            setFormData(prev => ({
+              ...prev,
+              contactoId: data[0].id,
+              contacto: data[0].contact_name,
+              telefono: data[0].contact_phone,
+              correo: data[0].contact_email
+            }));
+          }
+        }
+      } else {
+        setClientContacts([]);
+      }
+    };
+    fetchContacts();
+  }, [formData.clientId]);
 
   useEffect(() => {
     const fetchClients = async () => {
       try {
-        const { data, error } = await supabase.from('clients').select('*');
+        const { data, error } = await supabase.from('clients').select('*, client_contacts(*)');
         if (error) throw error;
         let activeClients = [];
         const parseAddress = (addr) => {
@@ -207,6 +236,12 @@ export default function CotizacionForm({ initialData, onCancel, onSave, onDelete
                 id: c.id || '',
                 empresa: nameStr,
                 contacto: typeof c.contact_name === 'string' ? c.contact_name : (c.contact_name ? String(c.contact_name) : ''),
+                contactos: c.client_contacts ? c.client_contacts.map(contact => ({
+                  id: contact.id,
+                  nombre: contact.contact_name,
+                  telefono: contact.contact_phone,
+                  correo: contact.contact_email
+                })) : [],
                 rif: c.id || '',
                 telefono: typeof c.contact_phone === 'string' ? c.contact_phone : (c.contact_phone ? String(c.contact_phone) : ''),
                 correo: typeof c.contact_email === 'string' ? c.contact_email : (c.contact_email ? String(c.contact_email) : ''),
@@ -364,13 +399,14 @@ export default function CotizacionForm({ initialData, onCancel, onSave, onDelete
     }
 
     const fullAddress = `${clientData.direccion ? clientData.direccion + ' | ' : ''}${clientData.ciudad}, ${clientData.estado}`;
+    const mainContact = clientData.contactos && clientData.contactos.length > 0 ? clientData.contactos[0] : { nombre: '', telefono: '', correo: '' };
     const { data, error } = await supabase
       .from('clients')
       .insert([{
         name: clientData.empresa.trim(),
-        contact_name: clientData.contacto.trim(),
-        contact_phone: clientData.telefono.trim(),
-        contact_email: clientData.correo.trim(),
+        contact_name: (mainContact.nombre || '').trim(),
+        contact_phone: (mainContact.telefono || '').trim(),
+        contact_email: (mainContact.correo || '').trim(),
         address: fullAddress
       }])
       .select();
@@ -378,10 +414,26 @@ export default function CotizacionForm({ initialData, onCancel, onSave, onDelete
     if (error) throw error;
     if (data && data[0]) {
       const newRecord = data[0];
+      
+      if (clientData.contactos && clientData.contactos.length > 0) {
+        const contactsToInsert = clientData.contactos.map(c => ({
+          client_id: newRecord.id,
+          contact_name: (c.nombre || '').trim(),
+          contact_phone: (c.telefono || '').trim(),
+          contact_email: (c.correo || '').trim()
+        })).filter(c => c.contact_name);
+        
+        if (contactsToInsert.length > 0) {
+          const { error: contactsError } = await supabase.from('client_contacts').insert(contactsToInsert);
+          if (contactsError) console.error('Error inserting contacts:', contactsError);
+        }
+      }
+
       const dbClient = {
         id: newRecord.id,
         empresa: newRecord.name || '',
         contacto: newRecord.contact_name || '',
+        contactos: clientData.contactos || [],
         rif: newRecord.id || '',
         telefono: newRecord.contact_phone || '',
         correo: newRecord.contact_email || '',
@@ -414,26 +466,64 @@ export default function CotizacionForm({ initialData, onCancel, onSave, onDelete
     }
 
     const fullAddress = `${clientData.direccion ? clientData.direccion + ' | ' : ''}${clientData.ciudad}, ${clientData.estado}`;
+    const mainContact = clientData.contactos && clientData.contactos.length > 0 ? clientData.contactos[0] : { nombre: '', telefono: '', correo: '' };
+    
     const { error } = await supabase
       .from('clients')
       .update({
         name: clientData.empresa.trim(),
-        contact_name: clientData.contacto.trim(),
-        contact_phone: clientData.telefono.trim(),
-        contact_email: clientData.correo.trim(),
+        contact_name: (mainContact.nombre || '').trim(),
+        contact_phone: (mainContact.telefono || '').trim(),
+        contact_email: (mainContact.correo || '').trim(),
         address: fullAddress
       })
       .eq('id', clientData.id);
 
     if (error) throw error;
 
+    // Actualizar contactos: primero eliminar los que ya no están, luego upsert
+    if (clientData.contactos) {
+      const validIds = clientData.contactos
+        .map(c => c.id)
+        .filter(id => id && id.length === 36);
+
+      if (validIds.length > 0) {
+        const { error: delError } = await supabase
+          .from('client_contacts')
+          .delete()
+          .eq('client_id', clientData.id)
+          .not('id', 'in', `(${validIds.join(',')})`);
+        if (delError) console.error('Error deleting removed contacts:', delError);
+      } else {
+        const { error: delError } = await supabase
+          .from('client_contacts')
+          .delete()
+          .eq('client_id', clientData.id);
+        if (delError) console.error('Error deleting all contacts:', delError);
+      }
+
+      const contactsToUpsert = clientData.contactos.map(c => ({
+        id: c.id && c.id.length === 36 ? c.id : undefined, // Solo mantener el ID si es un UUID válido
+        client_id: clientData.id,
+        contact_name: (c.nombre || '').trim(),
+        contact_phone: (c.telefono || '').trim(),
+        contact_email: (c.correo || '').trim()
+      })).filter(c => c.contact_name);
+
+      if (contactsToUpsert.length > 0) {
+        const { error: upsertError } = await supabase.from('client_contacts').upsert(contactsToUpsert, { onConflict: 'id' });
+        if (upsertError) console.error('Error upserting contacts:', upsertError);
+      }
+    }
+
     setClientsList(prev => prev.map(c => c.id === clientData.id ? {
       ...c,
       empresa: clientData.empresa.trim(),
-      contacto: clientData.contacto.trim(),
+      contacto: (mainContact.nombre || '').trim(),
+      contactos: clientData.contactos || [],
       rif: clientData.rif,
-      telefono: clientData.telefono.trim(),
-      correo: clientData.correo.trim(),
+      telefono: (mainContact.telefono || '').trim(),
+      correo: (mainContact.correo || '').trim(),
       ciudad: clientData.ciudad,
       estado: clientData.estado,
       direccion: clientData.direccion,
@@ -444,7 +534,7 @@ export default function CotizacionForm({ initialData, onCancel, onSave, onDelete
       setFormData(prev => ({
         ...prev,
         cliente: clientData.empresa,
-        contacto: clientData.contacto
+        contacto: (mainContact.nombre || '').trim()
       }));
     }
   };
@@ -616,6 +706,10 @@ export default function CotizacionForm({ initialData, onCancel, onSave, onDelete
       setValidationModal({ show: true, message: "El campo 'Cliente / Empresa' es obligatorio." });
       return;
     }
+    if (!formData.contactoId || String(formData.contactoId).trim() === '') {
+      setValidationModal({ show: true, message: "El campo 'Contacto del Cliente' es obligatorio." });
+      return;
+    }
 
     // 2. Al menos un ítem
     if (!formData.items || formData.items.length === 0) {
@@ -721,16 +815,17 @@ export default function CotizacionForm({ initialData, onCancel, onSave, onDelete
     }
     const quoteIdStr = initialData ? `Cotización #${initialData.id}` : 'Nueva Cotización';
     const itemsText = formData.items.map((item, idx) => {
-      return `- *Línea ${idx + 1}*: ${item.cantidad}x ${item.lineaNegocio.split('/')[0]} ($${(item.cantidad * item.costoUnitario).toFixed(2)})`;
+      return `- *Item ${idx + 1}*: ${item.cantidad}x ${item.lineaNegocio.split('/')[0]} ($${(item.cantidad * item.costoUnitario).toFixed(2)})`;
     }).join('\n');
 
     const mensaje = `*${quoteIdStr} - Comunicaciones SEIS*\n\n` +
                     `Hola, te comparto los detalles de la cotización:\n\n` +
                     `*Cliente:* ${formData.cliente || 'Por definir'}\n` +
+                    `*Contacto:* ${formData.contacto || 'Por definir'}\n` +
                     `*Total:* $${formData.total.toFixed(2)}\n` +
                     `*Condiciones:* ${formData.condicionesPago}\n` +
                     `*Entrega estimada:* ${formData.fechaEntrega || 'Por definir'}\n\n` +
-                    `*Detalle de Líneas:*\n${itemsText || 'Sin ítems registrados'}\n\n` +
+                    `*Detalle de Items:*\n${itemsText || 'Sin ítems registrados'}\n\n` +
                     `Quedamos a sus órdenes.`;
                     
     const mensajeCodificado = encodeURIComponent(mensaje);
@@ -767,6 +862,9 @@ export default function CotizacionForm({ initialData, onCancel, onSave, onDelete
       htmlText = htmlText.replace(/\[campo4\]/gi, senderAddr);
       htmlText = htmlText.replace(/\[campo5\]/gi, formData.cliente || 'Sin Cliente');
       htmlText = htmlText.replace(/\[campo6\]/gi, clientAddr);
+      htmlText = htmlText.replace(/\[campo7\]/gi, formData.contacto || 'Sin Contacto');
+      htmlText = htmlText.replace(/\[campo8\]/gi, formData.fechaValidez || 15);
+      htmlText = htmlText.replace(/\[campo9\]/gi, formData.condicionesPago || 'No especificadas');
       htmlText = htmlText.replace(/src="\/logo\.png"/gi, `src="${window.location.origin}/logo.png"`);
 
       const parser = new DOMParser();
@@ -1218,8 +1316,28 @@ export default function CotizacionForm({ initialData, onCancel, onSave, onDelete
             </div>
           </div>
           <div className="input-group">
-            <label>Contacto del Cliente</label>
-            <input type="text" className="input-control" value={formData.contacto} onChange={e => setFormData({...formData, contacto: e.target.value})} disabled={isReadOnly} />
+            <label>Contacto del Cliente <span style={{ color: 'var(--error-color)' }}>*</span></label>
+            <select 
+              className="input-control" 
+              value={formData.contactoId || ''} 
+              onChange={e => {
+                const selected = clientContacts.find(c => c.id === e.target.value);
+                setFormData({
+                  ...formData, 
+                  contactoId: selected?.id || '',
+                  contacto: selected?.contact_name || '',
+                  telefono: selected?.contact_phone || '',
+                  correo: selected?.contact_email || ''
+                });
+              }}
+              disabled={isReadOnly || clientContacts.length === 0}
+              style={{ appearance: 'none', backgroundColor: 'var(--bg-color)' }}
+            >
+              <option value="" disabled>Seleccione un contacto...</option>
+              {clientContacts.map(c => (
+                <option key={c.id} value={c.id}>{c.contact_name} {c.contact_phone ? `(${c.contact_phone})` : ''}</option>
+              ))}
+            </select>
           </div>
           <div className="input-group">
             <label>Ejecutivo de Ventas</label>

@@ -4,44 +4,56 @@ import { UserPlus, FileEdit, X, Building2, CreditCard, User, Phone, Mail, Naviga
 export default function ClientModal({ isOpen, onClose, onSave, initialData = null, isEditing = false }) {
   const [formData, setFormData] = useState({
     empresa: '',
-    contacto: '',
     rif: '',
-    telefono: '',
-    correo: '',
     direccion: '',
     ciudad: '',
     estado: '',
-    observaciones: ''
+    observaciones: '',
+    contactos: [{ id: crypto.randomUUID(), nombre: '', telefono: '', correo: '' }]
   });
   const [loading, setLoading] = useState(false);
   const [feedbackModal, setFeedbackModal] = useState({ show: false, type: '', message: '' });
 
+  // Estados para el sub-modal de contactos
+  const [showContactModal, setShowContactModal] = useState(false);
+  const [editingContactData, setEditingContactData] = useState(null);
+
   useEffect(() => {
     if (isOpen) {
       if (initialData) {
+        let parsedContactos = [];
+        if (initialData.contactos && initialData.contactos.length > 0) {
+          parsedContactos = initialData.contactos;
+        } else if (initialData.contacto) {
+          parsedContactos = [{
+            id: crypto.randomUUID(),
+            nombre: initialData.contacto || '',
+            telefono: initialData.telefono || '',
+            correo: initialData.correo || ''
+          }];
+        } else {
+          parsedContactos = [{ id: crypto.randomUUID(), nombre: '', telefono: '', correo: '' }];
+        }
+
         setFormData({
           id: initialData.id || '',
           empresa: initialData.empresa || '',
-          contacto: initialData.contacto || '',
           rif: initialData.rif || '',
-          telefono: initialData.telefono || '',
-          correo: initialData.correo || '',
           direccion: initialData.direccion || '',
           ciudad: initialData.ciudad || '',
           estado: initialData.estado || '',
-          observaciones: initialData.observaciones || ''
+          observaciones: initialData.observaciones || '',
+          contactos: parsedContactos
         });
       } else {
         setFormData({
           empresa: '',
-          contacto: '',
           rif: '',
-          telefono: '',
-          correo: '',
           direccion: '',
           ciudad: '',
           estado: '',
-          observaciones: ''
+          observaciones: '',
+          contactos: [{ id: crypto.randomUUID(), nombre: '', telefono: '', correo: '' }]
         });
       }
     }
@@ -50,16 +62,52 @@ export default function ClientModal({ isOpen, onClose, onSave, initialData = nul
   if (!isOpen) return null;
 
   const isFormValid = () => {
-    return (
+    const isMainValid = (
       (formData.empresa || '').trim() !== '' &&
       (formData.rif || '').trim() !== '' &&
-      (formData.contacto || '').trim() !== '' &&
-      (formData.telefono || '').trim() !== '' &&
-      (formData.correo || '').trim() !== '' &&
-      (formData.direccion || '').trim() !== '' &&
       (formData.ciudad || '').trim() !== '' &&
       (formData.estado || '').trim() !== ''
     );
+    const areContactsValid = formData.contactos.length > 0 && formData.contactos.every(c => 
+      (c.nombre || '').trim() !== '' && 
+      (c.telefono || '').trim() !== '' && 
+      (c.correo || '').trim() !== ''
+    );
+    return isMainValid && areContactsValid;
+  };
+
+  const handleAddContact = () => {
+    setEditingContactData(null);
+    setShowContactModal(true);
+  };
+
+  const handleEditContact = (contacto) => {
+    setEditingContactData(contacto);
+    setShowContactModal(true);
+  };
+
+  const handleRemoveContact = (id) => {
+    setFormData(prev => ({
+      ...prev,
+      contactos: prev.contactos.filter(c => c.id !== id)
+    }));
+  };
+
+  const handleSaveContact = (contactData) => {
+    if (editingContactData) {
+      // Edit
+      setFormData(prev => ({
+        ...prev,
+        contactos: prev.contactos.map(c => c.id === contactData.id ? contactData : c)
+      }));
+    } else {
+      // Add
+      setFormData(prev => ({
+        ...prev,
+        contactos: [...prev.contactos, contactData]
+      }));
+    }
+    setShowContactModal(false);
   };
 
   const handleSubmit = async (e) => {
@@ -173,61 +221,56 @@ export default function ClientModal({ isOpen, onClose, onSave, initialData = nul
 
           {/* Sección 2: Datos del Contacto */}
           <hr style={{ border: 'none', borderBottom: '1px solid var(--border-color)', margin: '0.75rem 0' }} />
-          <p style={{ fontSize: '0.7rem', fontWeight: '700', textTransform: 'uppercase', letterSpacing: '0.08em', color: 'var(--primary-color)', margin: '0 0 0.75rem 0' }}>
-            Datos del Contacto
-          </p>
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem', marginBottom: '0.75rem' }}>
-            <div className="input-group" style={{ marginBottom: 0 }}>
-              <label style={{ fontSize: '0.85rem', fontWeight: '700', marginBottom: '0.35rem', display: 'block', color: '#ffffff' }}>
-                Nombre del Contacto <span style={{ color: 'var(--error-color)' }}>*</span>
-              </label>
-              <div style={{ position: 'relative' }}>
-                <User size={15} style={{ position: 'absolute', left: '0.75rem', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)' }} />
-                <input 
-                  type="text" 
-                  className="input-control" 
-                  placeholder="Ej. Juan Pérez" 
-                  style={{ paddingLeft: '2.25rem', height: '40px', fontSize: '0.875rem' }} 
-                  value={formData.contacto} 
-                  onChange={e => setFormData({ ...formData, contacto: e.target.value })} 
-                />
-              </div>
-            </div>
-
-            <div className="input-group" style={{ marginBottom: 0 }}>
-              <label style={{ fontSize: '0.85rem', fontWeight: '700', marginBottom: '0.35rem', display: 'block', color: '#ffffff' }}>
-                Teléfono <span style={{ color: 'var(--error-color)' }}>*</span>
-              </label>
-              <div style={{ position: 'relative' }}>
-                <Phone size={15} style={{ position: 'absolute', left: '0.75rem', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)' }} />
-                <input 
-                  type="text" 
-                  className="input-control" 
-                  placeholder="Ej. +58 412-1234567" 
-                  style={{ paddingLeft: '2.25rem', height: '40px', fontSize: '0.875rem' }} 
-                  value={formData.telefono} 
-                  onChange={e => setFormData({ ...formData, telefono: e.target.value })} 
-                />
-              </div>
-            </div>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.75rem' }}>
+            <p style={{ fontSize: '0.7rem', fontWeight: '700', textTransform: 'uppercase', letterSpacing: '0.08em', color: 'var(--primary-color)', margin: 0 }}>
+              Datos del Contacto
+            </p>
+            <button 
+              type="button" 
+              onClick={handleAddContact}
+              style={{ background: 'transparent', border: '1px solid var(--primary-color)', color: 'var(--primary-color)', padding: '0.2rem 0.5rem', borderRadius: '4px', fontSize: '0.75rem', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '0.3rem' }}
+            >
+              + Añadir Contacto
+            </button>
           </div>
-
-          <div className="input-group" style={{ marginBottom: '0.75rem' }}>
-            <label style={{ fontSize: '0.85rem', fontWeight: '700', marginBottom: '0.35rem', display: 'block', color: '#ffffff' }}>
-              Correo Electrónico <span style={{ color: 'var(--error-color)' }}>*</span>
-            </label>
-            <div style={{ position: 'relative' }}>
-              <Mail size={15} style={{ position: 'absolute', left: '0.75rem', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)' }} />
-              <input 
-                type="email" 
-                className="input-control" 
-                placeholder="Ej. contacto@empresa.com" 
-                style={{ paddingLeft: '2.25rem', height: '40px', fontSize: '0.875rem' }} 
-                value={formData.correo} 
-                onChange={e => setFormData({ ...formData, correo: e.target.value })} 
-              />
+          
+          {formData.contactos.length === 0 ? (
+            <p style={{ fontSize: '0.85rem', color: 'var(--text-muted)', fontStyle: 'italic', marginBottom: '0.75rem' }}>No hay contactos asociados.</p>
+          ) : (
+            <div style={{ display: 'grid', gap: '0.75rem', marginBottom: '0.75rem' }}>
+              {formData.contactos.map((contacto) => (
+                <div key={contacto.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '0.75rem', backgroundColor: 'rgba(255,255,255,0.03)', borderRadius: '8px', border: '1px solid var(--border-color)' }}>
+                  <div>
+                    <p style={{ margin: '0 0 0.35rem 0', fontWeight: 'bold', fontSize: '0.9rem', color: '#fff' }}>{contacto.nombre}</p>
+                    <div style={{ display: 'flex', gap: '1rem', fontSize: '0.8rem', color: 'var(--text-muted)' }}>
+                      <span style={{ display: 'flex', alignItems: 'center', gap: '0.3rem' }}><Phone size={12} /> {contacto.telefono}</span>
+                      <span style={{ display: 'flex', alignItems: 'center', gap: '0.3rem' }}><Mail size={12} /> {contacto.correo}</span>
+                    </div>
+                  </div>
+                  <div style={{ display: 'flex', gap: '0.5rem' }}>
+                    <button 
+                      type="button" 
+                      onClick={() => handleEditContact(contacto)}
+                      style={{ background: 'var(--bg-lighter)', border: '1px solid var(--border-color)', color: 'var(--text-main)', cursor: 'pointer', padding: '0.4rem', borderRadius: '4px', display: 'flex', alignItems: 'center', justifyContent: 'center', transition: 'all 0.2s' }}
+                      title="Editar Contacto"
+                    >
+                      <FileEdit size={16} />
+                    </button>
+                    {formData.contactos.length > 1 && (
+                      <button 
+                        type="button" 
+                        onClick={() => handleRemoveContact(contacto.id)}
+                        style={{ background: 'var(--bg-lighter)', border: '1px solid var(--border-color)', color: 'var(--error-color)', cursor: 'pointer', padding: '0.4rem', borderRadius: '4px', display: 'flex', alignItems: 'center', justifyContent: 'center', transition: 'all 0.2s' }}
+                        title="Eliminar Contacto"
+                      >
+                        <X size={16} />
+                      </button>
+                    )}
+                  </div>
+                </div>
+              ))}
             </div>
-          </div>
+          )}
 
           {/* Sección 3: Ubicación */}
           <hr style={{ border: 'none', borderBottom: '1px solid var(--border-color)', margin: '0.75rem 0' }} />
@@ -374,7 +417,148 @@ export default function ClientModal({ isOpen, onClose, onSave, initialData = nul
           </div>
         </div>
       )}
+      {showContactModal && (
+        <ContactFormModal
+          isOpen={showContactModal}
+          initialData={editingContactData}
+          onClose={() => setShowContactModal(false)}
+          onSave={handleSaveContact}
+        />
+      )}
+    </div>
+  );
+}
 
+function ContactFormModal({ isOpen, initialData, onClose, onSave }) {
+  const [formData, setFormData] = useState({
+    id: '',
+    nombre: '',
+    telefono: '',
+    correo: ''
+  });
+  const [errorMsg, setErrorMsg] = useState('');
+
+  useEffect(() => {
+    if (isOpen) {
+      if (initialData) {
+        setFormData(initialData);
+      } else {
+        setFormData({
+          id: crypto.randomUUID(),
+          nombre: '',
+          telefono: '',
+          correo: ''
+        });
+      }
+      setErrorMsg('');
+    }
+  }, [isOpen, initialData]);
+
+  if (!isOpen) return null;
+
+  const handleSaveClick = () => {
+    if (!formData.nombre.trim() || !formData.telefono.trim() || !formData.correo.trim()) {
+      setErrorMsg('Todos los campos son obligatorios.');
+      return;
+    }
+    onSave(formData);
+  };
+
+  return (
+    <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.7)', backdropFilter: 'blur(3px)', display: 'flex', justifyContent: 'center', alignItems: 'center', zIndex: 1300, padding: '1rem' }}>
+      <div className="card glass-panel" style={{ width: '100%', maxWidth: '400px', margin: 0, padding: '1.5rem', border: '1px solid var(--border-color)', boxShadow: 'var(--shadow-lg)' }}>
+        
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '1.25rem' }}>
+          <h3 style={{ margin: 0, fontSize: '1.1rem', fontWeight: '700', color: 'var(--text-main)', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+            <User size={18} color="var(--primary-color)" />
+            {initialData ? 'Editar Contacto' : 'Nuevo Contacto'}
+          </h3>
+          <button 
+            type="button" 
+            onClick={onClose}
+            style={{ background: 'transparent', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', display: 'flex', padding: '0.25rem' }}
+          >
+            <X size={20} />
+          </button>
+        </div>
+
+        {errorMsg && (
+          <div style={{ padding: '0.5rem 0.75rem', backgroundColor: 'rgba(239,68,68,0.1)', border: '1px solid var(--error-color)', borderRadius: '4px', color: 'var(--error-color)', fontSize: '0.85rem', marginBottom: '1rem' }}>
+            {errorMsg}
+          </div>
+        )}
+
+        <div className="input-group">
+          <label style={{ fontSize: '0.85rem', fontWeight: '700', marginBottom: '0.35rem', display: 'block', color: '#ffffff' }}>
+            Nombre del Contacto <span style={{ color: 'var(--error-color)' }}>*</span>
+          </label>
+          <div style={{ position: 'relative' }}>
+            <User size={15} style={{ position: 'absolute', left: '0.75rem', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)' }} />
+            <input 
+              type="text" 
+              className="input-control" 
+              placeholder="Ej. Juan Pérez" 
+              style={{ paddingLeft: '2.25rem', height: '40px', fontSize: '0.875rem' }} 
+              value={formData.nombre} 
+              onChange={e => setFormData({ ...formData, nombre: e.target.value })} 
+            />
+          </div>
+        </div>
+
+        <div className="input-group">
+          <label style={{ fontSize: '0.85rem', fontWeight: '700', marginBottom: '0.35rem', display: 'block', color: '#ffffff' }}>
+            Teléfono <span style={{ color: 'var(--error-color)' }}>*</span>
+          </label>
+          <div style={{ position: 'relative' }}>
+            <Phone size={15} style={{ position: 'absolute', left: '0.75rem', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)' }} />
+            <input 
+              type="text" 
+              className="input-control" 
+              placeholder="Ej. +58 412-1234567" 
+              style={{ paddingLeft: '2.25rem', height: '40px', fontSize: '0.875rem' }} 
+              value={formData.telefono} 
+              onChange={e => setFormData({ ...formData, telefono: e.target.value })} 
+            />
+          </div>
+        </div>
+
+        <div className="input-group">
+          <label style={{ fontSize: '0.85rem', fontWeight: '700', marginBottom: '0.35rem', display: 'block', color: '#ffffff' }}>
+            Correo Electrónico <span style={{ color: 'var(--error-color)' }}>*</span>
+          </label>
+          <div style={{ position: 'relative' }}>
+            <Mail size={15} style={{ position: 'absolute', left: '0.75rem', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)' }} />
+            <input 
+              type="email" 
+              className="input-control" 
+              placeholder="Ej. contacto@empresa.com" 
+              style={{ paddingLeft: '2.25rem', height: '40px', fontSize: '0.875rem' }} 
+              value={formData.correo} 
+              onChange={e => setFormData({ ...formData, correo: e.target.value })} 
+            />
+          </div>
+        </div>
+
+        <div style={{ display: 'flex', gap: '0.75rem', marginTop: '1.5rem' }}>
+          <button 
+            type="button"
+            className="btn btn-secondary" 
+            style={{ flex: 1, height: '40px', fontSize: '0.9rem' }} 
+            onClick={onClose}
+          >
+            Cancelar
+          </button>
+          <button 
+            type="button"
+            className="btn btn-primary" 
+            style={{ flex: 1, height: '40px', fontSize: '0.9rem' }} 
+            onClick={handleSaveClick}
+          >
+            Guardar Contacto
+          </button>
+        </div>
+
+      </div>
     </div>
   );
 }
